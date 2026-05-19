@@ -1,10 +1,10 @@
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { hexToBytes } from '@noble/hashes/utils.js';
 import { Transaction as ScureTransaction } from '@scure/btc-signer';
-import { Transaction } from 'bitcoinjs-lib';
 import type { Types } from 'boltz-core';
 import { Musig, TaprootUtils, swapTree } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import { hashForWitnessV1, setup, zkp } from '../../../../lib/Core';
-import { ECPair } from '../../../../lib/ECPairHelper';
+import { hashForWitnessV1, setup } from '../../../../lib/Core';
 import { getHexBuffer, getHexString } from '../../../../lib/Utils';
 import { CurrencyType } from '../../../../lib/consts/Enums';
 import Errors from '../../../../lib/service/Errors';
@@ -54,23 +54,23 @@ describe('Utils', () => {
   );
 
   test('should create partial signatures', async () => {
-    const boltzKeys = ECPair.makeRandom();
-    const clientKeys = ECPair.makeRandom();
+    const makeKeys = () => {
+      const privateKey = randomBytes(32);
+      return {
+        privateKey: Buffer.from(privateKey),
+        publicKey: Buffer.from(secp256k1.getPublicKey(privateKey, true)),
+      };
+    };
+    const boltzKeys = makeKeys();
+    const clientKeys = makeKeys();
 
     const tree = swapTree(
       false,
       randomBytes(32),
-      Buffer.from(boltzKeys.publicKey),
-      Buffer.from(clientKeys.publicKey),
+      boltzKeys.publicKey,
+      clientKeys.publicKey,
       123,
     );
-    const musig = new Musig(
-      zkp,
-      clientKeys,
-      randomBytes(32),
-      [boltzKeys.publicKey, clientKeys.publicKey].map(Buffer.from),
-    );
-    TaprootUtils.tweakMusig(musig, tree.tree);
 
     const tx = await bitcoinClient.getRawTransaction(
       await bitcoinClient.sendToAddress(
@@ -82,6 +82,22 @@ describe('Utils', () => {
       ),
     );
 
+    const hash = await hashForWitnessV1(
+      btcCurrency,
+      ScureTransaction.fromRaw(hexToBytes(tx)),
+      0,
+    );
+
+    const clientMusig = TaprootUtils.tweakMusig(
+      Musig.create(clientKeys.privateKey, [
+        boltzKeys.publicKey,
+        clientKeys.publicKey,
+      ]),
+      tree.tree,
+    )
+      .message(hash)
+      .generateNonce();
+
     const partialSignature = await createPartialSignature(
       btcCurrency,
       {
@@ -89,22 +105,18 @@ describe('Utils', () => {
       } as unknown as Wallet,
       tree,
       0,
-      Buffer.from(clientKeys.publicKey),
-      Buffer.from(musig.getPublicNonce()),
+      clientKeys.publicKey,
+      Buffer.from(clientMusig.publicNonce),
       tx,
       0,
     );
 
-    musig.aggregateNonces([[boltzKeys.publicKey, partialSignature.pubNonce]]);
-    musig.initializeSession(
-      await hashForWitnessV1(btcCurrency, Transaction.fromHex(tx), 0),
-    );
+    const session = clientMusig
+      .aggregateNonces([[boltzKeys.publicKey, partialSignature.pubNonce]])
+      .initializeSession();
 
     expect(
-      musig.verifyPartial(
-        Buffer.from(boltzKeys.publicKey),
-        partialSignature.signature,
-      ),
+      session.verifyPartial(boltzKeys.publicKey, partialSignature.signature),
     ).toEqual(true);
   });
 

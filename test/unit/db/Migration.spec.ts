@@ -1,13 +1,13 @@
-import { fromOutputScript } from 'bitcoinjs-lib/src/address';
-import { type Network, bitcoin } from 'bitcoinjs-lib/src/networks';
 import { liquid } from 'liquidjs-lib/src/networks';
 import type { Sequelize } from 'sequelize';
+import { addressFromOutputScript } from '../../../lib/AddressUtils';
 import Logger from '../../../lib/Logger';
 import { CurrencyType } from '../../../lib/consts/Enums';
 import Migration, { decodeBip21 } from '../../../lib/db/Migration';
 import DatabaseVersion from '../../../lib/db/models/DatabaseVersion';
 import DatabaseVersionRepository from '../../../lib/db/repositories/DatabaseVersionRepository';
 import type { Currency } from '../../../lib/wallet/WalletManager';
+import { bitcoin } from '../../Networks';
 
 const MockedSequelize = <Sequelize>(
   (<any>jest.fn().mockImplementation(() => {}))
@@ -89,7 +89,7 @@ describe('Migration', () => {
   } as Currency);
   currencies.set('L-BTC', {
     type: CurrencyType.Liquid,
-    network: liquid as Network,
+    network: liquid,
   } as Currency);
 
   test.each`
@@ -107,9 +107,10 @@ describe('Migration', () => {
     } else {
       expect(result.blindingKey).toBeUndefined();
     }
-    const decodedAddress = fromOutputScript(
+    const decodedAddress = addressFromOutputScript(
+      currencies.get(symbol)!.type,
       result.scriptPubkey,
-      currencies.get(symbol)!.network,
+      currencies.get(symbol)!.network!,
     );
     expect(decodedAddress).toBeDefined();
   });

@@ -1,17 +1,24 @@
-import { networks } from 'bitcoinjs-lib';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { randomBytes } from '@noble/hashes/utils.js';
 import bolt11 from 'bolt11';
-import { randomBytes } from 'crypto';
-import { ECPair } from '../../../lib/ECPairHelper';
 import { getHexString, getUnixTime } from '../../../lib/Utils';
+import type { BitcoinNetwork } from '../../Networks';
+import { regtest as regtestNetwork } from '../../Networks';
 
-const invoiceSigningKeys = ECPair.makeRandom();
+const invoiceSigningKeys = (() => {
+  const privateKey = randomBytes(32);
+  return {
+    privateKey: Buffer.from(privateKey),
+    publicKey: Buffer.from(secp256k1.getPublicKey(privateKey, true)),
+  };
+})();
 
 export const createInvoice = (
   preimageHash?: string,
   timestamp?: number,
   expiry?: number,
   satoshis?: number,
-  network = networks.regtest,
+  network: BitcoinNetwork = regtestNetwork,
 ): string => {
   const invoiceEncode = bolt11.encode({
     network: {

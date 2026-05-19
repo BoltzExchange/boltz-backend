@@ -1,5 +1,5 @@
+import { sha256 } from '@noble/hashes/sha2.js';
 import { Transaction as ScureTransaction } from '@scure/btc-signer';
-import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
@@ -68,7 +68,7 @@ describe('MusigSigner', () => {
       orderSide: OrderSide.BUY,
       version: SwapVersion.Taproot,
       status: SwapUpdateEvent.TransactionMempool,
-      preimageHash: getHexString(crypto.sha256(preimage)),
+      preimageHash: getHexString(sha256(preimage)),
     };
 
     const createSigner = () => {

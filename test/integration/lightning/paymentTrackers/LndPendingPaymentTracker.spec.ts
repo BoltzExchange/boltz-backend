@@ -1,4 +1,4 @@
-import { crypto } from 'bitcoinjs-lib';
+import { sha256 } from '@noble/hashes/sha2.js';
 import bolt11 from 'bolt11';
 import { randomBytes } from 'crypto';
 import Logger from '../../../../lib/Logger';
@@ -25,7 +25,7 @@ describe('LndPendingPaymentTracker', () => {
     const preimage = randomBytes(32);
     return {
       preimage,
-      preimageHash: crypto.sha256(preimage),
+      preimageHash: Buffer.from(sha256(preimage)),
     };
   };
 

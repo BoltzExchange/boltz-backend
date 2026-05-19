@@ -1,4 +1,4 @@
-import { crypto } from 'bitcoinjs-lib';
+import { sha256 } from '@noble/hashes/sha2.js';
 import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
@@ -638,7 +638,7 @@ describe('Commitments', () => {
       const commitments = createInitializedCommitments();
 
       const preimage = randomBytes(32);
-      const preimageHash = crypto.sha256(preimage);
+      const preimageHash = Buffer.from(sha256(preimage));
       const amount = 1000n;
       const timelock = 100n;
 
@@ -665,7 +665,7 @@ describe('Commitments', () => {
       const commitments = createInitializedCommitments();
 
       const preimage = randomBytes(32);
-      const preimageHash = crypto.sha256(preimage);
+      const preimageHash = Buffer.from(sha256(preimage));
       const amount = 1000n;
       const timelock = 100n;
 
@@ -703,7 +703,7 @@ describe('Commitments', () => {
       const commitments = createInitializedCommitments();
 
       const preimage = randomBytes(32);
-      const preimageHash = crypto.sha256(preimage);
+      const preimageHash = Buffer.from(sha256(preimage));
       const amount = 1000n;
       const timelock = 100n;
 
@@ -760,7 +760,7 @@ describe('Commitments', () => {
       const commitments = createInitializedCommitments();
 
       const preimage = randomBytes(32);
-      const preimageHash = crypto.sha256(preimage);
+      const preimageHash = Buffer.from(sha256(preimage));
 
       const tx = await etherSwap['lock(bytes32,address,uint256)'](
         preimageHash,
@@ -781,7 +781,7 @@ describe('Commitments', () => {
       const commitments = createInitializedCommitments();
 
       const preimage = randomBytes(32);
-      const preimageHash = crypto.sha256(preimage);
+      const preimageHash = Buffer.from(sha256(preimage));
       const amount = 1000n;
       const timelock = 100n;
 
@@ -871,7 +871,7 @@ describe('Commitments', () => {
       timeoutBlockHeight: number,
     ) => {
       const preimage = randomBytes(32);
-      const preimageHash = crypto.sha256(preimage);
+      const preimageHash = Buffer.from(sha256(preimage));
       const id = generateSwapId(SwapVersion.Taproot);
 
       await SwapRepository.addSwap({
@@ -907,7 +907,7 @@ describe('Commitments', () => {
       timeoutBlockHeight: number,
     ) => {
       const preimage = randomBytes(32);
-      const preimageHash = crypto.sha256(preimage);
+      const preimageHash = Buffer.from(sha256(preimage));
       const id = generateSwapId(SwapVersion.Taproot);
 
       await ChainSwapRepository.addChainSwap({

@@ -1,10 +1,11 @@
-import { generateMnemonic } from 'bip39';
-import { ContractABIs } from 'boltz-core/dist/lib/ABIs';
+import { generateMnemonic } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
 import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import type { Provider, Signer } from 'ethers';
 import { Contract, JsonRpcProvider, Wallet } from 'ethers';
+import { ContractABIs } from '../../../lib/wallet/ethereum/ContractABIs';
 
 export const etherSwapCommitTypes = {
   Commit: [
@@ -66,7 +67,7 @@ export const getSigner = async (): Promise<EthereumSetup> => {
     return await provider.getBlockNumber();
   };
 
-  const mnemonic = generateMnemonic();
+  const mnemonic = generateMnemonic(wordlist);
 
   return {
     mnemonic,

@@ -1,11 +1,12 @@
-import { BIP32Factory } from 'bip32';
-import { mnemonicToSeedSync } from 'bip39';
-import type { Transaction } from 'bitcoinjs-lib';
-import { crypto } from 'bitcoinjs-lib';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { HDKey } from '@scure/bip32';
+import { mnemonicToSeedSync } from '@scure/bip39';
+import type { Transaction } from '@scure/btc-signer';
 import {
   Musig,
-  Networks,
   OutputType,
+  Scripts,
   SwapTreeSerializer,
   constructRefundTransaction,
   detectSwap,
@@ -14,21 +15,16 @@ import {
 import {
   Networks as LiquidNetworks,
   constructClaimTransaction as liquidConstructClaimTransaction,
-} from 'boltz-core/dist/lib/liquid';
-import { p2trOutput } from 'boltz-core/dist/lib/swap/Scripts';
+} from 'boltz-core/liquid';
 import { randomBytes } from 'crypto';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
-import { SLIP77Factory } from 'slip77';
-import * as ecc from 'tiny-secp256k1';
 import {
   hashForWitnessV1,
   parseTransaction,
   setup,
   tweakMusig,
-  zkp,
 } from '../../../../lib/Core';
-import { ECPair } from '../../../../lib/ECPairHelper';
 import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
 import ArkClient from '../../../../lib/chain/ArkClient';
@@ -49,12 +45,14 @@ import ChainSwapSigner from '../../../../lib/service/cooperative/ChainSwapSigner
 import { RefundRejectionReason } from '../../../../lib/service/cooperative/MusigSigner';
 import * as Utils from '../../../../lib/service/cooperative/Utils';
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
+import { slip77FromSeed } from '../../../../lib/wallet/Slip77';
 import Wallet from '../../../../lib/wallet/Wallet';
 import WalletLiquid from '../../../../lib/wallet/WalletLiquid';
 import type { Currency } from '../../../../lib/wallet/WalletManager';
 import type WalletManager from '../../../../lib/wallet/WalletManager';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
 import ElementsWalletProvider from '../../../../lib/wallet/providers/ElementsWalletProvider';
+import { regtest as bitcoinRegtest } from '../../../Networks';
 import { bitcoinClient, elementsClient } from '../../Nodes';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
@@ -62,15 +60,20 @@ jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 const mnemonic =
   'miracle tower paper teach stomach black exile discover paddle country around survey';
 
-describe('ChainSwapSigner', () => {
-  const bip32 = BIP32Factory(ecc);
-  const slip77 = SLIP77Factory(ecc);
+const makeKeys = () => {
+  const privateKey = randomBytes(32);
+  return {
+    privateKey: Buffer.from(privateKey),
+    publicKey: Buffer.from(secp256k1.getPublicKey(privateKey, true)),
+  };
+};
 
+describe('ChainSwapSigner', () => {
   const btcCurrency = {
     symbol: 'BTC',
     chainClient: bitcoinClient,
     type: CurrencyType.BitcoinLike,
-    network: Networks.bitcoinRegtest,
+    network: bitcoinRegtest,
   } as unknown as Currency;
   const liquidCurrency = {
     symbol: 'L-BTC',
@@ -85,9 +88,9 @@ describe('ChainSwapSigner', () => {
     new CoreWalletProvider(
       Logger.disabledLogger,
       bitcoinClient,
-      Networks.bitcoinRegtest,
+      bitcoinRegtest,
     ),
-    Networks.bitcoinRegtest,
+    bitcoinRegtest,
   );
   const liquidWallet = new WalletLiquid(
     Logger.disabledLogger,
@@ -96,7 +99,7 @@ describe('ChainSwapSigner', () => {
       elementsClient,
       LiquidNetworks.liquidRegtest,
     ),
-    slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
+    slip77FromSeed(mnemonicToSeedSync(mnemonic)),
     LiquidNetworks.liquidRegtest,
   );
 
@@ -116,7 +119,10 @@ describe('ChainSwapSigner', () => {
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
 
     const initWallet = (w: Wallet) => {
-      w.initKeyProvider('m/0/0', bip32.fromSeed(mnemonicToSeedSync(mnemonic)));
+      w.initKeyProvider(
+        'm/0/0',
+        HDKey.fromMasterSeed(mnemonicToSeedSync(mnemonic)),
+      );
     };
 
     initWallet(btcWallet);
@@ -152,22 +158,26 @@ describe('ChainSwapSigner', () => {
       wallet: Wallet,
     ) => {
       const timeoutBlockHeight = 123;
-      const theirKeys = ECPair.makeRandom();
+      const theirKeys = makeKeys();
       const tree = swapTree(
         currency.type === CurrencyType.Liquid,
-        crypto.sha256(preimage),
+        Buffer.from(sha256(preimage)),
         wallet.getKeysByIndex(keyIndex).publicKey,
         Buffer.from(theirKeys.publicKey),
         timeoutBlockHeight,
       );
 
-      const musig = new Musig(zkp, theirKeys, randomBytes(32), [
-        wallet.getKeysByIndex(keyIndex).publicKey,
-        Buffer.from(theirKeys.publicKey),
-      ]);
-      const tweakedKey = tweakMusig(currency.type, musig, tree);
+      const musig = tweakMusig(
+        currency.type,
+        Musig.create(theirKeys.privateKey!, [
+          wallet.getKeysByIndex(keyIndex).publicKey,
+          Buffer.from(theirKeys.publicKey),
+        ]),
+        tree,
+      );
+      const tweakedKey = Buffer.from(musig.aggPubkey);
 
-      const lockupScript = p2trOutput(tweakedKey);
+      const lockupScript = Buffer.from(Scripts.p2trOutput(tweakedKey));
       const lockupTx = parseTransaction<T>(
         currency.type,
         await currency.chainClient!.getRawTransaction(
@@ -218,12 +228,12 @@ describe('ChainSwapSigner', () => {
         type: SwapType.Chain,
         status: 'swap.expired',
         version: SwapVersion.Taproot,
-        preimageHash: getHexString(crypto.sha256(preimage)),
+        preimageHash: getHexString(Buffer.from(sha256(preimage))),
         receivingData: {
           symbol: 'BTC',
           keyIndex: lockupDetails.keyIndex,
           transactionVout: lockupDetails.swapOutput.vout,
-          lockupTransactionId: lockupDetails.lockupTx.getId(),
+          lockupTransactionId: lockupDetails.lockupTx.id,
           timeoutBlockHeight: lockupDetails.timeoutBlockHeight,
           theirPublicKey: getHexString(
             Buffer.from(lockupDetails.theirKeys.publicKey),
@@ -293,15 +303,20 @@ describe('ChainSwapSigner', () => {
       const refundTx = constructRefundTransaction(
         [
           {
-            ...lockupDetails.swapOutput,
+            type: OutputType.Taproot,
+            vout: lockupDetails.swapOutput.vout,
+            script: lockupDetails.swapOutput.script!,
+            amount: lockupDetails.swapOutput.amount!,
             cooperative: true,
-            keys: lockupDetails.theirKeys,
-            txHash: lockupDetails.lockupTx.getHash(),
+            privateKey: lockupDetails.theirKeys.privateKey!,
+            transactionId: lockupDetails.lockupTx.id,
+            swapTree: lockupDetails.tree,
+            internalKey: lockupDetails.musig.internalKey,
           },
         ],
         btcWallet.decodeAddress(await bitcoinClient.getNewAddress('')),
         chainSwapInfo.receivingData.timeoutBlockHeight,
-        200,
+        BigInt(200),
       );
 
       ChainSwapRepository.setRefundSignatureCreated = jest.fn();
@@ -309,33 +324,33 @@ describe('ChainSwapSigner', () => {
         .fn()
         .mockResolvedValue(chainSwapInfo);
 
+      const withNonce = lockupDetails.musig
+        .message(await hashForWitnessV1(btcCurrency, refundTx, 0))
+        .generateNonce();
+
       const partialSignature = await signer.signRefund(
         'asdf',
-        Buffer.from(lockupDetails.musig.getPublicNonce()),
-        refundTx.toBuffer(),
+        Buffer.from(withNonce.publicNonce),
+        Buffer.from(refundTx.toBytes(true, true)),
         0,
       );
 
-      lockupDetails.musig.aggregateNonces([
-        [
-          btcWallet.getKeysByIndex(chainSwapInfo.receivingData.keyIndex!)
-            .publicKey,
-          partialSignature.pubNonce,
-        ],
-      ]);
-      lockupDetails.musig.initializeSession(
-        await hashForWitnessV1(btcCurrency, refundTx, 0),
-      );
-      lockupDetails.musig.addPartial(
-        btcWallet.getKeysByIndex(chainSwapInfo.receivingData.keyIndex!)
-          .publicKey,
-        partialSignature.signature,
-      );
-      lockupDetails.musig.signPartial();
+      const counterpartyKey = btcWallet.getKeysByIndex(
+        chainSwapInfo.receivingData.keyIndex!,
+      ).publicKey;
+      const signed = withNonce
+        .aggregateNonces([[counterpartyKey, partialSignature.pubNonce]])
+        .initializeSession()
+        .addPartial(counterpartyKey, partialSignature.signature)
+        .signPartial();
 
-      refundTx.ins[0].witness = [lockupDetails.musig.aggregatePartials()];
+      refundTx.updateInput(
+        0,
+        { finalScriptWitness: [signed.aggregatePartials()] },
+        true,
+      );
 
-      await bitcoinClient.sendRawTransaction(refundTx.toHex());
+      await bitcoinClient.sendRawTransaction(refundTx.hex);
 
       expect(
         ChainSwapRepository.setRefundSignatureCreated,
@@ -704,9 +719,8 @@ describe('ChainSwapSigner', () => {
       );
       expect(res.pubNonce).toEqual(
         Buffer.from(
-          signer['swapsToClaim']
-            .get(chainSwapInfo.id)!
-            .cooperative!.musig.getPublicNonce(),
+          signer['swapsToClaim'].get(chainSwapInfo.id)!.cooperative!.musig
+            .publicNonce,
         ),
       );
       expect(res.transactionHash).toEqual(
@@ -750,27 +764,37 @@ describe('ChainSwapSigner', () => {
 
       await signer.registerForClaim(chainSwapInfo);
       const coopDetails = await signer.getCooperativeDetails(chainSwapInfo);
-      lockupDetails.musig.aggregateNonces([
-        [coopDetails.publicKey, coopDetails.pubNonce],
-      ]);
-      lockupDetails.musig.initializeSession(coopDetails.transactionHash);
+
+      const refundSigned = lockupDetails.musig
+        .message(coopDetails.transactionHash)
+        .generateNonce()
+        .aggregateNonces([[coopDetails.publicKey, coopDetails.pubNonce]])
+        .initializeSession()
+        .signPartial();
 
       const claimTx = liquidConstructClaimTransaction(
         [
           {
             ...claimDetails.swapOutput,
+            type: OutputType.Taproot,
             preimage,
             cooperative: true,
-            keys: claimDetails.theirKeys,
-            txHash: claimDetails.lockupTx.getHash(),
+            privateKey: claimDetails.theirKeys.privateKey!,
+            transactionId: claimDetails.lockupTx.getId(),
             blindingPrivateKey: claimDetails.blindingPrivateKey,
+            swapTree: claimDetails.tree,
+            internalKey: claimDetails.musig.internalKey,
           },
         ],
         liquidWallet.decodeAddress(await elementsClient.getNewAddress('')),
-        200,
+        BigInt(200),
         false,
         LiquidNetworks.liquidRegtest,
       );
+
+      const claimWithNonce = claimDetails.musig
+        .message(await hashForWitnessV1(liquidCurrency, claimTx, 0))
+        .generateNonce();
 
       expect.assertions(4);
 
@@ -783,34 +807,26 @@ describe('ChainSwapSigner', () => {
         {
           index: 0,
           transaction: claimTx.toBuffer(),
-          pubNonce: Buffer.from(claimDetails.musig.getPublicNonce()),
+          pubNonce: Buffer.from(claimWithNonce.publicNonce),
         },
         preimage,
         {
-          pubNonce: Buffer.from(lockupDetails.musig.getPublicNonce()),
-          signature: Buffer.from(lockupDetails.musig.signPartial()),
+          pubNonce: Buffer.from(refundSigned.publicNonce),
+          signature: Buffer.from(refundSigned.ourPartialSignature),
         },
       );
       expect(signer['swapsToClaim'].size).toEqual(0);
 
-      claimDetails.musig.aggregateNonces([
-        [
-          liquidWallet.getKeysByIndex(chainSwapInfo.sendingData.keyIndex!)
-            .publicKey,
-          claimPartial.pubNonce,
-        ],
-      ]);
-      claimDetails.musig.initializeSession(
-        await hashForWitnessV1(liquidCurrency, claimTx, 0),
-      );
-      claimDetails.musig.addPartial(
-        liquidWallet.getKeysByIndex(chainSwapInfo.sendingData.keyIndex!)
-          .publicKey,
-        claimPartial.signature,
-      );
-      claimDetails.musig.signPartial();
+      const counterpartyKey = liquidWallet.getKeysByIndex(
+        chainSwapInfo.sendingData.keyIndex!,
+      ).publicKey;
+      const claimSigned = claimWithNonce
+        .aggregateNonces([[counterpartyKey, claimPartial.pubNonce]])
+        .initializeSession()
+        .addPartial(counterpartyKey, claimPartial.signature)
+        .signPartial();
 
-      claimTx.ins[0].witness = [claimDetails.musig.aggregatePartials()];
+      claimTx.ins[0].witness = [Buffer.from(claimSigned.aggregatePartials())];
 
       await elementsClient.sendRawTransaction(claimTx.toHex());
     });
@@ -832,24 +848,30 @@ describe('ChainSwapSigner', () => {
         [
           {
             ...claimDetails.swapOutput,
+            type: OutputType.Taproot,
             preimage,
             cooperative: true,
-            keys: claimDetails.theirKeys,
-            txHash: claimDetails.lockupTx.getHash(),
+            privateKey: claimDetails.theirKeys.privateKey!,
+            transactionId: claimDetails.lockupTx.getId(),
             blindingPrivateKey: claimDetails.blindingPrivateKey,
+            swapTree: claimDetails.tree,
+            internalKey: claimDetails.musig.internalKey,
           },
         ],
         liquidWallet.decodeAddress(await elementsClient.getNewAddress('')),
-        200,
+        BigInt(200),
         false,
         LiquidNetworks.liquidRegtest,
       );
+      const claimWithNonce = claimDetails.musig
+        .message(await hashForWitnessV1(liquidCurrency, claimTx, 0))
+        .generateNonce();
       await signer.signClaim(
         chainSwapInfo,
         {
           index: 0,
           transaction: claimTx.toBuffer(),
-          pubNonce: Buffer.from(claimDetails.musig.getPublicNonce()),
+          pubNonce: Buffer.from(claimWithNonce.publicNonce),
         },
         preimage,
       );
@@ -876,51 +898,52 @@ describe('ChainSwapSigner', () => {
         [
           {
             ...claimDetails.swapOutput,
+            type: OutputType.Taproot,
             preimage,
             cooperative: true,
-            keys: claimDetails.theirKeys,
-            txHash: claimDetails.lockupTx.getHash(),
+            privateKey: claimDetails.theirKeys.privateKey!,
+            transactionId: claimDetails.lockupTx.getId(),
             blindingPrivateKey: claimDetails.blindingPrivateKey,
+            swapTree: claimDetails.tree,
+            internalKey: claimDetails.musig.internalKey,
           },
         ],
         liquidWallet.decodeAddress(await elementsClient.getNewAddress('')),
-        200,
+        BigInt(200),
         false,
         LiquidNetworks.liquidRegtest,
       );
 
       expect.assertions(2);
 
+      const claimWithNonce = claimDetails.musig
+        .message(await hashForWitnessV1(liquidCurrency, claimTx, 0))
+        .generateNonce();
       const res = await signer.signClaim(chainSwapInfo, {
         index: 0,
         transaction: claimTx.toBuffer(),
-        pubNonce: Buffer.from(claimDetails.musig.getPublicNonce()),
+        pubNonce: Buffer.from(claimWithNonce.publicNonce),
       });
 
-      claimDetails.musig.aggregateNonces([
-        [
-          liquidWallet.getKeysByIndex(chainSwapInfo.sendingData.keyIndex!)
-            .publicKey,
-          res.pubNonce,
-        ],
-      ]);
-      claimDetails.musig.initializeSession(
-        await hashForWitnessV1(liquidCurrency, claimTx, 0),
-      );
-      claimDetails.musig.addPartial(
-        liquidWallet.getKeysByIndex(chainSwapInfo.sendingData.keyIndex!)
-          .publicKey,
-        res.signature,
-      );
-      claimDetails.musig.signPartial();
+      const counterpartyKey = liquidWallet.getKeysByIndex(
+        chainSwapInfo.sendingData.keyIndex!,
+      ).publicKey;
+      const claimSigned = claimWithNonce
+        .aggregateNonces([[counterpartyKey, res.pubNonce]])
+        .initializeSession()
+        .addPartial(counterpartyKey, res.signature)
+        .signPartial();
 
-      claimTx.ins[0].witness = [claimDetails.musig.aggregatePartials()];
+      claimTx.ins[0].witness = [Buffer.from(claimSigned.aggregatePartials())];
 
       await elementsClient.sendRawTransaction(claimTx.toHex());
     });
 
     test('should not create partial signature when no claim details have been created', async () => {
       const { chainSwapInfo, claimDetails, preimage } = await createOutputs();
+      const claimWithNonce = claimDetails.musig
+        .message(randomBytes(32))
+        .generateNonce();
 
       await expect(
         signer.signClaim(
@@ -928,7 +951,7 @@ describe('ChainSwapSigner', () => {
           {
             index: 0,
             transaction: Buffer.alloc(0),
-            pubNonce: Buffer.from(claimDetails.musig.getPublicNonce()),
+            pubNonce: Buffer.from(claimWithNonce.publicNonce),
           },
           preimage,
         ),
@@ -944,6 +967,9 @@ describe('ChainSwapSigner', () => {
       'should not create partial signature when preimage is invalid',
       async ({ preimage }) => {
         const { chainSwapInfo, claimDetails } = await createOutputs();
+        const claimWithNonce = claimDetails.musig
+          .message(randomBytes(32))
+          .generateNonce();
 
         await signer.registerForClaim(chainSwapInfo);
         await signer.getCooperativeDetails(chainSwapInfo);
@@ -953,7 +979,7 @@ describe('ChainSwapSigner', () => {
             {
               index: 0,
               transaction: Buffer.alloc(0),
-              pubNonce: Buffer.from(claimDetails.musig.getPublicNonce()),
+              pubNonce: Buffer.from(claimWithNonce.publicNonce),
             },
             preimage,
           ),
@@ -967,6 +993,9 @@ describe('ChainSwapSigner', () => {
         .mockImplementation(async (swap) => swap);
 
       const { chainSwapInfo, claimDetails, preimage } = await createOutputs();
+      const claimWithNonce = claimDetails.musig
+        .message(randomBytes(32))
+        .generateNonce();
 
       await signer.registerForClaim(chainSwapInfo);
       await signer.getCooperativeDetails(chainSwapInfo);
@@ -976,7 +1005,7 @@ describe('ChainSwapSigner', () => {
           {
             index: 0,
             transaction: Buffer.alloc(0),
-            pubNonce: Buffer.from(claimDetails.musig.getPublicNonce()),
+            pubNonce: Buffer.from(claimWithNonce.publicNonce),
           },
           preimage,
         ),
@@ -993,10 +1022,15 @@ describe('ChainSwapSigner', () => {
 
       await signer.registerForClaim(chainSwapInfo);
       const coopDetails = await signer.getCooperativeDetails(chainSwapInfo);
-      lockupDetails.musig.aggregateNonces([
-        [coopDetails.publicKey, coopDetails.pubNonce],
-      ]);
-      lockupDetails.musig.initializeSession(randomBytes(32));
+      const refundSigned = lockupDetails.musig
+        .message(randomBytes(32))
+        .generateNonce()
+        .aggregateNonces([[coopDetails.publicKey, coopDetails.pubNonce]])
+        .initializeSession()
+        .signPartial();
+      const claimWithNonce = claimDetails.musig
+        .message(randomBytes(32))
+        .generateNonce();
 
       await expect(
         signer.signClaim(
@@ -1004,12 +1038,12 @@ describe('ChainSwapSigner', () => {
           {
             index: 0,
             transaction: Buffer.alloc(0),
-            pubNonce: Buffer.from(claimDetails.musig.getPublicNonce()),
+            pubNonce: Buffer.from(claimWithNonce.publicNonce),
           },
           preimage,
           {
-            pubNonce: Buffer.from(lockupDetails.musig.getPublicNonce()),
-            signature: Buffer.from(lockupDetails.musig.signPartial()),
+            pubNonce: Buffer.from(refundSigned.publicNonce),
+            signature: Buffer.from(refundSigned.ourPartialSignature),
           },
         ),
       ).rejects.toEqual(Errors.INVALID_PARTIAL_SIGNATURE());

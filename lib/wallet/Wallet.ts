@@ -1,7 +1,11 @@
-import type { BIP32Interface } from 'bip32';
-import type { Network } from 'bitcoinjs-lib';
-import { fromOutputScript, toOutputScript } from '../Core';
+import type { HDKey } from '@scure/bip32';
+import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import {
+  addressFromOutputScript,
+  outputScriptFromAddress,
+} from '../AddressUtils';
 import type Logger from '../Logger';
+import type { BitcoinNetwork } from '../consts/BitcoinNetworks';
 import type { CurrencyType } from '../consts/Enums';
 import KeyRepository from '../db/repositories/KeyRepository';
 import Errors from './Errors';
@@ -12,11 +16,16 @@ import type {
 } from './providers/WalletProviderInterface';
 import type WalletProviderInterface from './providers/WalletProviderInterface';
 
+export type WalletKeys = {
+  publicKey: Buffer;
+  privateKey: Buffer;
+};
+
 class Wallet implements BalancerFetcher {
   public readonly symbol: string;
 
   private derivationPath?: string;
-  private masterNode?: BIP32Interface;
+  private masterNode?: HDKey;
 
   /**
    * Wallet is a hierarchical deterministic wallet for a currency
@@ -25,7 +34,7 @@ class Wallet implements BalancerFetcher {
     protected readonly logger: Logger,
     public type: CurrencyType,
     public walletProvider: WalletProviderInterface,
-    public readonly network?: Network,
+    public readonly network?: BitcoinNetwork | LiquidNetwork,
   ) {
     this.symbol = this.walletProvider.symbol;
   }
@@ -40,7 +49,7 @@ class Wallet implements BalancerFetcher {
    */
   public initKeyProvider = (
     derivationPath: string,
-    masterNode: BIP32Interface,
+    masterNode: HDKey,
   ): void => {
     this.derivationPath = derivationPath;
     this.masterNode = masterNode;
@@ -51,19 +60,15 @@ class Wallet implements BalancerFetcher {
    *
    * @param index index of the keys to get
    */
-  public getKeysByIndex = (index: number): BIP32Interface => {
+  public getKeysByIndex = (index: number): WalletKeys => {
     if (this.masterNode === undefined || this.derivationPath === undefined) {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'getKeysByIndex');
     }
 
-    const keys = this.masterNode.derivePath(`${this.derivationPath}/${index}`);
+    const node = this.masterNode.derive(`${this.derivationPath}/${index}`);
     return {
-      ...keys,
-      publicKey: Buffer.from(keys.publicKey),
-      privateKey: Buffer.from(keys.privateKey!),
-      sign: (hash: Buffer, lowR?: boolean) =>
-        Buffer.from(keys.sign(hash, lowR)),
-      signSchnorr: (hash: Buffer) => Buffer.from(keys.signSchnorr(hash)),
+      publicKey: Buffer.from(node.publicKey!),
+      privateKey: Buffer.from(node.privateKey!),
     };
   };
 
@@ -71,7 +76,7 @@ class Wallet implements BalancerFetcher {
    * Gets a new pair of keys
    */
   public getNewKeys = async (): Promise<{
-    keys: BIP32Interface;
+    keys: WalletKeys;
     index: number;
   }> => {
     const index = await KeyRepository.incrementHighestUsedIndex(this.symbol);
@@ -96,7 +101,7 @@ class Wallet implements BalancerFetcher {
     }
 
     try {
-      return fromOutputScript(this.type, outputScript, this.network);
+      return addressFromOutputScript(this.type, outputScript, this.network);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       // Ignore invalid addresses
@@ -112,7 +117,7 @@ class Wallet implements BalancerFetcher {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'decodeAddress');
     }
 
-    return toOutputScript(this.type, toDecode, this.network);
+    return outputScriptFromAddress(this.type, toDecode, this.network);
   };
 
   public getAddress = (label: string): Promise<string> => {

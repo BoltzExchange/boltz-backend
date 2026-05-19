@@ -1,18 +1,17 @@
-import ops from '@boltz/bitcoin-ops';
-import { BIP32Factory } from 'bip32';
-import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
-import type { Transaction } from 'bitcoinjs-lib';
-import { crypto, script } from 'bitcoinjs-lib';
-import { Networks } from 'boltz-core';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { HDKey } from '@scure/bip32';
+import { generateMnemonic, mnemonicToSeedSync } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
+import type { Transaction } from '@scure/btc-signer';
+import { Script } from '@scure/btc-signer/script.js';
 import { randomBytes } from 'crypto';
 import { networks as networkLiquid } from 'liquidjs-lib';
-import { SLIP77Factory } from 'slip77';
-import * as ecc from 'tiny-secp256k1';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import { CurrencyType } from '../../../lib/consts/Enums';
 import Database from '../../../lib/db/Database';
 import KeyRepository from '../../../lib/db/repositories/KeyRepository';
+import { slip77FromSeed } from '../../../lib/wallet/Slip77';
 import Wallet from '../../../lib/wallet/Wallet';
 import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import CoreWalletProvider from '../../../lib/wallet/providers/CoreWalletProvider';
@@ -20,9 +19,7 @@ import type {
   SentTransaction,
   WalletBalance,
 } from '../../../lib/wallet/providers/WalletProviderInterface';
-
-const bip32 = BIP32Factory(ecc);
-const slip77 = SLIP77Factory(ecc);
+import { regtest as bitcoinRegtest } from '../../Networks';
 
 const symbol = 'BTC';
 
@@ -40,7 +37,7 @@ const mockGetAddress = jest.fn().mockResolvedValue(address);
 const sentTransaction: SentTransaction = {
   fee: 1,
   vout: 0,
-  transaction: {} as any as Transaction,
+  transaction: {} as unknown as Transaction,
   transactionId:
     'b866402106a97f06f84215abf545ef3b455346fd998845731385f6cdcb12d96d',
 };
@@ -72,15 +69,16 @@ describe('Wallet', () => {
   );
   const encodedAddress = 'bcrt1q0jnvwxtejp7rd4wk9ue96mvpqj5yjaz9v7vte5';
 
-  const mnemonic = generateMnemonic();
-  const masterNode = bip32.fromSeed(mnemonicToSeedSync(mnemonic));
+  const mnemonic = generateMnemonic(wordlist);
+  const seed = mnemonicToSeedSync(mnemonic);
+  const masterNode = HDKey.fromMasterSeed(seed);
 
   const database = new Database(Logger.disabledLogger, ':memory:');
 
   const derivationPath = 'm/0/0';
   let highestUsedIndex = 21;
 
-  const network = Networks.bitcoinRegtest;
+  const network = bitcoinRegtest;
 
   const walletProvider = new mockedCoreWalletProvider();
 
@@ -98,21 +96,17 @@ describe('Wallet', () => {
   };
 
   const getKeysByIndex = (index: number) => {
-    const keys = masterNode.derivePath(`${derivationPath}/${index}`);
+    const node = masterNode.derive(`${derivationPath}/${index}`);
     return {
-      ...keys,
-      publicKey: Buffer.from(keys.publicKey),
-      privateKey: Buffer.from(keys.privateKey!),
-      sign: (hash: Buffer, lowR?: boolean) =>
-        Buffer.from(keys.sign(hash, lowR)),
-      signSchnorr: (hash: Buffer) => Buffer.from(keys.signSchnorr(hash)),
+      publicKey: Buffer.from(node.publicKey!),
+      privateKey: Buffer.from(node.privateKey!),
     };
   };
 
   const walletLiquid = new WalletLiquid(
     Logger.disabledLogger,
     walletProvider,
-    slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
+    slip77FromSeed(seed),
     networkLiquid.liquid,
   );
 
@@ -145,6 +139,34 @@ describe('Wallet', () => {
     );
   });
 
+  describe('canonical BIP-39 abandon seed key derivation', () => {
+    const abandonMnemonic =
+      'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    const abandonSeed = mnemonicToSeedSync(abandonMnemonic);
+    const abandonMaster = HDKey.fromMasterSeed(abandonSeed);
+    const abandonWallet = new Wallet(
+      Logger.disabledLogger,
+      CurrencyType.BitcoinLike,
+      walletProvider,
+      network,
+    );
+    abandonWallet.initKeyProvider('m/0/0', abandonMaster);
+
+    test.each`
+      index | privateKey                                                            | publicKey
+      ${0}  | ${'772e60d43d93aeefea69e3b3ec0639ff60feefc98a5c572cc09414bbb4b512e7'} | ${'0275e1557269c40cd90ebea26daf85ea0f6427b1885bb018ba3c204ea56e27aa49'}
+      ${1}  | ${'731573db19bfd58d896e982ca68728ed927197757b93f2fd40d26129c7184512'} | ${'0350d801e5faf5cc96dc275996ab4e9fd88e52e32c95f3989b9349cce704ea41e6'}
+      ${21} | ${'f244348bd54f49ded4b597e9587048a9750b6d39dd0bf61d585f72d6093fe15f'} | ${'03c19e1843c39e40d8fc7183558261032ea5856bcf0a18a75a72e1946df00acc72'}
+    `(
+      'derives canonical keys at m/0/0/$index',
+      ({ index, privateKey, publicKey }) => {
+        const keys = abandonWallet.getKeysByIndex(index);
+        expect(keys.privateKey.toString('hex')).toEqual(privateKey);
+        expect(keys.publicKey.toString('hex')).toEqual(publicKey);
+      },
+    );
+  });
+
   test('should get new keys', async () => {
     incrementIndex();
     const { keys, index } = await wallet.getNewKeys();
@@ -158,26 +180,26 @@ describe('Wallet', () => {
   });
 
   test('should ignore OP_RETURN outputs', () => {
-    const outputScript = script.compile([
-      ops.OP_RETURN,
-      crypto.sha256(randomBytes(64)),
-    ]);
+    const outputScript = Buffer.from(
+      Script.encode(['RETURN', sha256(randomBytes(64))]),
+    );
 
     expect(wallet.encodeAddress(outputScript)).toEqual('');
   });
 
   test('should ignore all invalid addresses', () => {
     const invalidScripts = [
-      script.compile([ops.OP_1, randomBytes(32)]),
-      script.compile([randomBytes(32)]),
-      script.compile([ops.OP_6]),
-      script.compile([
-        ops.OP_NUMEQUAL,
-        ops.OP_4,
-        ops.OP_NOP1,
-        ops.OP_NUMNOTEQUAL,
-        ops.OP_CHECKSIGVERIFY,
-      ]),
+      Buffer.from(Script.encode([randomBytes(32)])),
+      Buffer.from(Script.encode(['OP_6'])),
+      Buffer.from(
+        Script.encode([
+          'NUMEQUAL',
+          'OP_4',
+          'NOP1',
+          'NUMNOTEQUAL',
+          'CHECKSIGVERIFY',
+        ]),
+      ),
     ];
 
     for (const script of invalidScripts) {

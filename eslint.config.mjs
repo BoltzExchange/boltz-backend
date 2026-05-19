@@ -45,6 +45,7 @@ export default [
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/consistent-type-imports': 'error',
+      '@typescript-eslint/no-import-type-side-effects': 'error',
       '@typescript-eslint/adjacent-overload-signatures': 'off',
       '@typescript-eslint/no-unsafe-declaration-merging': 'off',
 

@@ -1,6 +1,7 @@
-import { Transaction } from 'bitcoinjs-lib';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import type { Transaction as ScureTransaction } from '@scure/btc-signer';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import type Logger from '../Logger';
+import { TxView } from '../TxView';
 import { saneStringify } from '../Utils';
 import {
   SwapType,
@@ -64,21 +65,14 @@ class EventHandler extends TypedEventEmitter<{
   }
 
   public static formatTransaction = (
-    transaction: string | Transaction | LiquidTransaction,
+    transaction: string | LiquidTransaction | ScureTransaction,
   ) => {
-    if (
-      transaction instanceof Transaction ||
-      transaction instanceof LiquidTransaction
-    ) {
-      return {
-        id: transaction.getId(),
-        hex: transaction.toHex(),
-      };
-    } else {
-      return {
-        id: transaction,
-      };
+    if (typeof transaction === 'string') {
+      return { id: transaction };
     }
+
+    const view = TxView.of(transaction);
+    return { id: view.id, hex: view.hex };
   };
 
   public emitSwapCreation = (id: string): void => {
@@ -285,7 +279,7 @@ class EventHandler extends TypedEventEmitter<{
 
   private emitTransaction = (
     swap: AnySwap,
-    transaction: string | Transaction | LiquidTransaction,
+    transaction: string | LiquidTransaction | ScureTransaction,
     confirmed: boolean,
   ) => {
     this.emit('swap.update', {
@@ -302,7 +296,7 @@ class EventHandler extends TypedEventEmitter<{
 
   private emitRefundUpdate = (
     swap: AnySwap,
-    refundTransaction: string | Transaction | LiquidTransaction,
+    refundTransaction: string | LiquidTransaction | ScureTransaction,
     confirmed: boolean,
     emitFailure: boolean,
   ) => {

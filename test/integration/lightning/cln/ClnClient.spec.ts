@@ -1,4 +1,4 @@
-import { crypto } from 'bitcoinjs-lib';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { randomBytes } from 'crypto';
 import { getHexString, getUnixTime } from '../../../../lib/Utils';
 import Errors from '../../../../lib/lightning/Errors';
@@ -117,7 +117,7 @@ describe('ClnClient', () => {
       const res = await clnClient.sendPayment(invoice.paymentRequest);
 
       expect(res.feeMsat).toEqual(0);
-      expect(getHexString(crypto.sha256(res.preimage))).toEqual(
+      expect(getHexString(Buffer.from(sha256(res.preimage)))).toEqual(
         getHexString(invoice.rHash),
       );
     });
@@ -197,10 +197,10 @@ describe('ClnClient', () => {
     const preimage = randomBytes(32);
     const invoice = await bitcoinLndClient.addHoldInvoice(
       10_000,
-      crypto.sha256(preimage),
+      Buffer.from(sha256(preimage)),
     );
 
-    bitcoinLndClient.subscribeSingleInvoice(crypto.sha256(preimage));
+    bitcoinLndClient.subscribeSingleInvoice(Buffer.from(sha256(preimage)));
     const acceptedPromise = new Promise((resolve) => {
       bitcoinLndClient.on('htlc.accepted', resolve);
     });
@@ -258,7 +258,7 @@ describe('ClnClient', () => {
 
   test('should emit events for invoice acceptance and settlement', async () => {
     const preimage = randomBytes(32);
-    const preimageHash = crypto.sha256(preimage);
+    const preimageHash = Buffer.from(sha256(preimage));
     const invoice = await clnClient.addHoldInvoice(10, preimageHash);
 
     const acceptedPromise = new Promise<void>((resolve) => {
@@ -385,7 +385,7 @@ describe('ClnClient', () => {
     expect.assertions(4);
 
     const preimage = randomBytes(32);
-    const preimageHash = crypto.sha256(preimage);
+    const preimageHash = Buffer.from(sha256(preimage));
 
     const invoice = await clnClient.addHoldInvoice(1_000, preimageHash);
 

@@ -1,6 +1,7 @@
-import type { Transaction } from 'bitcoinjs-lib';
+import type { Transaction } from '@scure/btc-signer';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
 import type Logger from '../Logger';
+import type { ConstructedTransaction } from '../TxView';
 import {
   formatError,
   fromProtoInt,
@@ -41,7 +42,11 @@ type SwapNurseryEvents = {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
   transaction: {
     swap: AnySwap;
-    transaction: Transaction | LiquidTransaction | string;
+    transaction:
+      | ConstructedTransaction
+      | Transaction
+      | LiquidTransaction
+      | string;
     confirmed: boolean;
   };
   expiration: AnySwap;
@@ -67,14 +72,22 @@ type SwapNurseryEvents = {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
   'coins.sent': {
     swap: ReverseSwap | ChainSwapInfo;
-    transaction: Transaction | LiquidTransaction | string;
+    transaction:
+      | ConstructedTransaction
+      | Transaction
+      | LiquidTransaction
+      | string;
   };
   'coins.failedToSend': ReverseSwap | ChainSwapInfo;
   refund: {
     swap: ReverseSwap | ChainSwapInfo;
     confirmed: boolean;
     emitFailure: boolean;
-    refundTransaction: Transaction | LiquidTransaction | string;
+    refundTransaction:
+      | ConstructedTransaction
+      | Transaction
+      | LiquidTransaction
+      | string;
   };
   'invoice.settled': ReverseSwap;
 };

@@ -1,12 +1,13 @@
 import type { Client } from '@grpc/grpc-js';
 import { Metadata, credentials } from '@grpc/grpc-js';
+import { ripemd160 } from '@noble/hashes/legacy.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { bech32m } from '@scure/base';
 import { Transaction } from '@scure/btc-signer';
 import type {
   TransactionInput,
   TransactionOutput,
 } from '@scure/btc-signer/psbt.js';
-import { crypto } from 'bitcoinjs-lib';
 import fs from 'fs';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
@@ -208,16 +209,16 @@ class ArkClient extends BaseClient<
    * @param preimageHash - SHA256 hash of the preimage
    */
   public static createVhtlcId = (
-    preimageHash: Buffer,
-    senderPubkey: Buffer,
-    receiverPubkey: Buffer,
+    preimageHash: Uint8Array,
+    senderPubkey: Uint8Array,
+    receiverPubkey: Uint8Array,
   ) => {
     const data = Buffer.concat([
-      crypto.ripemd160(preimageHash),
+      ripemd160(preimageHash),
       senderPubkey,
       receiverPubkey,
     ]);
-    return getHexString(crypto.sha256(data));
+    return getHexString(sha256(data));
   };
 
   public connect = async (chainClient: IChainClient): Promise<boolean> => {
@@ -503,7 +504,7 @@ class ArkClient extends BaseClient<
     };
 
     const req: arkrpc.CreateVHTLCRequest = {
-      preimageHash: getHexString(crypto.ripemd160(preimageHash)),
+      preimageHash: getHexString(ripemd160(preimageHash)),
       senderPubkey: '',
       receiverPubkey: '',
       refundLocktime: 0,
@@ -563,7 +564,7 @@ class ArkClient extends BaseClient<
     label: string,
   ): Promise<string> => {
     const vhtlcId = ArkClient.createVhtlcId(
-      crypto.sha256(preimage),
+      sha256(preimage),
       senderPubkey,
       receiverPubkey,
     );

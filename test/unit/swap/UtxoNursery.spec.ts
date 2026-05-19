@@ -1,11 +1,15 @@
-import { Transaction, address } from 'bitcoinjs-lib';
-import { Networks, Scripts, SwapTreeSerializer, swapTree } from 'boltz-core';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { hexToBytes } from '@noble/hashes/utils.js';
+import { Transaction } from '@scure/btc-signer';
+import { Scripts, SwapTreeSerializer, swapTree } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import type { ECPairInterface } from 'ecpair';
 import { Op } from 'sequelize';
-import { createMusig, setup, tweakMusig } from '../../../lib/Core';
+import {
+  addressFromOutputScript,
+  outputScriptFromAddress,
+} from '../../../lib/AddressUtils';
 import * as Core from '../../../lib/Core';
-import { ECPair } from '../../../lib/ECPairHelper';
+import { createMusig, setup, tweakMusig } from '../../../lib/Core';
 import Logger from '../../../lib/Logger';
 import {
   getHexBuffer,
@@ -34,6 +38,34 @@ import UtxoNursery from '../../../lib/swap/UtxoNursery';
 import { Action } from '../../../lib/swap/hooks/CreationHook';
 import type TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import Wallet from '../../../lib/wallet/Wallet';
+import { bitcoin as bitcoinMainnet } from '../../Networks';
+
+type Keys = {
+  privateKey: Buffer;
+  publicKey: Buffer;
+};
+
+const makeKeys = (): Keys => {
+  const privateKey = randomBytes(32);
+  return {
+    privateKey: Buffer.from(privateKey),
+    publicKey: Buffer.from(secp256k1.getPublicKey(privateKey, true)),
+  };
+};
+
+const parseTx = (hex: string) =>
+  Transaction.fromRaw(hexToBytes(hex), {
+    allowUnknownInputs: true,
+    allowUnknownOutputs: true,
+    allowLegacyWitnessUtxo: true,
+  });
+
+const cloneTx = (tx: Transaction) =>
+  Transaction.fromRaw(tx.toBytes(true, true), {
+    allowUnknownInputs: true,
+    allowUnknownOutputs: true,
+    allowLegacyWitnessUtxo: true,
+  });
 
 type blockCallback = (block: {
   symbol: string;
@@ -111,18 +143,18 @@ jest.mock('../../../lib/chain/ChainClient', () => {
 const MockedChainClient = <jest.Mock<ChainClient>>(<any>ChainClient);
 
 const decodeAddress = (toDecode: string) =>
-  address.toOutputScript(toDecode, Networks.bitcoinMainnet);
+  outputScriptFromAddress(CurrencyType.BitcoinLike, toDecode, bitcoinMainnet);
 const mockDecodeAddress = jest.fn().mockImplementation((toDecode: string) => {
   return decodeAddress(toDecode);
 });
 
 const encodeAddress = (script: Buffer) =>
-  address.fromOutputScript(script, Networks.bitcoinMainnet);
+  addressFromOutputScript(CurrencyType.BitcoinLike, script, bitcoinMainnet);
 const mockEncodeAddress = jest
   .fn()
   .mockImplementation((script: Buffer) => encodeAddress(script));
 
-let mockGetKeysByIndexResult: ECPairInterface | undefined = undefined;
+let mockGetKeysByIndexResult: Keys | undefined = undefined;
 const mockGetKeysByIndex = jest
   .fn()
   .mockImplementation(() => mockGetKeysByIndexResult);
@@ -249,7 +281,7 @@ describe('UtxoNursery', () => {
   test('should handle confirmed Swap outputs via transaction events', async () => {
     const checkSwapOutputs = nursery['checkOutputs'];
 
-    const transaction = Transaction.fromHex(sampleTransactions.lockup);
+    const transaction = parseTx(sampleTransactions.lockup);
 
     let eventEmitted = false;
 
@@ -278,7 +310,9 @@ describe('UtxoNursery', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
-      lockupAddress: encodeAddress(transaction.outs[0].script),
+      lockupAddress: encodeAddress(
+        Buffer.from(transaction.getOutput(0).script!),
+      ),
       status: {
         [Op.or]: [
           SwapUpdateEvent.SwapCreated,
@@ -291,13 +325,15 @@ describe('UtxoNursery', () => {
     });
 
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledWith(transaction.outs[0].script);
+    expect(mockEncodeAddress).toHaveBeenCalledWith(
+      Buffer.from(transaction.getOutput(0).script!),
+    );
 
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledWith(
       mockGetSwapResult,
-      transaction.getId(),
-      transaction.outs[0].value,
+      transaction.id,
+      Number(transaction.getOutput(0).amount),
       true,
       0,
     );
@@ -313,7 +349,7 @@ describe('UtxoNursery', () => {
       expect(swap).toEqual(mockGetSwapResult);
       expect(reason).toEqual(
         Errors.INSUFFICIENT_AMOUNT(
-          transaction.outs[0].value,
+          Number(transaction.getOutput(0).amount),
           mockGetSwapResult.expectedAmount,
         ).message,
       );
@@ -352,8 +388,10 @@ describe('UtxoNursery', () => {
   });
 
   test('should check both swap types with correct status filters', async () => {
-    const transaction = Transaction.fromHex(sampleTransactions.lockup);
-    const address = encodeAddress(transaction.outs[0].script);
+    const transaction = parseTx(sampleTransactions.lockup);
+    const address = encodeAddress(
+      Buffer.from(transaction.getOutput(0).script!),
+    );
     const checkOutputs = nursery['checkOutputs'];
     await checkOutputs(
       btcChainClient,
@@ -395,13 +433,13 @@ describe('UtxoNursery', () => {
     'should not emit swap.lockup when lockup update returns %s',
     async (status) => {
       const checkSwapOutputs = nursery['checkOutputs'];
-      const transaction = Transaction.fromHex(sampleTransactions.lockup);
+      const transaction = parseTx(sampleTransactions.lockup);
 
       mockGetSwapResult = {
         id: 'final-status',
         type: SwapType.Submarine,
         redeemScript: sampleRedeemScript,
-        expectedAmount: transaction.outs[0].value,
+        expectedAmount: Number(transaction.getOutput(0).amount),
       };
       mockSetLockupTransaction.mockResolvedValueOnce({
         ...mockGetSwapResult,
@@ -426,9 +464,9 @@ describe('UtxoNursery', () => {
   test('should handle unconfirmed Swap outputs', async () => {
     const checkSwapOutputs = nursery['checkOutputs'];
 
-    const transaction = Transaction.fromHex(sampleTransactions.lockup);
-    transaction.ins[0].sequence = 0xffffffff;
-    transaction.ins[1].sequence = 0xffffffff;
+    const transaction = parseTx(sampleTransactions.lockup);
+    transaction.updateInput(0, { sequence: 0xffffffff }, true);
+    transaction.updateInput(1, { sequence: 0xffffffff }, true);
 
     let eventEmitted = false;
 
@@ -462,7 +500,7 @@ describe('UtxoNursery', () => {
     expect(lockupTracker.isAcceptable).toHaveBeenCalledTimes(1);
     expect(lockupTracker.isAcceptable).toHaveBeenCalledWith(
       mockGetSwapResult,
-      transaction.toHex(),
+      transaction.hex,
     );
 
     expect(eventEmitted).toEqual(true);
@@ -532,9 +570,9 @@ describe('UtxoNursery', () => {
 
     mockGetSwapResult.acceptZeroConf = true;
 
-    const rbfTransaction = transaction.clone();
+    const rbfTransaction = cloneTx(transaction);
     // Since the backend code doesn't verify signatures, we can modify the transaction object as we please
-    rbfTransaction.ins[0].sequence = 0xffffffff - 2;
+    rbfTransaction.updateInput(0, { sequence: 0xffffffff - 2 }, true);
 
     nursery.once('swap.lockup.zeroconf.rejected', (args) => {
       expect(args.swap).toEqual(mockGetSwapResult);
@@ -561,9 +599,9 @@ describe('UtxoNursery', () => {
   });
 
   test('should reject 0-conf transactions when the lockup transaction tracker does not allow for 0-conf', async () => {
-    const transaction = Transaction.fromHex(sampleTransactions.lockup);
-    transaction.ins[0].sequence = 0xffffffff;
-    transaction.ins[1].sequence = 0xffffffff;
+    const transaction = parseTx(sampleTransactions.lockup);
+    transaction.updateInput(0, { sequence: 0xffffffff }, true);
+    transaction.updateInput(1, { sequence: 0xffffffff }, true);
 
     mockGetSwapResult = {
       id: '0conf',
@@ -595,8 +633,8 @@ describe('UtxoNursery', () => {
   test('should detect Taproot Swap outputs', async () => {
     const checkSwapOutputs = nursery['checkOutputs'];
 
-    const ourKeys = ECPair.makeRandom();
-    const theirPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
+    const ourKeys = makeKeys();
+    const theirPublicKey = Buffer.from(makeKeys().publicKey);
 
     const tree = swapTree(
       false,
@@ -606,10 +644,15 @@ describe('UtxoNursery', () => {
       210,
     );
     const musig = createMusig(ourKeys, theirPublicKey);
-    const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
+    const tweakedKey = Buffer.from(
+      tweakMusig(CurrencyType.BitcoinLike, musig, tree).aggPubkey,
+    );
 
     const transaction = new Transaction();
-    transaction.addOutput(Scripts.p2trOutput(tweakedKey), 123);
+    transaction.addOutput({
+      script: Buffer.from(Scripts.p2trOutput(tweakedKey)),
+      amount: BigInt(123),
+    });
 
     mockGetKeysByIndexResult = ourKeys;
     mockGetSwapResult = {
@@ -639,8 +682,8 @@ describe('UtxoNursery', () => {
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledWith(
       expect.anything(),
-      transaction.getId(),
-      transaction.outs[0].value,
+      transaction.id,
+      Number(transaction.getOutput(0).amount),
       true,
       0,
     );
@@ -651,9 +694,9 @@ describe('UtxoNursery', () => {
   test('should reject transactions from blocked addresses', async () => {
     const checkSwapOutputs = nursery['checkOutputs'];
 
-    const transaction = Transaction.fromHex(sampleTransactions.lockup);
-    transaction.ins[0].sequence = 0xffffffff;
-    transaction.ins[1].sequence = 0xffffffff;
+    const transaction = parseTx(sampleTransactions.lockup);
+    transaction.updateInput(0, { sequence: 0xffffffff }, true);
+    transaction.updateInput(1, { sequence: 0xffffffff }, true);
 
     mockGetSwapResult = {
       id: '0conf',
@@ -686,8 +729,8 @@ describe('UtxoNursery', () => {
     expect(transactionHook.hook).toHaveBeenCalledWith(
       mockGetSwapResult.id,
       btcWallet.symbol,
-      transaction.getId(),
-      transaction.toBuffer(),
+      transaction.id,
+      Buffer.from(transaction.toBytes(true, true)),
       false,
       SwapType.Submarine,
       0,
@@ -701,9 +744,9 @@ describe('UtxoNursery', () => {
   test('should hold transactions when action is Hold', async () => {
     const checkSwapOutputs = nursery['checkOutputs'];
 
-    const transaction = Transaction.fromHex(sampleTransactions.lockup);
-    transaction.ins[0].sequence = 0xffffffff;
-    transaction.ins[1].sequence = 0xffffffff;
+    const transaction = parseTx(sampleTransactions.lockup);
+    transaction.updateInput(0, { sequence: 0xffffffff }, true);
+    transaction.updateInput(1, { sequence: 0xffffffff }, true);
 
     mockGetSwapResult = {
       id: 'hold',
@@ -731,8 +774,8 @@ describe('UtxoNursery', () => {
     expect(transactionHook.hook).toHaveBeenCalledWith(
       mockGetSwapResult.id,
       btcWallet.symbol,
-      transaction.getId(),
-      transaction.toBuffer(),
+      transaction.id,
+      Buffer.from(transaction.toBytes(true, true)),
       false,
       SwapType.Submarine,
       0,
@@ -756,7 +799,7 @@ describe('UtxoNursery', () => {
 
     const checkReverseSwapsClaims = nursery['checkSwapClaims'];
 
-    const transaction = Transaction.fromHex(sampleTransactions.claim);
+    const transaction = parseTx(sampleTransactions.claim);
 
     mockGetReverseSwapResult = {
       id: 'id',
@@ -788,15 +831,15 @@ describe('UtxoNursery', () => {
           SwapUpdateEvent.TransactionRefunded,
         ],
       },
-      transactionVout: transaction.ins[0].index,
-      transactionId: transactionHashToId(transaction.ins[0].hash),
+      transactionVout: transaction.getInput(0).index,
+      transactionId: Buffer.from(transaction.getInput(0).txid!).toString('hex'),
     });
 
     expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(1);
     expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledWith({
       swapId: mockGetReverseSwapResult.id,
       symbol: btcChainClient.symbol,
-      id: transaction.getId(),
+      id: transaction.id,
     });
 
     jest.clearAllMocks();
@@ -825,7 +868,7 @@ describe('UtxoNursery', () => {
       .fn()
       .mockResolvedValue(null);
 
-    const transaction = Transaction.fromHex(sampleTransactions.claim);
+    const transaction = parseTx(sampleTransactions.claim);
 
     mockGetReverseSwapResult = { id: 'reverseClaimResilience' };
 
@@ -1050,7 +1093,7 @@ describe('UtxoNursery', () => {
         pair: 'BTC/BTC',
         type: SwapType.ReverseSubmarine,
         lockupAddress: 'bc1ql279ggjjsy40nr2acmlmtcc95sexg8ty92pth5',
-        transactionId: Transaction.fromHex(sampleTransactions.rbf).getId(),
+        transactionId: parseTx(sampleTransactions.rbf).id,
       },
       // This ones transaction was confirmed but the transaction event was not properly emitted for it
       {
@@ -1058,14 +1101,12 @@ describe('UtxoNursery', () => {
         id: 'nonMempool',
         type: SwapType.ReverseSubmarine,
         lockupAddress: '3CxjzKKkxSa1eCRegA1KNS7KjXu1Hjhoqg',
-        transactionId: Transaction.fromHex(sampleTransactions.nonRbf).getId(),
+        transactionId: parseTx(sampleTransactions.nonRbf).id,
       },
     ];
 
     mockGetRawTransactionVerboseResult = (transactionId: string) => {
-      if (
-        transactionId === Transaction.fromHex(sampleTransactions.nonRbf).getId()
-      ) {
+      if (transactionId === parseTx(sampleTransactions.nonRbf).id) {
         return {
           confirmations: 1,
           hex: sampleTransactions.nonRbf,
@@ -1079,9 +1120,7 @@ describe('UtxoNursery', () => {
 
     nursery.on('server.lockup.confirmed', (args) => {
       expect(args.swap).toEqual(mockGetReverseSwapsResult[1]);
-      expect(args.transaction).toEqual(
-        Transaction.fromHex(sampleTransactions.nonRbf),
-      );
+      expect(args.transaction).toEqual(parseTx(sampleTransactions.nonRbf));
 
       eventsEmitted += 1;
     });
@@ -1197,7 +1236,7 @@ describe('UtxoNursery', () => {
   });
 
   test('should detect when transactions signal RBF explicitly', async () => {
-    const transaction = Transaction.fromHex(sampleTransactions.rbf);
+    const transaction = parseTx(sampleTransactions.rbf);
     expect(
       await nursery['transactionSignalsRbf'](btcChainClient, transaction),
     ).toEqual(true);
@@ -1212,7 +1251,7 @@ describe('UtxoNursery', () => {
       confirmations: undefined,
       hex: sampleTransactions.rbf,
     });
-    const transaction = Transaction.fromHex(sampleTransactions.nonRbf);
+    const transaction = parseTx(sampleTransactions.nonRbf);
 
     expect(await transactionSignalsRbf(btcChainClient, transaction)).toEqual(
       true,
@@ -1276,7 +1315,7 @@ describe('UtxoNursery', () => {
       async ({ expectedAmount, outputValue, expectedError }) => {
         const checkSwapOutputs = nursery['checkOutputs'];
 
-        const transaction = Transaction.fromHex(sampleTransactions.lockup);
+        const transaction = parseTx(sampleTransactions.lockup);
 
         let eventEmitted = false;
 
@@ -1349,8 +1388,8 @@ describe('UtxoNursery', () => {
       async ({ expectedAmount, outputValue, expectedError }) => {
         const checkChainSwapTransaction = nursery['checkChainSwapTransaction'];
 
-        const ourKeys = ECPair.makeRandom();
-        const theirPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
+        const ourKeys = makeKeys();
+        const theirPublicKey = Buffer.from(makeKeys().publicKey);
 
         const tree = swapTree(
           false,
@@ -1361,16 +1400,20 @@ describe('UtxoNursery', () => {
         );
 
         const transaction = new Transaction();
-        transaction.addOutput(
-          Scripts.p2trOutput(
-            tweakMusig(
-              CurrencyType.BitcoinLike,
-              createMusig(ourKeys, theirPublicKey),
-              tree,
+        transaction.addOutput({
+          script: Buffer.from(
+            Scripts.p2trOutput(
+              Buffer.from(
+                tweakMusig(
+                  CurrencyType.BitcoinLike,
+                  createMusig(ourKeys, theirPublicKey),
+                  tree,
+                ).aggPubkey,
+              ),
             ),
           ),
-          123,
-        );
+          amount: BigInt(123),
+        });
 
         mockGetKeysByIndexResult = ourKeys;
 
@@ -1421,7 +1464,7 @@ describe('UtxoNursery', () => {
           ChainSwapRepository.setUserLockupTransaction,
         ).toHaveBeenCalledWith(
           mockChainSwap,
-          transaction.getId(),
+          transaction.id,
           outputValue,
           true,
           0,
@@ -1435,8 +1478,8 @@ describe('UtxoNursery', () => {
     test('should ignore duplicate lockup checks after chain swap lockup failed', async () => {
       const checkChainSwapTransaction = nursery['checkChainSwapTransaction'];
 
-      const ourKeys = ECPair.makeRandom();
-      const theirPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
+      const ourKeys = makeKeys();
+      const theirPublicKey = Buffer.from(makeKeys().publicKey);
 
       const tree = swapTree(
         false,
@@ -1447,16 +1490,20 @@ describe('UtxoNursery', () => {
       );
 
       const transaction = new Transaction();
-      transaction.addOutput(
-        Scripts.p2trOutput(
-          tweakMusig(
-            CurrencyType.BitcoinLike,
-            createMusig(ourKeys, theirPublicKey),
-            tree,
+      transaction.addOutput({
+        script: Buffer.from(
+          Scripts.p2trOutput(
+            Buffer.from(
+              tweakMusig(
+                CurrencyType.BitcoinLike,
+                createMusig(ourKeys, theirPublicKey),
+                tree,
+              ).aggPubkey,
+            ),
           ),
         ),
-        123,
-      );
+        amount: BigInt(123),
+      });
 
       mockGetKeysByIndexResult = ourKeys;
 
@@ -1494,7 +1541,7 @@ describe('UtxoNursery', () => {
 
       expect(ChainSwapRepository.setUserLockupTransaction).toHaveBeenCalledWith(
         mockChainSwap,
-        transaction.getId(),
+        transaction.id,
         500,
         true,
         0,

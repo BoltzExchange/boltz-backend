@@ -1,25 +1,25 @@
-import { BIP32Factory } from 'bip32';
-import { mnemonicToSeedSync } from 'bip39';
-import { Transaction, address, crypto } from 'bitcoinjs-lib';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { hexToBytes } from '@noble/hashes/utils.js';
+import { HDKey } from '@scure/bip32';
+import { mnemonicToSeedSync } from '@scure/bip39';
+import { Transaction } from '@scure/btc-signer';
 import {
   Musig,
-  Networks,
   OutputType,
+  Scripts,
   SwapTreeSerializer,
   detectSwap,
   swapTree,
 } from 'boltz-core';
-import { secp } from 'boltz-core/dist/lib/liquid/init';
-import { p2trOutput } from 'boltz-core/dist/lib/swap/Scripts';
 import { randomBytes } from 'crypto';
-import * as ecc from 'tiny-secp256k1';
+import { addressFromOutputScript } from '../../../../lib/AddressUtils';
 import {
   createMusig,
   hashForWitnessV1,
   setup,
   tweakMusig,
 } from '../../../../lib/Core';
-import { ECPair } from '../../../../lib/ECPairHelper';
 import Logger from '../../../../lib/Logger';
 import {
   generateSwapId,
@@ -67,6 +67,7 @@ import Contracts, {
 } from '../../../../lib/wallet/ethereum/contracts/Contracts';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
+import { regtest as bitcoinRegtest } from '../../../Networks';
 import { getPostgresDatabase, wait } from '../../../Utils';
 import { bitcoinClient, bitcoinLndClient, clnClient } from '../../Nodes';
 import { sidecar, startSidecar } from '../../sidecar/Utils';
@@ -81,11 +82,17 @@ import {
   getSigner,
 } from '../../wallet/EthereumTools';
 
+const makeKeys = () => {
+  const privateKey = randomBytes(32);
+  return {
+    privateKey: Buffer.from(privateKey),
+    publicKey: Buffer.from(secp256k1.getPublicKey(privateKey, true)),
+  };
+};
+
 describe('DeferredClaimer', () => {
   let ethereumSetup: EthereumSetup;
   let contracts: Awaited<ReturnType<typeof getContracts>>;
-
-  const bip32 = BIP32Factory(ecc);
 
   const btcCurrency = {
     clnClient,
@@ -101,9 +108,9 @@ describe('DeferredClaimer', () => {
     new CoreWalletProvider(
       Logger.disabledLogger,
       bitcoinClient,
-      Networks.bitcoinRegtest,
+      bitcoinRegtest,
     ),
-    Networks.bitcoinRegtest,
+    bitcoinRegtest,
   );
 
   const rateProvider = {
@@ -140,7 +147,7 @@ describe('DeferredClaimer', () => {
   );
 
   const createClaimableOutput = async (timeoutBlockHeight?: number) => {
-    const refundKeys = ECPair.makeRandom();
+    const refundKeys = makeKeys();
     const preimage = randomBytes(32);
 
     const claimKeys = await btcWallet.getNewKeys();
@@ -155,23 +162,29 @@ describe('DeferredClaimer', () => {
     );
     const tree = swapTree(
       false,
-      crypto.sha256(preimage),
+      Buffer.from(sha256(preimage)),
       claimKeys.keys.publicKey,
       Buffer.from(refundKeys.publicKey!),
       timeout,
     );
 
-    const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
-    const lockupAddress = btcWallet.encodeAddress(p2trOutput(tweakedKey));
+    const tweakedKey = Buffer.from(
+      tweakMusig(CurrencyType.BitcoinLike, musig, tree).aggPubkey,
+    );
+    const lockupAddress = btcWallet.encodeAddress(
+      Buffer.from(Scripts.p2trOutput(tweakedKey)),
+    );
     const onchainAmount = 100_000;
-    const tx = Transaction.fromHex(
-      await bitcoinClient.getRawTransaction(
-        await bitcoinClient.sendToAddress(
-          lockupAddress,
-          onchainAmount,
-          undefined,
-          false,
-          '',
+    const tx = Transaction.fromRaw(
+      hexToBytes(
+        await bitcoinClient.getRawTransaction(
+          await bitcoinClient.sendToAddress(
+            lockupAddress,
+            onchainAmount,
+            undefined,
+            false,
+            '',
+          ),
         ),
       ),
     );
@@ -185,7 +198,7 @@ describe('DeferredClaimer', () => {
       keyIndex: claimKeys.index,
       orderSide: OrderSide.BUY,
       preimage: getHexString(preimage),
-      preimageHash: getHexString(crypto.sha256(preimage)),
+      preimageHash: getHexString(Buffer.from(sha256(preimage))),
       status: SwapUpdateEvent.InvoicePaid,
       version: SwapVersion.Taproot,
       refundPublicKey: getHexString(Buffer.from(refundKeys.publicKey)),
@@ -193,17 +206,17 @@ describe('DeferredClaimer', () => {
       createdRefundSignature: false,
       lockupAddress,
       redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
-      lockupTransactionId: tx.getId(),
+      lockupTransactionId: tx.id,
       lockupTransactionVout: detectSwap(tweakedKey, tx)!.vout,
     });
 
     const swap = (await SwapRepository.getSwap({ id }))!;
 
-    return { swap, preimage, refundKeys, lockupTransactionId: tx.getId() };
+    return { swap, preimage, refundKeys, lockupTransactionId: tx.id };
   };
 
   const createClaimableChainSwapOutput = async () => {
-    const refundKeys = ECPair.makeRandom();
+    const refundKeys = makeKeys();
     const preimage = randomBytes(32);
 
     const claimKeys = await btcWallet.getNewKeys();
@@ -214,23 +227,29 @@ describe('DeferredClaimer', () => {
     );
     const tree = swapTree(
       false,
-      crypto.sha256(preimage),
+      Buffer.from(sha256(preimage)),
       claimKeys.keys.publicKey,
       Buffer.from(refundKeys.publicKey!),
       1,
     );
 
-    const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
-    const lockupAddress = btcWallet.encodeAddress(p2trOutput(tweakedKey));
+    const tweakedKey = Buffer.from(
+      tweakMusig(CurrencyType.BitcoinLike, musig, tree).aggPubkey,
+    );
+    const lockupAddress = btcWallet.encodeAddress(
+      Buffer.from(Scripts.p2trOutput(tweakedKey)),
+    );
     const onchainAmount = 100_000;
-    const tx = Transaction.fromHex(
-      await bitcoinClient.getRawTransaction(
-        await bitcoinClient.sendToAddress(
-          lockupAddress,
-          onchainAmount,
-          undefined,
-          false,
-          '',
+    const tx = Transaction.fromRaw(
+      hexToBytes(
+        await bitcoinClient.getRawTransaction(
+          await bitcoinClient.sendToAddress(
+            lockupAddress,
+            onchainAmount,
+            undefined,
+            false,
+            '',
+          ),
         ),
       ),
     );
@@ -243,7 +262,7 @@ describe('DeferredClaimer', () => {
         pair: 'L-BTC/BTC',
         orderSide: OrderSide.BUY,
         preimage: getHexString(preimage),
-        preimageHash: getHexString(crypto.sha256(preimage)),
+        preimageHash: getHexString(Buffer.from(sha256(preimage))),
         status: SwapUpdateEvent.TransactionClaimPending,
         acceptZeroConf: false,
         createdRefundSignature: false,
@@ -252,7 +271,9 @@ describe('DeferredClaimer', () => {
       receivingData: {
         swapId: id,
         symbol: 'BTC',
-        lockupAddress: btcWallet.encodeAddress(p2trOutput(tweakedKey)),
+        lockupAddress: btcWallet.encodeAddress(
+          Buffer.from(Scripts.p2trOutput(tweakedKey)),
+        ),
         timeoutBlockHeight:
           (await bitcoinClient.getBlockchainInfo()).blocks + 100,
         expectedAmount: onchainAmount,
@@ -260,7 +281,7 @@ describe('DeferredClaimer', () => {
         keyIndex: claimKeys.index,
         theirPublicKey: getHexString(Buffer.from(refundKeys.publicKey!)),
         swapTree: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
-        transactionId: tx.getId(),
+        transactionId: tx.id,
         transactionVout: detectSwap(tweakedKey, tx)!.vout,
       },
       sendingData: {
@@ -278,7 +299,7 @@ describe('DeferredClaimer', () => {
     return {
       preimage,
       refundKeys,
-      lockupTransactionId: tx.getId(),
+      lockupTransactionId: tx.id,
       swap: chainSwap,
     };
   };
@@ -296,7 +317,7 @@ describe('DeferredClaimer', () => {
     } as Partial<Swap> as Swap;
 
     swap.preimageHash = getHexString(
-      crypto.sha256(getHexBuffer(swap.preimage!)),
+      Buffer.from(sha256(getHexBuffer(swap.preimage!))),
     );
 
     const tx = await contracts.etherSwap['lock(bytes32,address,uint256)'](
@@ -318,7 +339,7 @@ describe('DeferredClaimer', () => {
   const lockupEtherCommitment = async (nonce: number) => {
     const zeroPreimageHash = Buffer.alloc(32);
     const preimage = randomBytes(32);
-    const preimageHash = crypto.sha256(preimage);
+    const preimageHash = Buffer.from(sha256(preimage));
     const amount = 100_000n;
 
     const swap = {
@@ -411,7 +432,7 @@ describe('DeferredClaimer', () => {
     } as Partial<Swap> as Swap;
 
     swap.preimageHash = getHexString(
-      crypto.sha256(getHexBuffer(swap.preimage!)),
+      Buffer.from(sha256(getHexBuffer(swap.preimage!))),
     );
 
     const amount = 100_000n;
@@ -448,7 +469,7 @@ describe('DeferredClaimer', () => {
   const lockupTokenCommitment = async (nonce: number) => {
     const zeroPreimageHash = Buffer.alloc(32);
     const preimage = randomBytes(32);
-    const preimageHash = crypto.sha256(preimage);
+    const preimageHash = Buffer.from(sha256(preimage));
     const amount = 100_000n;
 
     const swap = {
@@ -565,7 +586,7 @@ describe('DeferredClaimer', () => {
 
     btcWallet.initKeyProvider(
       'm/0/0',
-      bip32.fromSeed(
+      HDKey.fromMasterSeed(
         mnemonicToSeedSync(
           'test test test test test test test test test test test junk',
         ),
@@ -716,7 +737,7 @@ describe('DeferredClaimer', () => {
         orderSide: OrderSide.BUY,
         version: SwapVersion.Taproot,
         status: SwapUpdateEvent.InvoicePaid,
-        preimageHash: getHexString(crypto.sha256(preimage)),
+        preimageHash: getHexString(Buffer.from(sha256(preimage))),
         timeoutBlockHeight: 1000000,
         lockupAddress: 'lockupAddress',
         createdRefundSignature: false,
@@ -753,7 +774,7 @@ describe('DeferredClaimer', () => {
           pair: 'L-BTC/BTC',
           orderSide: OrderSide.BUY,
           status: SwapUpdateEvent.TransactionClaimPending,
-          preimageHash: getHexString(crypto.sha256(preimage)),
+          preimageHash: getHexString(Buffer.from(sha256(preimage))),
           fee: 0,
           acceptZeroConf: false,
           createdRefundSignature: false,
@@ -831,14 +852,12 @@ describe('DeferredClaimer', () => {
         (trigger) => trigger instanceof AmountTrigger,
       )!;
 
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
+      // @ts-expect-error - test fixture override
       trigger['sweepAmountTrigger'] = swap.onchainAmount!;
 
       await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
 
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
+      // @ts-expect-error - test fixture override
       trigger['sweepAmountTrigger'] = undefined;
 
       const args = await emitPromise;
@@ -1012,21 +1031,24 @@ describe('DeferredClaimer', () => {
       const lockupTxs = swaps.map(
         ({ lockupTransactionId }) => lockupTransactionId,
       );
-      const claimTx = Transaction.fromHex(
-        await bitcoinClient.getRawTransaction(
-          (await bitcoinClient.getRawMempool()).find(
-            (txId) => !lockupTxs.includes(txId),
-          )!,
+      const claimTx = Transaction.fromRaw(
+        hexToBytes(
+          await bitcoinClient.getRawTransaction(
+            (await bitcoinClient.getRawMempool()).find(
+              (txId) => !lockupTxs.includes(txId),
+            )!,
+          ),
         ),
       );
 
-      expect(claimTx.ins.length).toEqual(swaps.length);
-      expect(claimTx.outs.length).toEqual(1);
+      expect(claimTx.inputsLength).toEqual(swaps.length);
+      expect(claimTx.outputsLength).toEqual(1);
 
       const addressInfo = await bitcoinClient.getAddressInfo(
-        address.fromOutputScript(
-          claimTx.outs[0].script,
-          Networks.bitcoinRegtest,
+        addressFromOutputScript(
+          CurrencyType.BitcoinLike,
+          Buffer.from(claimTx.getOutput(0).script!),
+          bitcoinRegtest,
         ),
       );
       expect(addressInfo.ismine).toEqual(true);
@@ -1441,15 +1463,17 @@ describe('DeferredClaimer', () => {
     const lockupTxs = paidSwaps.map(
       ({ lockupTransactionId }) => lockupTransactionId,
     );
-    const claimTx = Transaction.fromHex(
-      await bitcoinClient.getRawTransaction(
-        (await bitcoinClient.getRawMempool()).find(
-          (txId) => !lockupTxs.includes(txId),
-        )!,
+    const claimTx = Transaction.fromRaw(
+      hexToBytes(
+        await bitcoinClient.getRawTransaction(
+          (await bitcoinClient.getRawMempool()).find(
+            (txId) => !lockupTxs.includes(txId),
+          )!,
+        ),
       ),
     );
 
-    expect(claimTx.ins.length).toEqual(2);
+    expect(claimTx.inputsLength).toEqual(2);
   });
 
   describe('getCooperativeDetails', () => {
@@ -1494,10 +1518,11 @@ describe('DeferredClaimer', () => {
       expect(toClaim.cooperative!.musig).not.toBeUndefined();
       expect(toClaim.cooperative!.transaction).not.toBeUndefined();
       expect(toClaim.cooperative!.sweepAddress).not.toBeUndefined();
-      expect(toClaim.cooperative!.transaction.ins).toHaveLength(1);
-      expect(toClaim.cooperative!.transaction.ins[0].witness).toHaveLength(1);
-      expect(toClaim.cooperative!.transaction.outs).toHaveLength(1);
-      expect(toClaim.cooperative!.transaction.outs[0].script).toEqual(
+      const coopTx = toClaim.cooperative!.transaction as Transaction;
+      expect(coopTx.inputsLength).toEqual(1);
+      expect(coopTx.getInput(0).finalScriptWitness).toHaveLength(1);
+      expect(coopTx.outputsLength).toEqual(1);
+      expect(Buffer.from(coopTx.getOutput(0).script!)).toEqual(
         btcWallet.decodeAddress(toClaim.cooperative!.sweepAddress),
       );
 
@@ -1510,7 +1535,7 @@ describe('DeferredClaimer', () => {
         ).publicKey,
       );
       expect(details.pubNonce).toEqual(
-        Buffer.from(toClaim.cooperative!.musig.getPublicNonce()),
+        Buffer.from(toClaim.cooperative!.musig.publicNonce),
       );
       expect(details.transactionHash).toEqual(
         await hashForWitnessV1(
@@ -1550,13 +1575,13 @@ describe('DeferredClaimer', () => {
 
         // Same address and transaction
         expect(newCoop.sweepAddress).toEqual(coop.sweepAddress);
-        expect(newCoop.transaction.toHex()).toEqual(coop.transaction.toHex());
+        expect((newCoop.transaction as Transaction).hex).toEqual(
+          (coop.transaction as Transaction).hex,
+        );
 
         // Different musig
         expect(newCoop.musig).not.toEqual(coop.musig);
-        expect(newCoop.musig.getPublicNonce()).not.toEqual(
-          coop.musig.getPublicNonce(),
-        );
+        expect(newCoop.musig.publicNonce).not.toEqual(coop.musig.publicNonce);
       },
     );
 
@@ -1595,17 +1620,20 @@ describe('DeferredClaimer', () => {
       await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
       const details = await claimer.getCooperativeDetails(swap);
 
-      const musig = new Musig(secp, refundKeys, randomBytes(32), [
-        btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
-        Buffer.from(refundKeys.publicKey),
-      ]);
-      tweakMusig(
+      const session = tweakMusig(
         CurrencyType.BitcoinLike,
-        musig,
+        Musig.create(refundKeys.privateKey!, [
+          btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
+          refundKeys.publicKey,
+        ]),
         SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!),
-      );
-      musig.aggregateNonces([[details.publicKey, details.pubNonce]]);
-      musig.initializeSession(details.transactionHash);
+      )
+        .message(details.transactionHash)
+        .generateNonce();
+      const signed = session
+        .aggregateNonces([[details.publicKey, details.pubNonce]])
+        .initializeSession()
+        .signPartial();
 
       claimer.once('claim', ({ swap }) => {
         expect(swap.status).toEqual(SwapUpdateEvent.TransactionClaimed);
@@ -1614,21 +1642,23 @@ describe('DeferredClaimer', () => {
 
       await claimer.broadcastCooperative(
         swap,
-        Buffer.from(musig.getPublicNonce()),
-        Buffer.from(musig.signPartial()),
+        Buffer.from(session.publicNonce),
+        Buffer.from(signed.ourPartialSignature),
       );
 
       expect(claimer['swapsToClaim'].get('BTC')!.get(swap.id)).toBeUndefined();
 
-      const claimTx = Transaction.fromHex(
-        await bitcoinClient.getRawTransaction(
-          (await bitcoinClient.getRawMempool()).find(
-            (txId) => txId !== swap.lockupTransactionId,
-          )!,
+      const claimTx = Transaction.fromRaw(
+        hexToBytes(
+          await bitcoinClient.getRawTransaction(
+            (await bitcoinClient.getRawMempool()).find(
+              (txId) => txId !== swap.lockupTransactionId,
+            )!,
+          ),
         ),
       );
-      expect(claimTx.ins).toHaveLength(1);
-      expect(claimTx.outs).toHaveLength(1);
+      expect(claimTx.inputsLength).toEqual(1);
+      expect(claimTx.outputsLength).toEqual(1);
     });
 
     test('should broadcast chains swaps cooperatively', async () => {
@@ -1639,17 +1669,20 @@ describe('DeferredClaimer', () => {
       await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
       const details = await claimer.getCooperativeDetails(swap);
 
-      const musig = new Musig(secp, refundKeys, randomBytes(32), [
-        btcWallet.getKeysByIndex(swap.receivingData.keyIndex!).publicKey,
-        Buffer.from(refundKeys.publicKey),
-      ]);
-      tweakMusig(
+      const session = tweakMusig(
         CurrencyType.BitcoinLike,
-        musig,
+        Musig.create(refundKeys.privateKey!, [
+          btcWallet.getKeysByIndex(swap.receivingData.keyIndex!).publicKey,
+          refundKeys.publicKey,
+        ]),
         SwapTreeSerializer.deserializeSwapTree(swap.receivingData.swapTree!),
-      );
-      musig.aggregateNonces([[details.publicKey, details.pubNonce]]);
-      musig.initializeSession(details.transactionHash);
+      )
+        .message(details.transactionHash)
+        .generateNonce();
+      const signed = session
+        .aggregateNonces([[details.publicKey, details.pubNonce]])
+        .initializeSession()
+        .signPartial();
 
       claimer.once('claim', ({ swap }) => {
         expect(swap.status).toEqual(SwapUpdateEvent.TransactionClaimed);
@@ -1658,23 +1691,25 @@ describe('DeferredClaimer', () => {
 
       await claimer.broadcastCooperative(
         swap,
-        Buffer.from(musig.getPublicNonce()),
-        Buffer.from(musig.signPartial()),
+        Buffer.from(session.publicNonce),
+        Buffer.from(signed.ourPartialSignature),
       );
 
       expect(
         claimer['chainSwapsToClaim'].get('BTC')!.get(swap.id),
       ).toBeUndefined();
 
-      const claimTx = Transaction.fromHex(
-        await bitcoinClient.getRawTransaction(
-          (await bitcoinClient.getRawMempool()).find(
-            (txId) => txId !== swap.receivingData.lockupTransactionId,
-          )!,
+      const claimTx = Transaction.fromRaw(
+        hexToBytes(
+          await bitcoinClient.getRawTransaction(
+            (await bitcoinClient.getRawMempool()).find(
+              (txId) => txId !== swap.receivingData.lockupTransactionId,
+            )!,
+          ),
         ),
       );
-      expect(claimTx.ins).toHaveLength(1);
-      expect(claimTx.outs).toHaveLength(1);
+      expect(claimTx.inputsLength).toEqual(1);
+      expect(claimTx.outputsLength).toEqual(1);
     });
 
     test('should throw when cooperatively broadcasting a submarine swap with invalid partial signature', async () => {
@@ -1684,14 +1719,16 @@ describe('DeferredClaimer', () => {
       await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
       await claimer.getCooperativeDetails(swap);
 
-      const musig = new Musig(secp, refundKeys, randomBytes(32), [
+      const session = Musig.create(refundKeys.privateKey!, [
         btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
-        Buffer.from(refundKeys.publicKey),
-      ]);
+        refundKeys.publicKey,
+      ])
+        .message(randomBytes(32))
+        .generateNonce();
       await expect(
         claimer.broadcastCooperative(
           swap,
-          Buffer.from(musig.getPublicNonce()),
+          Buffer.from(session.publicNonce),
           randomBytes(32),
         ),
       ).rejects.toEqual(Errors.INVALID_PARTIAL_SIGNATURE());

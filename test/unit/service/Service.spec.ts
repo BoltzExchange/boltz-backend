@@ -1,13 +1,12 @@
-import { address } from 'bitcoinjs-lib';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
 import bolt11 from 'bolt11';
-import { Networks } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import {
   Transaction as LiquidTransaction,
   networks as liquidNetworks,
 } from 'liquidjs-lib';
+import { addressFromOutputScript } from '../../../lib/AddressUtils';
 import type { ConfigType } from '../../../lib/Config';
-import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import {
   getHexBuffer,
@@ -66,6 +65,7 @@ import WalletManager from '../../../lib/wallet/WalletManager';
 import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
 import type InjectedProvider from '../../../lib/wallet/ethereum/InjectedProvider';
 import packageJson from '../../../package.json';
+import { regtest as bitcoinRegtest } from '../../Networks';
 import { createInvoice } from '../swap/InvoiceUtils';
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
@@ -242,11 +242,13 @@ const mockGetBalance = jest.fn().mockResolvedValue(mockGetBalanceResult);
 const newAddress = 'bcrt1';
 const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
 
-const keys = ECPair.fromPrivateKey(
-  getHexBuffer(
-    'e682c45fff6f6f1d793e8d520d4660ac0f853636d47519614cc5d7e4077b1b82',
-  ),
+const keysPrivateKey = getHexBuffer(
+  'e682c45fff6f6f1d793e8d520d4660ac0f853636d47519614cc5d7e4077b1b82',
 );
+const keys = {
+  privateKey: keysPrivateKey,
+  publicKey: Buffer.from(secp256k1.getPublicKey(keysPrivateKey, true)),
+};
 const mockGetKeysByIndexResult = {
   publicKey: Buffer.from(keys.publicKey),
   privateKey: Buffer.from(keys.privateKey!),
@@ -321,7 +323,11 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
             sendToAddress: mockSendToAddress,
             sweepWallet: mockSweepWallet,
             encodeAddress: (script: Buffer) =>
-              address.fromOutputScript(script, Networks.bitcoinRegtest),
+              addressFromOutputScript(
+                CurrencyType.BitcoinLike,
+                script,
+                bitcoinRegtest,
+              )!,
           } as any as Wallet,
         ],
         [
@@ -334,7 +340,11 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
             sendToAddress: mockSendToAddress,
             sweepWallet: mockSweepWallet,
             encodeAddress: (script: Buffer) =>
-              address.fromOutputScript(script, liquidNetworks.regtest),
+              addressFromOutputScript(
+                CurrencyType.Liquid,
+                script,
+                liquidNetworks.regtest,
+              )!,
           } as any as Wallet,
         ],
         [
@@ -740,7 +750,7 @@ describe('Service', () => {
       {
         symbol: 'BTC',
         type: CurrencyType.BitcoinLike,
-        network: Networks.bitcoinRegtest,
+        network: bitcoinRegtest,
         limits: {} as any,
         lndClients: new Map([[btcLndClient.id, btcLndClient]]),
         chainClient: mockedChainClient(),
@@ -762,7 +772,7 @@ describe('Service', () => {
       {
         symbol: 'LTC',
         type: CurrencyType.BitcoinLike,
-        network: Networks.litecoinRegtest,
+        network: bitcoinRegtest,
         limits: {} as any,
         lndClients: new Map([[ltcLndClient.id, ltcLndClient]]),
         chainClient: mockedChainClient(),

@@ -1,5 +1,5 @@
-import { generateMnemonic } from 'bip39';
-import { Networks } from 'boltz-core';
+import { generateMnemonic } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
 import fs from 'fs';
 import type { CurrencyConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
@@ -12,6 +12,7 @@ import type NotificationClient from '../../../lib/notifications/NotificationClie
 import WalletErrors from '../../../lib/wallet/Errors';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import WalletManager from '../../../lib/wallet/WalletManager';
+import { regtest as bitcoinRegtest } from '../../Networks';
 
 const symbol = 'BTC';
 
@@ -85,7 +86,7 @@ describe('WalletManager', () => {
       symbol: 'BTC',
       chainClient: btcClient,
       type: CurrencyType.BitcoinLike,
-      network: Networks.bitcoinRegtest,
+      network: bitcoinRegtest,
       limits: {} as any as CurrencyConfig,
     },
     {
@@ -93,7 +94,7 @@ describe('WalletManager', () => {
       symbol: 'LTC',
       chainClient: ltcClient,
       type: CurrencyType.BitcoinLike,
-      network: Networks.litecoinRegtest,
+      network: bitcoinRegtest,
       limits: {} as any as CurrencyConfig,
     },
   ];
@@ -124,11 +125,15 @@ describe('WalletManager', () => {
   });
 
   test('should derive master node and slip77 from mnemonic', () => {
-    const derived = WalletManager['deriveFromMnemonic'](generateMnemonic());
+    const derived = WalletManager['deriveFromMnemonic'](
+      generateMnemonic(wordlist),
+    );
     expect(derived.masterNode).toBeDefined();
     expect(derived.slip77).toBeDefined();
 
-    const second = WalletManager['deriveFromMnemonic'](generateMnemonic());
+    const second = WalletManager['deriveFromMnemonic'](
+      generateMnemonic(wordlist),
+    );
     expect(second.masterNode).toBeDefined();
     expect(second.slip77).toBeDefined();
 
@@ -149,6 +154,42 @@ describe('WalletManager', () => {
     );
     expect(fs.existsSync(mnemonicPath)).toBeTruthy();
     expect(fs.existsSync(mnemonicPathEvm)).toBeTruthy();
+  });
+
+  test('should write a new mnemonic with mode 0o600 and exclusive-create flag', () => {
+    const tmpPath = 'seed-perms.dat';
+    const tmpPathEvm = 'seedEvm-perms.dat';
+
+    const deleteIfExists = (path: string) => {
+      if (fs.existsSync(path)) fs.unlinkSync(path);
+    };
+    deleteIfExists(tmpPath);
+    deleteIfExists(tmpPathEvm);
+
+    const writeSpy = jest.spyOn(fs, 'writeFileSync');
+
+    try {
+      new WalletManager(
+        Logger.disabledLogger,
+        mockNotificationClient,
+        tmpPath,
+        tmpPathEvm,
+        currencies,
+        [],
+      );
+
+      for (const path of [tmpPath, tmpPathEvm]) {
+        expect(writeSpy).toHaveBeenCalledWith(path, expect.any(String), {
+          mode: 0o600,
+          flag: 'wx',
+        });
+        expect(fs.statSync(path).mode & 0o777).toEqual(0o600);
+      }
+    } finally {
+      writeSpy.mockRestore();
+      deleteIfExists(tmpPath);
+      deleteIfExists(tmpPathEvm);
+    }
   });
 
   test('should initialize a Bitcoin Core wallet when LND is not configured', async () => {
@@ -236,9 +277,9 @@ describe('WalletManager', () => {
 
   test.each`
     mnemonic
-    ${generateMnemonic()}
-    ${`${generateMnemonic()}\n`}
-    ${`${generateMnemonic()}\n\n`}
+    ${generateMnemonic(wordlist)}
+    ${`${generateMnemonic(wordlist)}\n`}
+    ${`${generateMnemonic(wordlist)}\n\n`}
   `('should read and load the mnemonic', ({ mnemonic }) => {
     fs.writeFileSync(mnemonicPath, mnemonic);
 

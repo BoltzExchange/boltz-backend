@@ -1,4 +1,4 @@
-import { Transaction } from 'bitcoinjs-lib';
+import { Transaction } from '@scure/btc-signer';
 import { EventEmitter } from 'events';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
@@ -1530,7 +1530,7 @@ describe('SwapNursery', () => {
       const refundTransaction = new Transaction();
       mockChainClient.getRawTransaction = jest
         .fn()
-        .mockResolvedValue(refundTransaction.toHex());
+        .mockResolvedValue(refundTransaction.hex);
       jest.spyOn(swapNursery, 'emit');
 
       await swapNursery.init([mockCurrency]);
@@ -1551,11 +1551,11 @@ describe('SwapNursery', () => {
 
       await refundConfirmedListener({
         swap,
-        refundTransaction: refundTransaction.getId(),
+        refundTransaction: refundTransaction.id,
       });
 
       expect(mockChainClient.getRawTransaction).toHaveBeenCalledWith(
-        refundTransaction.getId(),
+        refundTransaction.id,
       );
       const refundEmits = (swapNursery.emit as jest.Mock).mock.calls
         .filter(([event]) => event === 'refund')
@@ -1566,16 +1566,11 @@ describe('SwapNursery', () => {
         swap,
         confirmed: true,
         emitFailure: false,
-        refundTransaction: expect.objectContaining({
-          getId: expect.any(Function),
-          toHex: expect.any(Function),
-        }),
+        refundTransaction: expect.anything(),
       });
-      expect(refundEmits[0].refundTransaction.getId()).toEqual(
-        refundTransaction.getId(),
-      );
-      expect(refundEmits[0].refundTransaction.toHex()).toEqual(
-        refundTransaction.toHex(),
+      expect(refundEmits[0].refundTransaction.id).toEqual(refundTransaction.id);
+      expect(refundEmits[0].refundTransaction.hex).toEqual(
+        refundTransaction.hex,
       );
     });
 
@@ -1783,7 +1778,7 @@ describe('SwapNursery', () => {
         refundTransaction: refundTransactionId,
       });
 
-      resolveRawTransaction(new Transaction().toHex());
+      resolveRawTransaction(new Transaction().hex);
       await new Promise<void>((resolve) => {
         setImmediate(resolve);
       });

@@ -1,7 +1,8 @@
-import type { Network } from 'bitcoinjs-lib';
+import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import type { Sequelize } from 'sequelize';
 import { DataTypes, Model } from 'sequelize';
-import { fromOutputScript } from '../../Core';
+import { addressFromOutputScript } from '../../AddressUtils';
+import type { BitcoinNetwork } from '../../consts/BitcoinNetworks';
 import type { CurrencyType } from '../../consts/Enums';
 import ReverseSwap from './ReverseSwap';
 
@@ -23,8 +24,11 @@ class ReverseRoutingHint extends Model {
   declare params?: string;
   declare signature: Buffer;
 
-  public address = (type: CurrencyType, network: Network) => {
-    return fromOutputScript(
+  public address = (
+    type: CurrencyType,
+    network: BitcoinNetwork | LiquidNetwork,
+  ) => {
+    return addressFromOutputScript(
       type,
       this.scriptPubkey,
       network,

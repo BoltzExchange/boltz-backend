@@ -1,8 +1,9 @@
-import { Transaction, address } from 'bitcoinjs-lib';
-import { Networks } from 'boltz-core';
+import { hexToBytes } from '@noble/hashes/utils.js';
+import { Transaction } from '@scure/btc-signer';
 import { Op } from 'sequelize';
-import { getHexString, getUnixTime, reverseBuffer } from '../../../lib/Utils';
-import { OrderSide } from '../../../lib/consts/Enums';
+import { addressFromOutputScript } from '../../../lib/AddressUtils';
+import { getUnixTime } from '../../../lib/Utils';
+import { CurrencyType, OrderSide } from '../../../lib/consts/Enums';
 import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
@@ -11,6 +12,7 @@ import Errors from '../../../lib/service/Errors';
 import TransactionFetcher from '../../../lib/service/TransactionFetcher';
 import type Wallet from '../../../lib/wallet/Wallet';
 import type { Currency } from '../../../lib/wallet/WalletManager';
+import { regtest as bitcoinRegtest } from '../../Networks';
 import { bitcoinClient } from '../Nodes';
 import { getSigner } from '../wallet/EthereumTools';
 
@@ -259,18 +261,29 @@ describe('TransactionFetcher', () => {
     let transaction: Transaction;
 
     beforeAll(async () => {
-      transaction = Transaction.fromHex(
-        await bitcoinClient.getRawTransaction(
-          await bitcoinClient.sendToAddress(
-            await bitcoinClient.getNewAddress(''),
-            100_000,
-            undefined,
-            false,
-            '',
+      transaction = Transaction.fromRaw(
+        hexToBytes(
+          await bitcoinClient.getRawTransaction(
+            await bitcoinClient.sendToAddress(
+              await bitcoinClient.getNewAddress(''),
+              100_000,
+              undefined,
+              false,
+              '',
+            ),
           ),
         ),
       );
     });
+
+    const inputDescriptors = (tx: Transaction) =>
+      Array.from({ length: tx.inputsLength }, (_, i) => {
+        const input = tx.getInput(i);
+        return {
+          index: input.index!,
+          txid: Buffer.from(input.txid!).toString('hex'),
+        };
+      });
 
     test('should fetch swaps spent in inputs', async () => {
       SwapRepository.getSwaps = jest.fn().mockResolvedValue([{ id: 'swap' }]);
@@ -286,33 +299,39 @@ describe('TransactionFetcher', () => {
       expect(swaps.chainSwapsSpent).toEqual([{ id: 'chain' }]);
       expect(swaps.reverseSwapsClaimed).toEqual([{ id: 'reverse' }]);
 
+      const descriptors = inputDescriptors(transaction);
+
       expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
       expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
-        [Op.or]: transaction.ins.map((input) => ({
+        [Op.or]: descriptors.map((input) => ({
           lockupTransactionVout: input.index,
-          lockupTransactionId: getHexString(reverseBuffer(input.hash)),
+          lockupTransactionId: input.txid,
         })),
       });
       expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
       expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledWith({
-        [Op.or]: transaction.ins.map((input) => ({
+        [Op.or]: descriptors.map((input) => ({
           transactionVout: input.index,
-          transactionId: getHexString(reverseBuffer(input.hash)),
+          transactionId: input.txid,
         })),
       });
       expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledTimes(1);
       expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledWith({
-        [Op.or]: transaction.ins.map((input) => ({
+        [Op.or]: descriptors.map((input) => ({
           transactionVout: input.index,
-          transactionId: getHexString(reverseBuffer(input.hash)),
+          transactionId: input.txid,
         })),
       });
     });
 
     test('should not fetch from database when the transaction has no inputs', async () => {
-      transaction.ins = [];
+      const empty = new Transaction({ allowUnknownOutputs: true });
+      empty.addOutput({
+        amount: BigInt(100),
+        script: Buffer.alloc(0),
+      });
 
-      const swaps = await fetcher.getSwapsSpentInInputs(transaction);
+      const swaps = await fetcher.getSwapsSpentInInputs(empty);
       expect(swaps.swapsRefunded).toEqual([]);
       expect(swaps.chainSwapsSpent).toEqual([]);
       expect(swaps.reverseSwapsClaimed).toEqual([]);
@@ -326,22 +345,28 @@ describe('TransactionFetcher', () => {
   describe('getSwapsFundedInOutputs', () => {
     let transaction: Transaction;
 
+    const encodeAddress = (script: Buffer) =>
+      addressFromOutputScript(
+        CurrencyType.BitcoinLike,
+        script,
+        bitcoinRegtest,
+      )!;
+
     const wallet = {
-      encodeAddress: (outputScript) => ({
-        new: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
-        legacy: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
-      }),
+      encodeAddress: (outputScript: Buffer) => encodeAddress(outputScript),
     } as unknown as Wallet;
 
     beforeAll(async () => {
-      transaction = Transaction.fromHex(
-        await bitcoinClient.getRawTransaction(
-          await bitcoinClient.sendToAddress(
-            await bitcoinClient.getNewAddress(''),
-            100_000,
-            undefined,
-            false,
-            '',
+      transaction = Transaction.fromRaw(
+        hexToBytes(
+          await bitcoinClient.getRawTransaction(
+            await bitcoinClient.sendToAddress(
+              await bitcoinClient.getNewAddress(''),
+              100_000,
+              undefined,
+              false,
+              '',
+            ),
           ),
         ),
       );
@@ -357,10 +382,12 @@ describe('TransactionFetcher', () => {
       expect(swaps.swapLockups).toEqual([{ id: 'swap' }]);
       expect(swaps.chainSwapLockups).toEqual([{ id: 'chain' }]);
 
-      const outputAddresses = transaction.outs.flatMap((output) => [
-        address.fromOutputScript(output.script, Networks.bitcoinRegtest),
-        address.fromOutputScript(output.script, Networks.bitcoinRegtest),
-      ]);
+      const outputAddresses: string[] = [];
+      for (let i = 0; i < transaction.outputsLength; i++) {
+        const out = transaction.getOutput(i);
+        if (!out.script || out.script.length === 0) continue;
+        outputAddresses.push(encodeAddress(Buffer.from(out.script)));
+      }
 
       expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
       expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
@@ -377,14 +404,13 @@ describe('TransactionFetcher', () => {
     });
 
     test('should not fetch from database when transaction has no outputs', async () => {
-      transaction.outs = [
-        {
-          value: 123,
-          script: Buffer.alloc(0),
-        },
-      ];
+      const empty = new Transaction({ allowUnknownOutputs: true });
+      empty.addOutput({
+        amount: BigInt(123),
+        script: Buffer.alloc(0),
+      });
 
-      const swaps = await fetcher.getSwapsFundedInOutputs(wallet, transaction);
+      const swaps = await fetcher.getSwapsFundedInOutputs(wallet, empty);
       expect(swaps.swapLockups).toEqual([]);
       expect(swaps.chainSwapLockups).toEqual([]);
 
@@ -395,21 +421,23 @@ describe('TransactionFetcher', () => {
 
   describe('getTransactionHex', () => {
     test('should get transaction hex for chain clients', async () => {
-      const tx = Transaction.fromHex(
-        await bitcoinClient.getRawTransaction(
-          await bitcoinClient.sendToAddress(
-            await bitcoinClient.getNewAddress(''),
-            100_000,
-            undefined,
-            false,
-            '',
+      const tx = Transaction.fromRaw(
+        hexToBytes(
+          await bitcoinClient.getRawTransaction(
+            await bitcoinClient.sendToAddress(
+              await bitcoinClient.getNewAddress(''),
+              100_000,
+              undefined,
+              false,
+              '',
+            ),
           ),
         ),
       );
 
       await expect(
-        fetcher['getTransactionHex'](currencies.get('BTC'), tx.getId()),
-      ).resolves.toEqual(tx.toHex());
+        fetcher['getTransactionHex'](currencies.get('BTC'), tx.id),
+      ).resolves.toEqual(tx.hex);
     });
 
     test('should return undefined when getting transaction hex for currency without chain client', async () => {

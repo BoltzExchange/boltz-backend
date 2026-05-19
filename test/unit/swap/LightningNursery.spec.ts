@@ -1,5 +1,4 @@
 import bolt11 from 'bolt11';
-import { Networks } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
@@ -13,6 +12,7 @@ import { Invoice_InvoiceState } from '../../../lib/proto/lnd/rpc';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import LightningNursery from '../../../lib/swap/LightningNursery';
 import type { Currency } from '../../../lib/wallet/WalletManager';
+import { regtest as Networks } from '../../Networks';
 import { raceCall } from '../../Utils';
 
 type htlcAcceptedCallback = (invoice: string) => Promise<void>;
@@ -103,7 +103,7 @@ describe('LightningNursery', () => {
       limits: {} as any,
       lndClients: new Map([[btcLndClient.id, btcLndClient]]),
       type: CurrencyType.BitcoinLike,
-      network: Networks.bitcoinRegtest,
+      network: Networks,
     },
   ];
 

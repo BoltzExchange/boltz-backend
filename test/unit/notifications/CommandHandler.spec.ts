@@ -1,4 +1,3 @@
-import { networks } from 'bitcoinjs-lib';
 import { Op } from 'sequelize';
 import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
@@ -30,6 +29,7 @@ import { codeBlock } from '../../../lib/notifications/Markup';
 import NotificationClient from '../../../lib/notifications/NotificationClient';
 import type { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc';
 import Service from '../../../lib/service/Service';
+import { regtest as bitcoinRegtest } from '../../Networks';
 import { wait } from '../../Utils';
 import {
   pendingReverseSwapExample,
@@ -160,7 +160,7 @@ jest.mock('../../../lib/service/Service', () => {
           'BTC',
           {
             type: CurrencyType.BitcoinLike,
-            network: networks.regtest,
+            network: bitcoinRegtest,
           },
         ],
       ]),
@@ -348,7 +348,7 @@ describe('CommandHandler', () => {
         ...reverseRoutingHint!.dataValues,
         address: reverseRoutingHint!.address(
           CurrencyType.BitcoinLike,
-          networks.regtest,
+          bitcoinRegtest,
         ),
         scriptPubkey: reverseRoutingHint!.scriptPubkey.toString('hex'),
         signature: reverseRoutingHint!.signature.toString('hex'),

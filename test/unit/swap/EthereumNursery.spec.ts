@@ -1,4 +1,4 @@
-import { crypto } from 'bitcoinjs-lib';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { Transaction } from 'ethers';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
@@ -217,7 +217,7 @@ jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 const examplePreimage = getHexBuffer(
   'dfc6a9bbcf0d7dcf1ce119be7c68c61f078a3548c596afac794d2247265b03b3',
 );
-const examplePreimageHash = crypto.sha256(examplePreimage);
+const examplePreimageHash = Buffer.from(sha256(examplePreimage));
 
 const exampleTransaction = Transaction.from(
   '0x02f8732103843b9aca0084a6fb2cd482520894f39fd6e51aad88f6f4ce6ab8827279cfffb92266893635c9adc5dea0000080c001a03321cede5d110b71d670aaea8353427dea69e67b74f3f3f0fb85c3b682b3cbf4a0240a9787a8807fe07255f0e541ad94b271821660aa3e786699c29c9dd1399d56',

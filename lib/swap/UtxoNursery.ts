@@ -1,5 +1,5 @@
+import type { Transaction } from '@scure/btc-signer';
 import AsyncLock from 'async-lock';
-import type { Transaction } from 'bitcoinjs-lib';
 import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
@@ -10,14 +10,13 @@ import {
   tweakMusig,
 } from '../Core';
 import type Logger from '../Logger';
+import { TxView } from '../TxView';
 import {
   formatError,
   getChainCurrency,
   getHexBuffer,
   isTxConfirmed,
   splitPairId,
-  transactionHashToId,
-  transactionSignalsRbfExplicitly,
 } from '../Utils';
 import type { IChainClient } from '../chain/ChainClient';
 import ElementsClient from '../chain/ElementsClient';
@@ -132,13 +131,15 @@ class UtxoNursery extends TypedEventEmitter<{
     status: TransactionStatus,
     options?: UserLockupTransactionOptions,
   ) => {
-    const tweakedKey = tweakMusig(
-      wallet.type,
-      createMusig(
-        wallet.getKeysByIndex(swap.receivingData.keyIndex!),
-        getHexBuffer(swap.receivingData.theirPublicKey!),
-      ),
-      SwapTreeSerializer.deserializeSwapTree(swap.receivingData.swapTree!),
+    const tweakedKey = Buffer.from(
+      tweakMusig(
+        wallet.type,
+        createMusig(
+          wallet.getKeysByIndex(swap.receivingData.keyIndex!),
+          getHexBuffer(swap.receivingData.theirPublicKey!),
+        ),
+        SwapTreeSerializer.deserializeSwapTree(swap.receivingData.swapTree!),
+      ).aggPubkey,
     );
     const swapOutput = detectSwap(tweakedKey, transaction)!;
 
@@ -150,10 +151,13 @@ class UtxoNursery extends TypedEventEmitter<{
       swapOutput,
     );
 
-    const outputValue = getOutputValue(wallet, swapOutput);
+    const outputValue = getOutputValue(
+      wallet,
+      swapOutput as Parameters<typeof getOutputValue>[1],
+    );
     swap = await ChainSwapRepository.setUserLockupTransaction(
       swap,
-      transaction.getId(),
+      TxView.of(transaction).id,
       outputValue,
       status === TransactionStatus.Confirmed,
       swapOutput.vout,
@@ -209,8 +213,8 @@ class UtxoNursery extends TypedEventEmitter<{
       const action = await this.transactionHook.hook(
         swap.id,
         wallet.symbol,
-        transaction.getId(),
-        transaction.toBuffer(),
+        TxView.of(transaction).id,
+        TxView.of(transaction).bytes,
         status === TransactionStatus.Confirmed,
         swap.type,
         swapOutput.vout,
@@ -335,10 +339,8 @@ class UtxoNursery extends TypedEventEmitter<{
     };
 
     await this.lock.acquire(UtxoNursery.lockupLock, async () => {
-      for (let vout = 0; vout < transaction.outs.length; vout += 1) {
-        const output = transaction.outs[vout];
-        const encoded = wallet.encodeAddress(output.script);
-
+      for (const out of TxView.of(transaction).outputs) {
+        const encoded = wallet.encodeAddress(out.script);
         await Promise.all([checkSwap(encoded), checkChainSwap(encoded)]);
       }
     });
@@ -350,18 +352,19 @@ class UtxoNursery extends TypedEventEmitter<{
   ) => {
     {
       const refundTx = await RefundTransactionRepository.getTransaction(
-        transaction.getId(),
+        TxView.of(transaction).id,
       );
       if (refundTx !== null && refundTx !== undefined) {
         this.logger.debug(
-          `Not scanning ${chainClient.symbol} transaction ${transaction.getId()} for claims because it is our refund transaction`,
+          `Not scanning ${chainClient.symbol} transaction ${TxView.of(transaction).id} for claims because it is our refund transaction`,
         );
         return;
       }
     }
 
-    for (let vin = 0; vin < transaction.ins.length; vin += 1) {
-      const input = transaction.ins[vin];
+    const inputs = TxView.of(transaction).inputs;
+    for (let vin = 0; vin < inputs.length; vin += 1) {
+      const input = inputs[vin];
 
       await Promise.all([
         this.checkReverseSwapClaim(chainClient, transaction, vin, input),
@@ -374,7 +377,7 @@ class UtxoNursery extends TypedEventEmitter<{
     chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
     inputIndex: number,
-    input: { hash: Buffer; index: number },
+    input: { txid: string; index: number },
   ) => {
     const reverseSwap = await ReverseSwapRepository.getReverseSwap({
       status: {
@@ -385,7 +388,7 @@ class UtxoNursery extends TypedEventEmitter<{
         ],
       },
       transactionVout: input.index,
-      transactionId: transactionHashToId(input.hash),
+      transactionId: input.txid,
     });
 
     if (!reverseSwap) {
@@ -395,20 +398,20 @@ class UtxoNursery extends TypedEventEmitter<{
     this.logger.verbose(
       `Found ${chainClient.symbol} claim transaction of Reverse Swap ${
         reverseSwap.id
-      }: ${transaction.getId()}`,
+      }: ${TxView.of(transaction).id}`,
     );
 
     this.emit('reverseSwap.claimed', {
       reverseSwap,
       preimage: reverseSwap.preimage
         ? getHexBuffer(reverseSwap.preimage)
-        : detectPreimage(inputIndex, transaction),
+        : Buffer.from(detectPreimage(inputIndex, transaction)),
     });
 
     await ClaimTransactionRepository.persistTransaction(this.logger, {
       swapId: reverseSwap.id,
       symbol: chainClient.symbol,
-      id: transaction.getId(),
+      id: TxView.of(transaction).id,
     });
   };
 
@@ -416,12 +419,12 @@ class UtxoNursery extends TypedEventEmitter<{
     chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
     inputIndex: number,
-    input: { hash: Buffer; index: number },
+    input: { txid: string; index: number; witness?: Uint8Array[] },
   ) => {
     const swap = await ChainSwapRepository.getChainSwapByData(
       {
         transactionVout: input.index,
-        transactionId: transactionHashToId(input.hash),
+        transactionId: input.txid,
       },
       {
         status: {
@@ -441,7 +444,7 @@ class UtxoNursery extends TypedEventEmitter<{
     // Spends of the user's lockup (receivingData) are Boltz's own claims. This runs before
     // the witness-length filter so cooperative user claims (witness length 1) are persisted too.
     const isUserClaim =
-      transactionHashToId(input.hash) === swap.sendingData.transactionId &&
+      input.txid === swap.sendingData.transactionId &&
       input.index === swap.sendingData.transactionVout;
 
     const persistUserClaim = async () => {
@@ -451,13 +454,13 @@ class UtxoNursery extends TypedEventEmitter<{
       await ClaimTransactionRepository.persistTransaction(this.logger, {
         swapId: swap.id,
         symbol: chainClient.symbol,
-        id: transaction.getId(),
+        id: TxView.of(transaction).id,
       });
     };
 
-    if (transaction.ins[inputIndex].witness.length !== 4) {
+    if ((input.witness?.length ?? 0) !== 4) {
       this.logger.debug(
-        `Not scanning ${chainClient.symbol} transaction ${transaction.getId()} for claims because it is a cooperative claim or refund transaction`,
+        `Not scanning ${chainClient.symbol} transaction ${TxView.of(transaction).id} for claims because it is a cooperative claim or refund transaction`,
       );
 
       await persistUserClaim();
@@ -467,14 +470,14 @@ class UtxoNursery extends TypedEventEmitter<{
     this.logger.verbose(
       `Found ${chainClient.symbol} claim transaction of Chain Swap ${
         swap.chainSwap.id
-      }: ${transaction.getId()}`,
+      }: ${TxView.of(transaction).id}`,
     );
 
     this.emit('chainSwap.claimed', {
       swap,
       preimage: swap.preimage
         ? getHexBuffer(swap.preimage)
-        : detectPreimage(inputIndex, transaction),
+        : Buffer.from(detectPreimage(inputIndex, transaction)),
     });
 
     await persistUserClaim();
@@ -623,7 +626,7 @@ class UtxoNursery extends TypedEventEmitter<{
     this.logger.debug(
       `Server lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
-      } confirmed: ${transaction.getId()}`,
+      } confirmed: ${TxView.of(transaction).id}`,
     );
 
     this.emit('server.lockup.confirmed', {
@@ -648,7 +651,9 @@ class UtxoNursery extends TypedEventEmitter<{
           wallet.getKeysByIndex(swap.keyIndex!),
           getHexBuffer(swap.refundPublicKey!),
         );
-        redeemScriptOrTweakedKey = tweakMusig(wallet.type, musig, tree);
+        redeemScriptOrTweakedKey = Buffer.from(
+          tweakMusig(wallet.type, musig, tree).aggPubkey,
+        );
 
         break;
       }
@@ -669,10 +674,13 @@ class UtxoNursery extends TypedEventEmitter<{
       swapOutput,
     );
 
-    const outputValue = getOutputValue(wallet, swapOutput);
+    const outputValue = getOutputValue(
+      wallet,
+      swapOutput as Parameters<typeof getOutputValue>[1],
+    );
     const updatedSwap = await SwapRepository.setLockupTransaction(
       swap,
-      transaction.getId(),
+      TxView.of(transaction).id,
       outputValue,
       status === TransactionStatus.Confirmed,
       swapOutput.vout,
@@ -733,8 +741,8 @@ class UtxoNursery extends TypedEventEmitter<{
       const action = await this.transactionHook.hook(
         swap.id,
         wallet.symbol,
-        transaction.getId(),
-        transaction.toBuffer(),
+        TxView.of(transaction).id,
+        TxView.of(transaction).bytes,
         status === TransactionStatus.Confirmed,
         swap.type,
         swapOutput.vout,
@@ -794,15 +802,15 @@ class UtxoNursery extends TypedEventEmitter<{
     transaction: Transaction | LiquidTransaction,
   ) => {
     // Check for explicit signalling
-    if (transactionSignalsRbfExplicitly(transaction)) {
+    if (TxView.of(transaction).signalsRbfExplicitly()) {
       return true;
     }
 
     // Check for inherited signalling from unconfirmed inputs
-    for (const input of transaction.ins) {
-      const inputId = transactionHashToId(input.hash);
-      const inputTransaction =
-        await chainClient.getRawTransactionVerbose(inputId);
+    for (const input of TxView.of(transaction).inputs) {
+      const inputTransaction = await chainClient.getRawTransactionVerbose(
+        input.txid,
+      );
 
       if (!isTxConfirmed(inputTransaction)) {
         const inputSignalsRbf = await this.transactionSignalsRbf(
@@ -849,10 +857,10 @@ class UtxoNursery extends TypedEventEmitter<{
         const wrapper = chainClient as ElementsWrapper;
 
         try {
-          await wrapper.sendRawTransactionAll(transaction.toHex());
+          await wrapper.sendRawTransactionAll(TxView.of(transaction).hex);
         } catch (e) {
           this.logger.debug(
-            `Rejecting 0-conf for ${chainClient.symbol} lockup transaction ${transaction.getId()} of ${swapTypeToPrettyString(swap.type)} ${swap.id} because not all nodes accept it: ${formatError(e)}`,
+            `Rejecting 0-conf for ${chainClient.symbol} lockup transaction ${TxView.of(transaction).id} of ${swapTypeToPrettyString(swap.type)} ${swap.id} because not all nodes accept it: ${formatError(e)}`,
           );
           return Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message;
         }
@@ -862,7 +870,7 @@ class UtxoNursery extends TypedEventEmitter<{
     if (
       !(await this.lockupTransactionTracker.isAcceptable(
         swap,
-        transaction.toHex(),
+        TxView.of(transaction).hex,
       ))
     ) {
       return Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message;
@@ -876,35 +884,35 @@ class UtxoNursery extends TypedEventEmitter<{
     swap: Swap | ChainSwapInfo,
     confirmed: boolean,
     transaction: Transaction | LiquidTransaction,
-    swapOutput: ReturnType<typeof detectSwap>,
+    swapOutput: NonNullable<ReturnType<typeof detectSwap>>,
   ) =>
     this.logger.verbose(
       `Found ${confirmed ? '' : 'un'}confirmed ${symbol} lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
-      }: ${transaction.getId()}:${swapOutput.vout}`,
+      }: ${TxView.of(transaction).id}:${swapOutput.vout}`,
     );
 
   private logHoldingTransaction = (
     symbol: string,
     swap: Swap | ChainSwapInfo,
     transaction: Transaction | LiquidTransaction,
-    swapOutput: ReturnType<typeof detectSwap>,
+    swapOutput: NonNullable<ReturnType<typeof detectSwap>>,
   ) =>
     this.logger.warn(
       `Holding ${symbol} lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
-      }: ${transaction.getId()}:${swapOutput.vout}`,
+      }: ${TxView.of(transaction).id}:${swapOutput.vout}`,
     );
 
   private logZeroConfAccepted = (
     swap: Swap | ChainSwapInfo,
     transaction: Transaction | LiquidTransaction,
-    swapOutput: ReturnType<typeof detectSwap>,
+    swapOutput: NonNullable<ReturnType<typeof detectSwap>>,
   ) =>
     this.logger.debug(
       `Accepted 0-conf lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
-      }: ${transaction.getId()}:${swapOutput.vout}`,
+      }: ${TxView.of(transaction).id}:${swapOutput.vout}`,
     );
 }
 

@@ -1,4 +1,5 @@
-import { Transaction } from 'bitcoinjs-lib';
+import { hexToBytes } from '@noble/hashes/utils.js';
+import { Transaction } from '@scure/btc-signer';
 import { randomBytes } from 'crypto';
 import type { OverPaymentConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
@@ -352,8 +353,13 @@ describe('Renegotiator', () => {
             expect.anything(),
             bitcoinClient,
             walletManager.wallets.get('BTC'),
-            Transaction.fromHex(
-              await bitcoinClient.getRawTransaction(transactionId),
+            Transaction.fromRaw(
+              hexToBytes(await bitcoinClient.getRawTransaction(transactionId)),
+              {
+                allowUnknownOutputs: true,
+                allowUnknownInputs: true,
+                allowLegacyWitnessUtxo: true,
+              },
             ),
             confirmed
               ? TransactionStatus.Confirmed

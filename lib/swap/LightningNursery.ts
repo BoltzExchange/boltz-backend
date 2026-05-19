@@ -1,5 +1,5 @@
+import { sha256 } from '@noble/hashes/sha2.js';
 import AsyncLock from 'async-lock';
-import { crypto } from 'bitcoinjs-lib';
 import { Op } from 'sequelize';
 import type Logger from '../Logger';
 import { formatError, getHexBuffer } from '../Utils';
@@ -85,7 +85,9 @@ class LightningNursery extends TypedEventEmitter<{
 
         if (alsoMinerFeeInvoice && reverseSwap.minerFeeInvoicePreimage) {
           await lightningClient.cancelHoldInvoice(
-            crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)),
+            Buffer.from(
+              sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)),
+            ),
           );
         }
       },

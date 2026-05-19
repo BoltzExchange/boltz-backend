@@ -1,4 +1,3 @@
-import { ContractABIs } from 'boltz-core/dist/lib/ABIs';
 import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type { Signer } from 'ethers';
 import {
@@ -20,6 +19,7 @@ import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import EtherWalletProvider from '../providers/EtherWalletProvider';
 import ArbitrumProvider from './ArbitrumProvider';
 import ConsolidatedEventHandler from './ConsolidatedEventHandler';
+import { ContractABIs } from './ContractABIs';
 import EthereumTransactionTracker from './EthereumTransactionTracker';
 import { type NetworkDetails, networks } from './EvmNetworks';
 import InjectedProvider from './InjectedProvider';

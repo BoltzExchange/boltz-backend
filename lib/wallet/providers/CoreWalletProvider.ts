@@ -1,9 +1,14 @@
-import type { Network } from 'bitcoinjs-lib';
-import { Transaction, address as addressLib } from 'bitcoinjs-lib';
+import { hexToBytes } from '@noble/hashes/utils.js';
+import { Transaction } from '@scure/btc-signer';
+import { equalBytes } from '@scure/btc-signer/utils.js';
+import { outputScriptFromAddress } from '../../AddressUtils';
 import type Logger from '../../Logger';
+import { TxView } from '../../TxView';
 import { isTxConfirmed } from '../../Utils';
 import type { IChainClient } from '../../chain/ChainClient';
 import ChainClient, { AddressType } from '../../chain/ChainClient';
+import type { BitcoinNetwork } from '../../consts/BitcoinNetworks';
+import { CurrencyType } from '../../consts/Enums';
 import type NotificationClient from '../../notifications/NotificationClient';
 import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
 import type WalletProviderInterface from './WalletProviderInterface';
@@ -15,7 +20,7 @@ class CoreWalletProvider implements WalletProviderInterface {
   constructor(
     public logger: Logger,
     public chainClient: IChainClient,
-    private readonly network: Network,
+    private readonly network: BitcoinNetwork,
     private readonly notifications?: NotificationClient,
   ) {
     this.symbol = chainClient.symbol;
@@ -103,11 +108,17 @@ class CoreWalletProvider implements WalletProviderInterface {
       walletTransaction.hex,
     );
 
-    const rawTransaction = Transaction.fromHex(walletTransaction.hex);
-    const targetScriptPubKey = addressLib.toOutputScript(address, this.network);
+    const rawTransaction = Transaction.fromRaw(
+      hexToBytes(walletTransaction.hex),
+    );
+    const targetScriptPubKey = outputScriptFromAddress(
+      CurrencyType.BitcoinLike,
+      address,
+      this.network,
+    );
 
-    const vout = rawTransaction.outs.findIndex((output) =>
-      output.script.equals(targetScriptPubKey),
+    const vout = TxView.of(rawTransaction).outputs.findIndex((out) =>
+      equalBytes(out.script, targetScriptPubKey),
     );
     if (vout === -1) {
       throw new Error('output not found in transaction');

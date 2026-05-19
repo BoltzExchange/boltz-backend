@@ -1,4 +1,4 @@
-import { crypto } from 'bitcoinjs-lib';
+import { sha256 } from '@noble/hashes/sha2.js';
 import type { Types } from 'boltz-core';
 import {
   Scripts,
@@ -11,17 +11,13 @@ import {
 import {
   Feature,
   reverseSwapTree as reverseSwapTreeLiquid,
-} from 'boltz-core/dist/lib/liquid';
+} from 'boltz-core/liquid';
 import { randomBytes } from 'crypto';
 import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Op, Transaction } from 'sequelize';
+import { outputScriptFromAddress } from '../AddressUtils';
 import type { SwapConfig } from '../Config';
-import {
-  createMusig,
-  getBlindingKey,
-  toOutputScript,
-  tweakMusig,
-} from '../Core';
+import { createMusig, getBlindingKey, tweakMusig } from '../Core';
 import type Logger from '../Logger';
 import {
   formatError,
@@ -464,18 +460,22 @@ class SwapManager {
           result.swapTree = SwapTreeSerializer.serializeSwapTree(tree);
 
           const musig = createMusig(keys, args.refundPublicKey!);
-          const tweakedKey = tweakMusig(receivingCurrency.type, musig, tree);
-          outputScript = Scripts.p2trOutput(tweakedKey);
+          const tweakedKey = Buffer.from(
+            tweakMusig(receivingCurrency.type, musig, tree).aggPubkey,
+          );
+          outputScript = Buffer.from(Scripts.p2trOutput(tweakedKey));
 
           break;
         }
 
         default: {
-          const redeemScript = swapScript(
-            args.preimageHash,
-            keys.publicKey,
-            args.refundPublicKey!,
-            result.timeoutBlockHeight,
+          const redeemScript = Buffer.from(
+            swapScript(
+              args.preimageHash,
+              keys.publicKey,
+              args.refundPublicKey!,
+              result.timeoutBlockHeight,
+            ),
           );
           result.redeemScript = getHexString(redeemScript);
 
@@ -910,7 +910,7 @@ class SwapManager {
       const preimage = randomBytes(32);
       minerFeeInvoicePreimage = getHexString(preimage);
 
-      const minerFeeInvoicePreimageHash = crypto.sha256(preimage);
+      const minerFeeInvoicePreimageHash = Buffer.from(sha256(preimage));
 
       minerFeeInvoice = await lightningClient.addHoldInvoice(
         args.prepayMinerFeeInvoiceAmount,
@@ -1000,21 +1000,25 @@ class SwapManager {
             );
           }
 
-          result.swapTree = SwapTreeSerializer.serializeSwapTree(tree);
+          result.swapTree = SwapTreeSerializer.serializeSwapTree(tree!);
 
           const musig = createMusig(keys, args.claimPublicKey!);
-          const tweakedKey = tweakMusig(sendingCurrency.type, musig, tree);
-          outputScript = Scripts.p2trOutput(tweakedKey);
+          const tweakedKey = Buffer.from(
+            tweakMusig(sendingCurrency.type, musig, tree!).aggPubkey,
+          );
+          outputScript = Buffer.from(Scripts.p2trOutput(tweakedKey));
 
           break;
         }
 
         default: {
-          const redeemScript = reverseSwapScript(
-            args.preimageHash,
-            args.claimPublicKey!,
-            keys.publicKey,
-            result.timeoutBlockHeight,
+          const redeemScript = Buffer.from(
+            reverseSwapScript(
+              args.preimageHash,
+              args.claimPublicKey!,
+              keys.publicKey,
+              result.timeoutBlockHeight,
+            ),
           );
           result.redeemScript = getHexString(redeemScript);
 
@@ -1067,7 +1071,7 @@ class SwapManager {
         args.userAddress !== undefined &&
         args.userAddressSignature !== undefined
       ) {
-        const scriptPubkey = toOutputScript(
+        const scriptPubkey = outputScriptFromAddress(
           sendingCurrency.type,
           args.userAddress,
           sendingCurrency.network!,
@@ -1274,15 +1278,19 @@ class SwapManager {
         );
 
         const musig = createMusig(keys, theirPublicKey!);
-        const tweakedKey = tweakMusig(currency.type, musig, tree);
-        res.scriptPubKey = Scripts.p2trOutput(tweakedKey);
+        const tweakedKey = Buffer.from(
+          tweakMusig(currency.type, musig, tree).aggPubkey,
+        );
+        res.scriptPubKey = Buffer.from(Scripts.p2trOutput(tweakedKey));
         res.lockupAddress = currency.wallet.encodeAddress(res.scriptPubKey);
 
         if (currency.type === CurrencyType.Liquid) {
           blindingKey = getHexString(
-            (currency.wallet as WalletLiquid).deriveBlindingKeyFromScript(
-              res.scriptPubKey,
-            ).privateKey!,
+            Buffer.from(
+              (currency.wallet as WalletLiquid).deriveBlindingKeyFromScript(
+                res.scriptPubKey,
+              ).privateKey!,
+            ),
           );
         }
       } else if (currency.type === CurrencyType.Ark) {

@@ -1,4 +1,4 @@
-import { crypto } from 'bitcoinjs-lib';
+import { sha256 } from '@noble/hashes/sha2.js';
 import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
@@ -50,7 +50,7 @@ describe('ContractHandler', () => {
 
   const amount = BigInt(10) ** BigInt(17);
   const preimage = randomBytes(32);
-  const preimageHash = crypto.sha256(preimage);
+  const preimageHash = Buffer.from(sha256(preimage));
 
   const swap = {
     id: 'id',
@@ -281,7 +281,7 @@ describe('ContractHandler', () => {
       type: SwapType.Submarine,
     } as AnySwap;
     const commitmentPreimage = randomBytes(32);
-    const commitmentPreimageHash = crypto.sha256(commitmentPreimage);
+    const commitmentPreimageHash = Buffer.from(sha256(commitmentPreimage));
     const zeroPreimageHash = Buffer.alloc(32);
     const commitmentAmount = BigInt(10) ** BigInt(16);
     const commitmentTimelock = await setup.provider.getBlockNumber();
@@ -386,7 +386,7 @@ describe('ContractHandler', () => {
       ];
       const valuesWithPreimageHash = values.map((v) => ({
         ...v,
-        preimageHash: crypto.sha256(v.preimage),
+        preimageHash: Buffer.from(sha256(v.preimage)),
       }));
 
       let nonce = await setup.signer.getNonce();
@@ -450,7 +450,7 @@ describe('ContractHandler', () => {
       ];
       const valuesWithPreimageHash = values.map((v) => ({
         ...v,
-        preimageHash: crypto.sha256(v.preimage),
+        preimageHash: Buffer.from(sha256(v.preimage)),
       }));
 
       let nonce = await setup.signer.getNonce();
@@ -531,7 +531,7 @@ describe('ContractHandler', () => {
         preimage: randomBytes(32),
         refundAddress: await setup.signer.getAddress(),
       };
-      const normalSwapPreimageHash = crypto.sha256(normalSwap.preimage);
+      const normalSwapPreimageHash = Buffer.from(sha256(normalSwap.preimage));
 
       const commitmentSwap = {
         amount: 250n,
@@ -539,7 +539,9 @@ describe('ContractHandler', () => {
         preimage: randomBytes(32),
         refundAddress: await setup.signer.getAddress(),
       };
-      const commitmentSwapPreimageHash = crypto.sha256(commitmentSwap.preimage);
+      const commitmentSwapPreimageHash = Buffer.from(
+        sha256(commitmentSwap.preimage),
+      );
 
       let nonce = await setup.signer.getNonce();
       const normalLockTx = await etherSwap['lock(bytes32,address,uint256)'](
@@ -794,7 +796,7 @@ describe('ContractHandler', () => {
       type: SwapType.Submarine,
     } as AnySwap;
     const commitmentPreimage = randomBytes(32);
-    const commitmentPreimageHash = crypto.sha256(commitmentPreimage);
+    const commitmentPreimageHash = Buffer.from(sha256(commitmentPreimage));
     const zeroPreimageHash = Buffer.alloc(32);
     const commitmentAmount = BigInt(10) ** BigInt(16);
     const commitmentTimelock = await setup.provider.getBlockNumber();
@@ -902,7 +904,7 @@ describe('ContractHandler', () => {
       ];
       const valuesWithPreimageHash = values.map((v) => ({
         ...v,
-        preimageHash: crypto.sha256(v.preimage),
+        preimageHash: Buffer.from(sha256(v.preimage)),
       }));
 
       let nonce = await setup.signer.getNonce();
@@ -984,7 +986,7 @@ describe('ContractHandler', () => {
       ];
       const valuesWithPreimageHash = values.map((v) => ({
         ...v,
-        preimageHash: crypto.sha256(v.preimage),
+        preimageHash: Buffer.from(sha256(v.preimage)),
       }));
 
       let nonce = await setup.signer.getNonce();
@@ -1077,7 +1079,7 @@ describe('ContractHandler', () => {
         preimage: randomBytes(32),
         refundAddress: await setup.signer.getAddress(),
       };
-      const normalSwapPreimageHash = crypto.sha256(normalSwap.preimage);
+      const normalSwapPreimageHash = Buffer.from(sha256(normalSwap.preimage));
 
       const commitmentSwap = {
         amount: 250n,
@@ -1085,7 +1087,9 @@ describe('ContractHandler', () => {
         preimage: randomBytes(32),
         refundAddress: await setup.signer.getAddress(),
       };
-      const commitmentSwapPreimageHash = crypto.sha256(commitmentSwap.preimage);
+      const commitmentSwapPreimageHash = Buffer.from(
+        sha256(commitmentSwap.preimage),
+      );
 
       let nonce = await setup.signer.getNonce();
       const approveTx = await tokenContract.approve(

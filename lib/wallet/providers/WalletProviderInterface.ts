@@ -1,4 +1,4 @@
-import type { Transaction } from 'bitcoinjs-lib';
+import type { Transaction } from '@scure/btc-signer';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import type Logger from '../../Logger';
 import { formatError } from '../../Utils';

@@ -1,10 +1,12 @@
-import { BIP32Factory } from 'bip32';
-import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
-import { Transaction, address, crypto } from 'bitcoinjs-lib';
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
-import type { ClaimDetails } from 'boltz-core';
+import { schnorr, secp256k1 } from '@noble/curves/secp256k1.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { hexToBytes } from '@noble/hashes/utils.js';
+import { HDKey } from '@scure/bip32';
+import { generateMnemonic, mnemonicToSeedSync } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
+import { Transaction } from '@scure/btc-signer';
+import type { ClaimDetails, Types } from 'boltz-core';
 import {
-  Networks,
   OutputType,
   Scripts,
   SwapTreeSerializer,
@@ -13,8 +15,7 @@ import {
   swapScript,
   swapTree,
 } from 'boltz-core';
-import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
-import { p2trOutput, p2wshOutput } from 'boltz-core/dist/lib/swap/Scripts';
+import { Networks as LiquidNetworks } from 'boltz-core/liquid';
 import { randomBytes } from 'crypto';
 import {
   Creator,
@@ -26,21 +27,20 @@ import {
   address as liquidAddress,
   networks,
 } from 'liquidjs-lib';
-import { SLIP77Factory } from 'slip77';
-import * as ecc from 'tiny-secp256k1';
+import {
+  addressFromOutputScript,
+  outputScriptFromAddress,
+} from '../../lib/AddressUtils';
 import {
   constructClaimDetails,
   createMusig,
-  fromOutputScript,
   getBlindingKey,
   getOutputValue,
   hashForWitnessV1,
   parseTransaction,
   setup,
-  toOutputScript,
   tweakMusig,
 } from '../../lib/Core';
-import { ECPair } from '../../lib/ECPairHelper';
 import Logger from '../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../lib/Utils';
 import { CurrencyType, SwapType, SwapVersion } from '../../lib/consts/Enums';
@@ -49,19 +49,36 @@ import type ChainSwapData from '../../lib/db/models/ChainSwapData';
 import type Swap from '../../lib/db/models/Swap';
 import KeyRepository from '../../lib/db/repositories/KeyRepository';
 import type SwapOutputType from '../../lib/swap/SwapOutputType';
+import { slip77FromSeed } from '../../lib/wallet/Slip77';
 import Wallet from '../../lib/wallet/Wallet';
 import WalletLiquid from '../../lib/wallet/WalletLiquid';
 import type { Currency } from '../../lib/wallet/WalletManager';
 import CoreWalletProvider from '../../lib/wallet/providers/CoreWalletProvider';
 import ElementsWalletProvider from '../../lib/wallet/providers/ElementsWalletProvider';
+import { regtest as bitcoinRegtest } from '../Networks';
 import { bitcoinClient, elementsClient } from './Nodes';
+
+const toXOnly = (publicKey: Uint8Array): Buffer =>
+  Buffer.from(publicKey.length === 33 ? publicKey.subarray(1) : publicKey);
+
+const makeKeys = () => {
+  const privateKey = randomBytes(32);
+  return {
+    privateKey: Buffer.from(privateKey),
+    publicKey: Buffer.from(secp256k1.getPublicKey(privateKey, true)),
+    signSchnorr: (msg: Uint8Array) =>
+      Buffer.from(schnorr.sign(msg, privateKey)),
+  };
+};
+
+const keysFromPrivate = (privateKey: Buffer) => ({
+  privateKey,
+  publicKey: Buffer.from(secp256k1.getPublicKey(privateKey, true)),
+});
 
 KeyRepository.incrementHighestUsedIndex = jest.fn().mockResolvedValue(0);
 
 describe('Core', () => {
-  const bip32 = BIP32Factory(ecc);
-  const slip77 = SLIP77Factory(ecc);
-
   const database = new Database(Logger.disabledLogger, ':memory:');
 
   let wallet: Wallet;
@@ -73,7 +90,7 @@ describe('Core', () => {
     const initWallet = (w: Wallet) => {
       w.initKeyProvider(
         'm/0/0',
-        bip32.fromSeed(
+        HDKey.fromMasterSeed(
           mnemonicToSeedSync(
             'miracle tower paper teach stomach black exile discover paddle country around survey',
           ),
@@ -87,9 +104,9 @@ describe('Core', () => {
       new CoreWalletProvider(
         Logger.disabledLogger,
         bitcoinClient,
-        Networks.bitcoinRegtest,
+        bitcoinRegtest,
       ),
-      Networks.bitcoinRegtest,
+      bitcoinRegtest,
     );
     initWallet(wallet);
 
@@ -100,7 +117,7 @@ describe('Core', () => {
         elementsClient,
         networks.regtest,
       ),
-      slip77.fromSeed(mnemonicToSeedSync(generateMnemonic())),
+      slip77FromSeed(mnemonicToSeedSync(generateMnemonic(wordlist))),
       networks.regtest,
     );
     initWallet(walletLiquid);
@@ -133,17 +150,18 @@ describe('Core', () => {
       '',
     );
 
-    expect(getOutputValue(wallet, transaction!.outs[vout!])).toEqual(
-      outputAmount,
-    );
+    const out = (transaction as Transaction).getOutput(vout!);
+    expect(
+      getOutputValue(wallet, { script: out.script!, amount: out.amount! }),
+    ).toEqual(outputAmount);
   });
 
   test('should get output value of unblinded Liquid transactions', async () => {
     const outputAmount = 562312;
     const { transaction, vout } = await walletLiquid.sendToAddress(
-      fromOutputScript(
+      addressFromOutputScript(
         CurrencyType.Liquid,
-        toOutputScript(
+        outputScriptFromAddress(
           CurrencyType.Liquid,
           await walletLiquid.getAddress(''),
           networks.regtest,
@@ -164,8 +182,7 @@ describe('Core', () => {
 
     // Wrong asset
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
+    // @ts-expect-error - private property access for test fixture
     walletLiquid['network'] = networks.liquid;
     expect(
       getOutputValue(
@@ -174,13 +191,12 @@ describe('Core', () => {
       ),
     ).toEqual(0);
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
+    // @ts-expect-error - private property access for test fixture
     walletLiquid['network'] = networks.regtest;
   });
 
   test('should get output value of blinded Liquid transactions', async () => {
-    const script = toOutputScript(
+    const script = outputScriptFromAddress(
       CurrencyType.Liquid,
       await walletLiquid.getAddress(''),
       walletLiquid.network!,
@@ -203,8 +219,7 @@ describe('Core', () => {
 
     // Wrong asset hash
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
+    // @ts-expect-error - private property access for test fixture
     walletLiquid['network'] = networks.liquid;
     expect(
       getOutputValue(
@@ -213,36 +228,39 @@ describe('Core', () => {
       ),
     ).toEqual(0);
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
+    // @ts-expect-error - private property access for test fixture
     walletLiquid['network'] = networks.regtest;
   });
 
   test('should construct legacy claim details', async () => {
     const preimage = randomBytes(32);
     const claimKeys = await wallet.getNewKeys();
-    const refundKeys = ECPair.makeRandom();
+    const refundKeys = makeKeys();
 
-    const redeemScript = swapScript(
-      crypto.sha256(preimage),
-      claimKeys.keys.publicKey,
-      Buffer.from(refundKeys.publicKey),
-      2,
+    const redeemScript = Buffer.from(
+      swapScript(
+        Buffer.from(sha256(preimage)),
+        claimKeys.keys.publicKey,
+        Buffer.from(refundKeys.publicKey),
+        2,
+      ),
     );
-    const outputScript = p2wshOutput(redeemScript);
+    const outputScript = Buffer.from(Scripts.p2wshOutput(redeemScript));
 
-    const tx = Transaction.fromHex(
-      await bitcoinClient.getRawTransaction(
-        await bitcoinClient.sendToAddress(
-          wallet.encodeAddress(outputScript),
-          100_00,
-          undefined,
-          false,
-          '',
+    const tx = Transaction.fromRaw(
+      hexToBytes(
+        await bitcoinClient.getRawTransaction(
+          await bitcoinClient.sendToAddress(
+            wallet.encodeAddress(outputScript),
+            100_00,
+            undefined,
+            false,
+            '',
+          ),
         ),
       ),
     );
-    const output = detectSwap(redeemScript, tx);
+    const output = detectSwap(redeemScript, tx)!;
 
     const claimDetails = constructClaimDetails(
       {
@@ -260,23 +278,25 @@ describe('Core', () => {
     ) as ClaimDetails;
 
     expect(claimDetails).toEqual({
-      ...output,
       preimage,
       redeemScript,
-      txHash: tx.getHash(),
+      script: output.script,
+      amount: output.amount,
+      vout: output.vout,
+      transactionId: tx.id,
       type: OutputType.Bech32,
-      keys: expect.anything(),
+      privateKey: expect.anything(),
     });
   });
 
   test('should construct Taproot claim details', async () => {
     const preimage = randomBytes(32);
     const claimKeys = await wallet.getNewKeys();
-    const refundKeys = ECPair.makeRandom();
+    const refundKeys = makeKeys();
 
     const tree = swapTree(
       false,
-      crypto.sha256(preimage),
+      Buffer.from(sha256(preimage)),
       claimKeys.keys.publicKey,
       Buffer.from(refundKeys.publicKey),
       2,
@@ -285,17 +305,21 @@ describe('Core', () => {
       claimKeys.keys,
       Buffer.from(refundKeys.publicKey),
     );
-    const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
-    const outputScript = p2trOutput(tweakedKey);
+    const tweakedKey = Buffer.from(
+      tweakMusig(CurrencyType.BitcoinLike, musig, tree).aggPubkey,
+    );
+    const outputScript = Buffer.from(Scripts.p2trOutput(tweakedKey));
 
-    const tx = Transaction.fromHex(
-      await bitcoinClient.getRawTransaction(
-        await bitcoinClient.sendToAddress(
-          wallet.encodeAddress(outputScript),
-          100_00,
-          undefined,
-          false,
-          '',
+    const tx = Transaction.fromRaw(
+      hexToBytes(
+        await bitcoinClient.getRawTransaction(
+          await bitcoinClient.sendToAddress(
+            wallet.encodeAddress(outputScript),
+            100_00,
+            undefined,
+            false,
+            '',
+          ),
         ),
       ),
     );
@@ -318,15 +342,17 @@ describe('Core', () => {
 
     expect(claimDetails.vout).toEqual(output.vout);
     expect(claimDetails.preimage).toEqual(preimage);
-    expect(claimDetails.value).toEqual(output.value);
-    expect(claimDetails.keys.publicKey).toEqual(claimKeys.keys.publicKey);
-    expect(claimDetails.txHash).toEqual(tx.getHash());
+    expect(claimDetails.amount).toEqual(output.amount);
+    expect(claimDetails.privateKey).toEqual(claimKeys.keys.privateKey);
+    expect(claimDetails.transactionId).toEqual(tx.id);
     expect(claimDetails.script).toEqual(output.script);
     expect(claimDetails.type).toEqual(OutputType.Taproot);
     expect(claimDetails.cooperative).toEqual(false);
-    expect(claimDetails.internalKey).toEqual(musig.getAggregatedPublicKey());
+    expect(claimDetails.internalKey).toEqual(Buffer.from(musig.aggPubkey));
     expect(
-      SwapTreeSerializer.serializeSwapTree(claimDetails.swapTree!),
+      SwapTreeSerializer.serializeSwapTree(
+        claimDetails.swapTree as Types.LiquidSwapTree,
+      ),
     ).toEqual(SwapTreeSerializer.serializeSwapTree(tree));
   });
 
@@ -342,7 +368,7 @@ describe('Core', () => {
       );
       const claimKeysIndex = 123;
       const claimKeys = wallet.getKeysByIndex(claimKeysIndex);
-      const refundKeys = ECPair.fromPrivateKey(
+      const refundKeys = keysFromPrivate(
         getHexBuffer(
           'ef77e158cdd6f47737dc71c844b6fb3d9e5dc0a109dd7974f91230c534eb7806',
         ),
@@ -350,16 +376,34 @@ describe('Core', () => {
 
       const tree = reverseSwapTree(
         false,
-        crypto.sha256(preimage),
+        Buffer.from(sha256(preimage)),
         claimKeys.publicKey,
         Buffer.from(refundKeys.publicKey),
         2,
       );
       const musig = createMusig(claimKeys, Buffer.from(refundKeys.publicKey));
-      const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
+      const tweakedKey = Buffer.from(
+        tweakMusig(CurrencyType.BitcoinLike, musig, tree).aggPubkey,
+      );
 
-      const lockupTransaction = Transaction.fromHex(
-        '02000000000101b6241206db221e86c5e78e2b3ed619aac175b034c80f458d8cb82ef29819468f0000000000fdffffff0200e1f50500000000225120755952255bce503e41efc3504576fdb6dace315a5977b23ae39c572e89ba9ec75b10102401000000225120dc208d462dec8fd5c7f371d49ecfdfbac658f2fad4794891d56c7e41461151d502473044022002c30868da8ad98cc84d8178f6b2b0dac247925218aca5393cd9fa258c8535bf0220437a968d04120f34231e2f9de8c483e596e63d025e00620a53e9eeb4ba215f2e0121030c9474eb55c70415abd3633823fde9c759ecb5bbeb855cc1fb2093c09b0a46e897000000',
+      const lockupOutputScript = Buffer.from(Scripts.p2trOutput(tweakedKey));
+      const amountSent = 100_000_000;
+      const lockupTransaction = Transaction.fromRaw(
+        hexToBytes(
+          await bitcoinClient.getRawTransaction(
+            await bitcoinClient.sendToAddress(
+              addressFromOutputScript(
+                CurrencyType.BitcoinLike,
+                lockupOutputScript,
+                bitcoinRegtest,
+              ),
+              amountSent,
+              undefined,
+              false,
+              '',
+            ),
+          ),
+        ),
       );
       const output = detectSwap(tweakedKey, lockupTransaction)!;
       expect(output).not.toBeUndefined();
@@ -376,14 +420,25 @@ describe('Core', () => {
         } as Partial<ChainSwapData> as ChainSwapData,
         lockupTransaction,
         cooperative ? undefined : preimage,
-      );
+      ) as ClaimDetails;
       expect(claimDetails.cooperative).toEqual(cooperative);
-      expect(claimDetails).toMatchSnapshot();
+      expect(claimDetails.amount).toEqual(BigInt(amountSent));
+      expect(claimDetails.vout).toEqual(output.vout);
+      expect(claimDetails.transactionId).toEqual(lockupTransaction.id);
+      expect(claimDetails.type).toEqual(OutputType.Taproot);
+      expect(claimDetails.script).toEqual(lockupOutputScript);
+      expect(claimDetails.internalKey).toEqual(Buffer.from(musig.aggPubkey));
+      expect(claimDetails.preimage).toEqual(cooperative ? undefined : preimage);
+      expect(
+        SwapTreeSerializer.serializeSwapTree(
+          claimDetails.swapTree as Types.LiquidSwapTree,
+        ),
+      ).toEqual(SwapTreeSerializer.serializeSwapTree(tree));
     },
   );
 
   test('should create Musig', () => {
-    const ourKeys = ECPair.fromPrivateKey(
+    const ourKeys = keysFromPrivate(
       getHexBuffer(
         'a01c77e7effc4d49dd2d2f345b9dde1984c426b17c6756d10041819f73856b8e',
       ),
@@ -397,7 +452,7 @@ describe('Core', () => {
       Buffer.from(ourKeys.publicKey),
       theirPublicKey,
     ]);
-    expect(musig.getAggregatedPublicKey()).toMatchSnapshot();
+    expect(Buffer.from(musig.aggPubkey)).toMatchSnapshot();
   });
 
   test.each`
@@ -418,7 +473,7 @@ describe('Core', () => {
       },
     });
 
-    const ourKeys = ECPair.fromPrivateKey(
+    const ourKeys = keysFromPrivate(
       getHexBuffer(
         'a01c77e7effc4d49dd2d2f345b9dde1984c426b17c6756d10041819f73856b8e',
       ),
@@ -433,14 +488,14 @@ describe('Core', () => {
       tree,
     );
 
-    expect(tweakedMusig).toMatchSnapshot();
+    expect(Buffer.from(tweakedMusig.aggPubkey)).toMatchSnapshot();
   });
 
   test('should hash Bitcoin transactions for witness v1', async () => {
-    const keys = ECPair.makeRandom();
+    const keys = makeKeys();
 
-    const outputScript = Scripts.p2trOutput(
-      toXOnly(Buffer.from(keys.publicKey)),
+    const outputScript = Buffer.from(
+      Scripts.p2trOutput(toXOnly(Buffer.from(keys.publicKey))),
     );
     const amountSent = 100_000;
 
@@ -448,48 +503,70 @@ describe('Core', () => {
       CurrencyType.BitcoinLike,
       await bitcoinClient.getRawTransaction(
         await bitcoinClient.sendToAddress(
-          address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
+          addressFromOutputScript(
+            CurrencyType.BitcoinLike,
+            outputScript,
+            bitcoinRegtest,
+          ),
           amountSent,
           undefined,
           false,
           '',
         ),
       ),
-    );
-    const outputToSpendIndex = tx.outs.findIndex((output) =>
-      output.script.equals(outputScript),
-    );
+    ) as Transaction;
+
+    let outputToSpendIndex = -1;
+    for (let i = 0; i < tx.outputsLength; i++) {
+      if (Buffer.from(tx.getOutput(i).script!).equals(outputScript)) {
+        outputToSpendIndex = i;
+        break;
+      }
+    }
 
     const spendTx = new Transaction();
-    spendTx.addInput(tx.getHash(), outputToSpendIndex);
-    spendTx.addOutput(
-      address.toOutputScript(
+    spendTx.addInput({
+      txid: tx.id,
+      index: outputToSpendIndex,
+      sequence: 0xffffffff - 1,
+      witnessUtxo: {
+        amount: tx.getOutput(outputToSpendIndex).amount!,
+        script: tx.getOutput(outputToSpendIndex).script!,
+      },
+    });
+    spendTx.addOutput({
+      script: outputScriptFromAddress(
+        CurrencyType.BitcoinLike,
         await bitcoinClient.getNewAddress(''),
-        Networks.bitcoinRegtest,
+        bitcoinRegtest,
       ),
-      amountSent - 1_000,
-    );
+      amount: BigInt(amountSent - 1_000),
+    });
 
     const hash = await hashForWitnessV1(
       {
         chainClient: bitcoinClient,
         type: CurrencyType.BitcoinLike,
-        network: Networks.bitcoinRegtest,
+        network: bitcoinRegtest,
       } as unknown as Currency,
       spendTx,
       0,
     );
 
-    spendTx.setWitness(0, [Buffer.from(keys.signSchnorr(hash))]);
+    spendTx.updateInput(
+      0,
+      { finalScriptWitness: [keys.signSchnorr(hash)] },
+      true,
+    );
 
-    await bitcoinClient.sendRawTransaction(spendTx.toHex());
+    await bitcoinClient.sendRawTransaction(spendTx.hex);
   });
 
   test('should hash Liquid transactions for witness v1', async () => {
-    const keys = ECPair.makeRandom();
+    const keys = makeKeys();
 
-    const outputScript = Scripts.p2trOutput(
-      toXOnly(Buffer.from(keys.publicKey)),
+    const outputScript = Buffer.from(
+      Scripts.p2trOutput(toXOnly(Buffer.from(keys.publicKey))),
     );
     const amountSent = 100_000;
 
@@ -497,7 +574,7 @@ describe('Core', () => {
       CurrencyType.Liquid,
       await elementsClient.getRawTransaction(
         await elementsClient.sendToAddress(
-          address.fromOutputScript(outputScript, networks.regtest),
+          liquidAddress.fromOutputScript(outputScript, networks.regtest),
           amountSent,
           undefined,
           false,
@@ -558,7 +635,7 @@ describe('Core', () => {
     await elementsClient.sendRawTransaction(spendTx.toHex());
   });
 
-  describe('fromOutputScript', () => {
+  describe('addressFromOutputScript', () => {
     test.each`
       currency                    | address                                                                                                    | scriptPubKey                                      | blindingKey
       ${CurrencyType.BitcoinLike} | ${'bcrt1qyetkcrlsxsrnxxzsh3k8e3ug7z78yshzx6mlam'}                                                          | ${'001426576c0ff03407331850bc6c7cc788f0bc7242e2'} | ${null}
@@ -568,12 +645,10 @@ describe('Core', () => {
     `(
       'parse output scripts correctly',
       async ({ currency, address, scriptPubKey, blindingKey }) => {
-        const result = fromOutputScript(
+        const result = addressFromOutputScript(
           currency,
           getHexBuffer(scriptPubKey),
-          currency === CurrencyType.Liquid
-            ? networks.regtest
-            : Networks.bitcoinRegtest,
+          currency === CurrencyType.Liquid ? networks.regtest : bitcoinRegtest,
           blindingKey ? getHexBuffer(blindingKey) : blindingKey,
         );
         expect(result).toEqual(address);
@@ -582,24 +657,28 @@ describe('Core', () => {
 
     test('should handle invalid scripts', () => {
       expect(() =>
-        fromOutputScript(
+        addressFromOutputScript(
           CurrencyType.BitcoinLike,
           Buffer.alloc(0),
-          Networks.bitcoinRegtest,
+          bitcoinRegtest,
         ),
       ).toThrow();
 
       const invalidScript = Buffer.from([0x6a, 0x01, 0x02, 0x03]);
       expect(() =>
-        fromOutputScript(
+        addressFromOutputScript(
           CurrencyType.BitcoinLike,
           invalidScript,
-          Networks.bitcoinRegtest,
+          bitcoinRegtest,
         ),
       ).toThrow();
 
       expect(() =>
-        fromOutputScript(CurrencyType.Liquid, invalidScript, networks.regtest),
+        addressFromOutputScript(
+          CurrencyType.Liquid,
+          invalidScript,
+          networks.regtest,
+        ),
       ).toThrow();
     });
   });

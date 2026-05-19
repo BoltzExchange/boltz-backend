@@ -1,5 +1,5 @@
-import { crypto } from 'bitcoinjs-lib';
-import { ECPair } from '../ECPairHelper';
+import { schnorr } from '@noble/curves/secp256k1.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { getHexString, getSwapMemo } from '../Utils';
 import type { SwapVersion } from '../consts/Enums';
 import { SwapType } from '../consts/Enums';
@@ -181,11 +181,16 @@ class ReverseRoutingHints {
     publicKey: Buffer,
     userAddress: string,
     userAddressSignature: Buffer,
-  ) =>
-    ECPair.fromPublicKey(publicKey).verifySchnorr(
-      crypto.sha256(Buffer.from(userAddress, 'utf-8')),
+  ) => {
+    // BIP-340 x-only pubkey: strip the 0x02/0x03 prefix if the caller passed a
+    // 33-byte compressed key.
+    const xOnly = publicKey.length === 33 ? publicKey.subarray(1) : publicKey;
+    return schnorr.verify(
       userAddressSignature,
+      sha256(Buffer.from(userAddress, 'utf-8')),
+      xOnly,
     );
+  };
 }
 
 export default ReverseRoutingHints;

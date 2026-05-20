@@ -45,8 +45,14 @@ describe('ContractHandler', () => {
 
   let erc20WalletProvider: ERC20WalletProvider;
 
-  const contractHandler = new ContractHandler(networks.Ethereum);
-  const contractHandlerEtherBase = new ContractHandler(networks.Ethereum);
+  const contractHandler = new ContractHandler(
+    Logger.disabledLogger,
+    networks.Ethereum,
+  );
+  const contractHandlerEtherBase = new ContractHandler(
+    Logger.disabledLogger,
+    networks.Ethereum,
+  );
 
   const amount = BigInt(10) ** BigInt(17);
   const preimage = randomBytes(32);
@@ -630,7 +636,10 @@ describe('ContractHandler', () => {
     });
 
     test('should not batch claim when contract does not support it', async () => {
-      const handler = new ContractHandler(networks.Ethereum);
+      const handler = new ContractHandler(
+        Logger.disabledLogger,
+        networks.Ethereum,
+      );
       handler.init(
         new Set(),
         setup.provider,
@@ -1195,7 +1204,10 @@ describe('ContractHandler', () => {
     });
 
     test('should not batch claim when contract does not support it', async () => {
-      const handler = new ContractHandler(networks.Ethereum);
+      const handler = new ContractHandler(
+        Logger.disabledLogger,
+        networks.Ethereum,
+      );
       handler.init(
         new Set(),
         setup.provider,

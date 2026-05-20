@@ -607,7 +607,10 @@ describe('DeferredClaimer', () => {
       ),
     ]);
 
-    const contractHandler = new ContractHandler(networks.Ethereum);
+    const contractHandler = new ContractHandler(
+      Logger.disabledLogger,
+      networks.Ethereum,
+    );
     contractHandler.init(
       new Set<Feature>([Feature.BatchClaim]),
       ethereumSetup.provider,

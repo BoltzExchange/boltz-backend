@@ -53,7 +53,7 @@ class Contracts {
     private readonly network: NetworkDetails,
     private readonly contracts: ContractsConfig,
   ) {
-    this.contractHandler = new ContractHandler(this.network);
+    this.contractHandler = new ContractHandler(this.logger, this.network);
     this.contractEventHandler = new ContractEventHandler(this.logger);
   }
 

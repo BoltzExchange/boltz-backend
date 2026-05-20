@@ -1,6 +1,7 @@
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import type { ContractTransactionResponse, Provider, Signer } from 'ethers';
+import type Logger from '../../../Logger';
 import { ethereumPrepayMinerFeeGasLimit } from '../../../consts/Consts';
 import { swapTypeToPrettyString } from '../../../consts/Enums';
 import type { AnySwap } from '../../../consts/Types';
@@ -39,7 +40,10 @@ class ContractHandler {
 
   private features: Set<Feature> = new Set();
 
-  constructor(private readonly networkDetails: NetworkDetails) {}
+  constructor(
+    private readonly logger: Logger,
+    private readonly networkDetails: NetworkDetails,
+  ) {}
 
   public init = (
     features: Set<Feature>,
@@ -61,9 +65,12 @@ class ContractHandler {
     amount: bigint,
     claimAddress: string,
     timeLock: number,
-  ): Promise<ContractTransactionResponse> =>
-    this.annotateLabel(
-      TransactionLabelRepository.lockupLabel(swap),
+  ): Promise<ContractTransactionResponse> => {
+    const label = TransactionLabelRepository.lockupLabel(swap);
+    await this.logLockupSend(this.etherSwap, amount, label);
+
+    return this.annotateLabel(
+      label,
       this.networkDetails.symbol,
       this.etherSwap['lock(bytes32,address,uint256)'](
         preimageHash,
@@ -75,6 +82,7 @@ class ContractHandler {
         },
       ),
     );
+  };
 
   public lockupEtherPrepayMinerfee = async (
     swap: AnySwap,
@@ -92,8 +100,11 @@ class ContractHandler {
       value: transactionValue,
     });
 
+    const label = TransactionLabelRepository.lockupLabel(swap, true);
+    await this.logLockupSend(this.etherSwap, transactionValue, label);
+
     return this.annotateLabel(
-      TransactionLabelRepository.lockupLabel(swap, true),
+      label,
       this.networkDetails.symbol,
       this.etherSwap.lockPrepayMinerfee(
         preimageHash,
@@ -231,9 +242,12 @@ class ContractHandler {
     amount: bigint,
     claimAddress: string,
     timeLock: number,
-  ): Promise<ContractTransactionResponse> =>
-    this.annotateLabel(
-      TransactionLabelRepository.lockupLabel(swap),
+  ): Promise<ContractTransactionResponse> => {
+    const label = TransactionLabelRepository.lockupLabel(swap);
+    await this.logLockupSend(this.erc20Swap, amount, label, token.symbol);
+
+    return this.annotateLabel(
+      label,
       token.symbol,
       this.erc20Swap['lock(bytes32,uint256,address,address,uint256)'](
         preimageHash,
@@ -246,6 +260,7 @@ class ContractHandler {
         },
       ),
     );
+  };
 
   public lockupTokenPrepayMinerfee = async (
     swap: AnySwap,
@@ -266,8 +281,11 @@ class ContractHandler {
       timeLock,
     );
 
+    const label = TransactionLabelRepository.lockupLabel(swap, true);
+    await this.logLockupSend(this.erc20Swap, amount, label, token.symbol);
+
     return this.annotateLabel(
-      TransactionLabelRepository.lockupLabel(swap, true),
+      label,
       token.symbol,
       this.erc20Swap.lockPrepayMinerfee(
         preimageHash,
@@ -411,6 +429,17 @@ class ContractHandler {
     const res = typeof tx === 'function' ? await tx() : await tx;
     await TransactionLabelRepository.addLabel(res.hash, symbol, label);
     return res;
+  };
+
+  private logLockupSend = async (
+    contract: EtherSwap | ERC20Swap,
+    amount: bigint,
+    label: string,
+    symbol: string = this.networkDetails.symbol,
+  ): Promise<void> => {
+    this.logger.info(
+      `Sending ${amount} ${symbol} to ${await contract.getAddress()} for: ${label}`,
+    );
   };
 }
 

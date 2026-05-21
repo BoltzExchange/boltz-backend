@@ -1720,7 +1720,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       claimTransaction,
     );
 
-    await chainClient.sendRawTransaction(TxView.of(claimTransaction).hex, true);
+    await chainClient.sendRawTransaction(TxView.of(claimTransaction).hex);
 
     this.logger.info(
       `Claimed ${wallet.symbol} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${TxView.of(claimTransaction).id}`,
@@ -2112,10 +2112,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       vin: 0,
     });
 
-    await chainClient.sendRawTransaction(
-      TxView.of(refundTransaction).hex,
-      true,
-    );
+    await chainClient.sendRawTransaction(TxView.of(refundTransaction).hex);
 
     this.logger.info(
       `Broadcast ${chainClient.symbol} refund of ${swapTypeToPrettyString(swap.type)} Swap ${

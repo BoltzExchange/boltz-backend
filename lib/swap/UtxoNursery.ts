@@ -12,15 +12,12 @@ import {
 import type Logger from '../Logger';
 import { TxView } from '../TxView';
 import {
-  formatError,
   getChainCurrency,
   getHexBuffer,
   isTxConfirmed,
   splitPairId,
 } from '../Utils';
 import type { IChainClient } from '../chain/ChainClient';
-import ElementsClient from '../chain/ElementsClient';
-import ElementsWrapper from '../chain/ElementsWrapper';
 import {
   SwapUpdateEvent,
   SwapVersion,
@@ -846,25 +843,6 @@ class UtxoNursery extends TypedEventEmitter<{
 
     if (await this.transactionSignalsRbf(chainClient, transaction)) {
       return Errors.LOCKUP_TRANSACTION_SIGNALS_RBF().message;
-    }
-
-    // Make sure all clients accept the transaction
-    if (
-      chainClient.symbol === ElementsClient.symbol &&
-      !ElementsClient.needsLowball(transaction as LiquidTransaction)
-    ) {
-      if (chainClient instanceof ElementsWrapper) {
-        const wrapper = chainClient as ElementsWrapper;
-
-        try {
-          await wrapper.sendRawTransactionAll(TxView.of(transaction).hex);
-        } catch (e) {
-          this.logger.debug(
-            `Rejecting 0-conf for ${chainClient.symbol} lockup transaction ${TxView.of(transaction).id} of ${swapTypeToPrettyString(swap.type)} ${swap.id} because not all nodes accept it: ${formatError(e)}`,
-          );
-          return Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message;
-        }
-      }
     }
 
     if (

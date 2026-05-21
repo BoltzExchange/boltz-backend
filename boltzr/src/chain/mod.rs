@@ -85,8 +85,6 @@ pub struct LiquidConfig {
     #[serde(flatten)]
     base: Config,
 
-    lowball: Option<Config>,
-
     #[serde(rename = "zeroConfTool")]
     pub zero_conf_tool: Option<ZeroConfToolConfig>,
 }

@@ -192,7 +192,6 @@ abstract class CoopSignerBase<
     );
     await chainCurrency.chainClient!.sendRawTransaction(
       TxView.of(transaction).hex,
-      true,
     );
 
     return {

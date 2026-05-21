@@ -88,10 +88,10 @@ impl HttpZeroConfTool {
 
         for mut entry in self.to_check.iter_mut() {
             let tx_id = entry.key().clone();
-
+            let url = format!("{}/{}", self.endpoint, tx_id);
             let data = self
                 .client
-                .get(format!("{}/{}", self.endpoint, tx_id))
+                .get(url)
                 .timeout(REQUEST_TIMEOUT)
                 .send()
                 .await?
@@ -105,7 +105,7 @@ impl HttpZeroConfTool {
                 }
 
                 trace!(
-                    "Accepted {} transaction {} after {} retries",
+                    "{} 0-conf HTTP accepted {} after {} retries",
                     self.symbol,
                     tx_id,
                     // Current check is not counted yet
@@ -130,7 +130,7 @@ impl HttpZeroConfTool {
                 }
 
                 trace!(
-                    "Rejected {} transaction {} after {} retries",
+                    "{} 0-conf HTTP rejected {} after {} retries",
                     self.symbol, tx_id, retries
                 );
 
@@ -185,6 +185,7 @@ mod test {
             interval: None,
             max_retries: None,
             deadline_secs: None,
+            rotation_interval_secs: None,
         };
 
         let cancel = CancellationToken::new();
@@ -219,6 +220,7 @@ mod test {
                 interval: None,
                 max_retries: None,
                 deadline_secs: None,
+                rotation_interval_secs: None,
             },
         );
 
@@ -259,6 +261,7 @@ mod test {
                 interval: Some(50),
                 max_retries: Some(3),
                 deadline_secs: None,
+                rotation_interval_secs: None,
             },
         );
 

@@ -13,6 +13,7 @@ import Commitment from './models/Commitment';
 import DatabaseVersion from './models/DatabaseVersion';
 import DisabledSigner from './models/DisabledSigner';
 import ExtraFee from './models/ExtraFee';
+import JwtToken from './models/JwtToken';
 import KeyProvider from './models/KeyProvider';
 import LightningPayment from './models/LightningPayment';
 import MarkedSwap from './models/MarkedSwap';
@@ -113,6 +114,7 @@ class Database {
       DatabaseVersion.sync(),
       TransactionLabel.sync(),
       PendingEthereumTransaction.sync(),
+      JwtToken.sync(),
     ]);
 
     await Promise.all([Swap.sync(), ReverseSwap.sync(), ChainSwap.sync()]);
@@ -170,6 +172,7 @@ class Database {
     ClaimTransaction.load(Database.sequelize);
     ScriptPubKey.load(Database.sequelize);
     Commitment.load(Database.sequelize);
+    JwtToken.load(Database.sequelize);
 
     TransactionLabelRepository.setLogger(this.logger);
   };

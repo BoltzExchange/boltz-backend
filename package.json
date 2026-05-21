@@ -85,6 +85,7 @@
     "colors": "^1.4.0",
     "ethers": "^6.16.0",
     "express": "^5.2.1",
+    "jose": "^6.2.3",
     "liquidjs-lib": "^6.0.2-liquid.37",
     "node-forge": "^1.4.0",
     "node-schedule": "^2.1.1",

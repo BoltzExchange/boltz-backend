@@ -24,6 +24,7 @@ import ChainTipRepository from './db/repositories/ChainTipRepository';
 import ReferralRepository from './db/repositories/ReferralRepository';
 import GrpcServer from './grpc/GrpcServer';
 import GrpcService from './grpc/GrpcService';
+import JwtSigner from './grpc/JwtSigner';
 import type { LightningClient } from './lightning/LightningClient';
 import LndClient from './lightning/LndClient';
 import RoutingFee from './lightning/RoutingFee';
@@ -252,10 +253,12 @@ class Boltz {
         this.redis,
       );
 
+      const jwtSigner = new JwtSigner(this.logger, this.config.grpc);
       this.grpcServer = new GrpcServer(
         this.logger,
         this.config.grpc,
-        new GrpcService(this.logger, this.service, this.api),
+        new GrpcService(this.logger, this.service, this.api, jwtSigner),
+        jwtSigner,
       );
 
       this.prometheus = new Prometheus(

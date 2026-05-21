@@ -585,9 +585,10 @@ pub mod test {
             ensure_rustls_crypto_provider();
 
             let cancellation_token = CancellationToken::new();
+            let ready_notify = Arc::new(Notify::new());
             let client = Client::new(
                 cancellation_token.clone(),
-                Arc::new(Notify::new()),
+                ready_notify.clone(),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
                 None,
@@ -600,13 +601,21 @@ pub mod test {
                 });
             }
 
-            // Wait for the client to receive initial data
-            for _ in 0..50 {
-                if client.get_latest().is_ok() {
-                    break;
+            tokio::time::timeout(Duration::from_secs(30), async {
+                loop {
+                    let notified = ready_notify.notified();
+                    tokio::pin!(notified);
+                    notified.as_mut().enable();
+
+                    if client.get_latest().is_ok() {
+                        return;
+                    }
+
+                    notified.await;
                 }
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
+            })
+            .await
+            .expect("timed out waiting for mempool.space data");
 
             let (height, fee) = client.get_latest().unwrap();
             assert!(height >= 903_535);

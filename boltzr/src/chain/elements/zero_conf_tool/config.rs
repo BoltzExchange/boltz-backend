@@ -13,4 +13,8 @@ pub struct ZeroConfToolConfig {
     /// WebSocket transport: per-transaction wall-time deadline in seconds
     /// before client-side reject. Ignored by the HTTP transport.
     pub deadline_secs: Option<u64>,
+
+    /// WebSocket transport: proactively replace the connection after this many
+    /// seconds. Set to 0 to disable. Ignored by the HTTP transport.
+    pub rotation_interval_secs: Option<u64>,
 }

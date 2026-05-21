@@ -15,7 +15,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, instrument, warn};
+use tracing::{debug, info, instrument};
 
 pub const SYMBOL: &str = "L-BTC";
 
@@ -262,6 +262,8 @@ pub mod test {
     use serial_test::serial;
     use std::sync::OnceLock;
 
+    const ELEMENTS_TX_HEX: &str = include_str!("../../fixtures/elements-tx.txt");
+
     mock! {
         pub ZeroConfTool {}
 
@@ -462,12 +464,10 @@ pub mod test {
 
         client.zero_conf_tool = Some(Arc::new(tool));
 
-        let tx = send_transaction(&client).await;
+        let tx = Transaction::parse_hex(&Type::Elements, ELEMENTS_TX_HEX).unwrap();
         let zero_conf_safe = client.zero_conf_safe(&tx);
 
         let received = zero_conf_safe.await.unwrap();
         assert_eq!(received, expected);
-
-        generate_block(&client).await;
     }
 }

@@ -2,6 +2,7 @@ use crate::chain::elements::ZeroConfCheck;
 use anyhow::{Context, Result};
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
+use tracing::debug;
 
 pub use config::ZeroConfToolConfig;
 pub use http::HttpZeroConfTool;
@@ -21,16 +22,28 @@ pub fn new(
         .with_context(|| format!("invalid zeroConfTool endpoint: {}", config.endpoint))?;
 
     match url.scheme() {
-        "http" | "https" => Ok(Arc::new(HttpZeroConfTool::new(
-            cancellation_token,
-            symbol,
-            config,
-        ))),
-        "ws" | "wss" => Ok(Arc::new(WsZeroConfTool::new(
-            cancellation_token,
-            symbol,
-            config,
-        ))),
+        "http" | "https" => {
+            debug!(
+                "Using HTTP transport for {} 0-conf tool at {}",
+                symbol, config.endpoint
+            );
+            Ok(Arc::new(HttpZeroConfTool::new(
+                cancellation_token,
+                symbol,
+                config,
+            )))
+        }
+        "ws" | "wss" => {
+            debug!(
+                "Using WebSocket transport for {} 0-conf tool at {}",
+                symbol, config.endpoint
+            );
+            Ok(Arc::new(WsZeroConfTool::new(
+                cancellation_token,
+                symbol,
+                config,
+            )))
+        }
         other => anyhow::bail!(
             "unsupported zeroConfTool endpoint scheme `{}` (expected http/https/ws/wss): {}",
             other,
@@ -49,6 +62,7 @@ mod test {
             interval: None,
             max_retries: None,
             deadline_secs: None,
+            rotation_interval_secs: None,
         }
     }
 

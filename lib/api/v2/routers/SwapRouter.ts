@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type Logger from '../../../Logger';
 import { getHexString, stringify } from '../../../Utils';
+import type { NonInteractiveClaim } from '../../../chain/ArkClient';
 import { SwapUpdateEvent, SwapVersion } from '../../../consts/Enums';
 import { unsafeKeys } from '../../../data/Utils';
 import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
@@ -957,6 +958,22 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
      *           $ref: '#/components/schemas/ExtraFees'
+     *         nonInteractiveClaim:
+     *           $ref: '#/components/schemas/NonInteractiveClaim'
+     *     NonInteractiveClaim:
+     *       type: object
+     *       required: ["claimReceiverAddress", "introspectorPublicKey"]
+     *       description: Enables a non-interactive solver claim on the VHTLC (Ark Reverse Swaps only)
+     *       properties:
+     *         claimReceiverAddress:
+     *           type: string
+     *           description: Ark address the solver must pay when claiming
+     *         introspectorPublicKey:
+     *           type: string
+     *           description: Compressed (33 bytes) secp256k1 public key tweaked by the arkade EnforcePayTo script encoded as HEX
+     *         extraPacket:
+     *           type: string
+     *           description: Optional hex encoded extension to attach to the VHTLC funding tx
      */
     /**
      * @openapi
@@ -2786,6 +2803,7 @@ class SwapRouter extends RouterBase {
       claimPublicKey,
       descriptionHash,
       addressSignature,
+      nonInteractiveClaim,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
@@ -2801,6 +2819,7 @@ class SwapRouter extends RouterBase {
       { name: 'invoiceExpiry', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
       { name: 'claimCovenant', type: 'boolean', optional: true },
+      { name: 'nonInteractiveClaim', type: 'object', optional: true },
       { name: 'preimageHash', type: 'string', hex: true, optional: true },
       { name: 'descriptionHash', type: 'string', hex: true, optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
@@ -2811,6 +2830,8 @@ class SwapRouter extends RouterBase {
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const webHookData = this.parseWebHook(webhook);
     const extraFeesData = this.parseExtraFees(extraFees);
+    const nonInteractiveClaimData =
+      this.parseNonInteractiveClaim(nonInteractiveClaim);
 
     const response = await this.service.createReverseSwap({
       pairId,
@@ -2834,6 +2855,7 @@ class SwapRouter extends RouterBase {
       extraFees: extraFeesData,
       version: SwapVersion.Taproot,
       userAddressSignature: addressSignature,
+      nonInteractiveClaim: nonInteractiveClaimData,
     });
 
     await markSwap(this.service.sidecar, req.ip, response.id);
@@ -3282,6 +3304,30 @@ class SwapRouter extends RouterBase {
     }
 
     return res;
+  };
+
+  private parseNonInteractiveClaim = (
+    data: Record<string, any> | undefined,
+  ): NonInteractiveClaim | undefined => {
+    if (data === undefined) {
+      return undefined;
+    }
+
+    const res = validateRequest(data, [
+      { name: 'claimReceiverAddress', type: 'string' },
+      {
+        name: 'introspectorPublicKey',
+        type: 'string',
+        hex: true,
+      },
+      { name: 'extraPacket', type: 'string', hex: true, optional: true },
+    ]);
+
+    return {
+      claimReceiverAddress: res.claimReceiverAddress,
+      introspectorPublicKey: res.introspectorPublicKey,
+      extraPacket: res.extraPacket,
+    };
   };
 
   private parseExtraFees = (

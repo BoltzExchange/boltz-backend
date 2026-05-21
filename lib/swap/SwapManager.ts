@@ -33,7 +33,7 @@ import {
   getUnixTime,
   splitPairId,
 } from '../Utils';
-import type { Timeouts } from '../chain/ArkClient';
+import type { NonInteractiveClaim, Timeouts } from '../chain/ArkClient';
 import ArkClient from '../chain/ArkClient';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import DefaultMap from '../consts/DefaultMap';
@@ -796,6 +796,9 @@ class SwapManager {
 
     claimCovenant: boolean;
 
+    // Only used for Reverse Swaps to Ark
+    nonInteractiveClaim?: NonInteractiveClaim;
+
     memo?: string;
     descriptionHash?: Buffer;
 
@@ -1095,6 +1098,7 @@ class SwapManager {
         args.onchainTimeoutBlockDelta,
         args.claimPublicKey!,
         undefined,
+        args.nonInteractiveClaim,
       );
 
       result.refundPublicKey = getHexString(sendingCurrency.arkNode!.pubkey);

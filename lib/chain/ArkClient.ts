@@ -80,6 +80,12 @@ type ArkAddress = {
   boardingAddress: string;
 };
 
+export type NonInteractiveClaim = {
+  claimReceiverAddress: string;
+  introspectorPublicKey: Buffer;
+  extraPacket?: Buffer;
+};
+
 enum ArkBlockEventKind {
   Height = 'height',
   MedianTime = 'medianTime',
@@ -475,6 +481,7 @@ class ArkClient extends BaseClient<
     refundDelay: number,
     claimPublicKey?: Buffer,
     refundPublicKey?: Buffer,
+    nonInteractiveClaim?: NonInteractiveClaim,
   ): Promise<{
     vHtlc: arkrpc.CreateVHTLCResponse;
     timeouts: Timeouts;
@@ -511,6 +518,7 @@ class ArkClient extends BaseClient<
       unilateralClaimDelay: undefined,
       unilateralRefundDelay: undefined,
       unilateralRefundWithoutReceiverDelay: undefined,
+      nonInteractiveClaim: undefined,
     };
 
     if (claimPublicKey) {
@@ -519,6 +527,19 @@ class ArkClient extends BaseClient<
 
     if (refundPublicKey) {
       req.senderPubkey = getHexString(refundPublicKey);
+    }
+
+    if (nonInteractiveClaim) {
+      req.nonInteractiveClaim = {
+        claimReceiverAddress: nonInteractiveClaim.claimReceiverAddress,
+        introspectorPubkey: getHexString(
+          nonInteractiveClaim.introspectorPublicKey,
+        ),
+        extraPacket:
+          nonInteractiveClaim.extraPacket !== undefined
+            ? getHexString(nonInteractiveClaim.extraPacket)
+            : undefined,
+      };
     }
 
     const currentHeight = await this.getBlockHeight();

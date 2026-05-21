@@ -1,5 +1,3 @@
-import type { Transaction } from 'liquidjs-lib';
-import { confidential } from 'liquidjs-lib';
 import type { ChainConfig } from '../Config';
 import type Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
@@ -9,8 +7,6 @@ import type { WalletTransaction } from '../consts/Types';
 import type Sidecar from '../sidecar/Sidecar';
 import type { AddressType, IChainClient } from './ChainClient';
 import ChainClient from './ChainClient';
-
-const LOWBALL_FEE_THRESHOLD_SAT_PER_VBYTE = 0.1;
 
 enum LiquidAddressType {
   Blech32 = 'blech32',
@@ -35,30 +31,16 @@ class ElementsClient extends ChainClient implements IElementsClient {
     sidecar: Sidecar,
     network: string,
     config: ChainConfig,
-    public readonly isLowball = false,
   ) {
     if (config.wallet) {
       logger.debug(
-        `Using wallet "${config.wallet}" for ${ElementsClient.symbol} ${isLowball ? 'lowball' : 'public'} RPC`,
+        `Using wallet "${config.wallet}" for ${ElementsClient.symbol} RPC`,
       );
     }
 
     super(logger, sidecar, network, config, ElementsClient.symbol);
     this.currencyType = CurrencyType.Liquid;
   }
-
-  public static needsLowball = (tx: Transaction): boolean => {
-    const feeOutput = tx.outs.find((out) => out.script.length === 0);
-    if (feeOutput === undefined) {
-      return false;
-    }
-
-    return (
-      confidential.confidentialValueToSatoshi(feeOutput.value) /
-        tx.virtualSize(true) <
-      LOWBALL_FEE_THRESHOLD_SAT_PER_VBYTE
-    );
-  };
 
   public serviceName = (): string => {
     return 'Elements';

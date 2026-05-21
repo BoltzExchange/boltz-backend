@@ -15,7 +15,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, instrument};
+use tracing::instrument;
 
 pub const SYMBOL: &str = "L-BTC";
 
@@ -27,7 +27,6 @@ const DEFAULT_ADDRESS_TYPE: &str = "blech32";
 pub struct ElementsClient {
     network: Network,
     client: ChainClient,
-    lowball_client: Option<ChainClient>,
     zero_conf_tool: Option<Arc<dyn ZeroConfCheck + Send + Sync>>,
 }
 
@@ -41,26 +40,12 @@ impl ElementsClient {
     ) -> anyhow::Result<Self> {
         let client = ChainClient::new(
             cancellation_token.clone(),
-            cache.clone(),
+            cache,
             TYPE,
             network,
             SYMBOL.to_string(),
             config.base,
         )?;
-        let lowball_client = match config.lowball {
-            Some(lowball_config) => Some(ChainClient::new(
-                cancellation_token.clone(),
-                cache,
-                TYPE,
-                network,
-                SYMBOL.to_string(),
-                lowball_config,
-            )?),
-            None => {
-                debug!("No {} lowball client configured", SYMBOL);
-                None
-            }
-        };
 
         let zero_conf_tool = match config.zero_conf_tool {
             Some(zero_conf_config) => Some(zero_conf_tool::new(
@@ -74,16 +59,8 @@ impl ElementsClient {
         Ok(Self {
             network,
             client,
-            lowball_client,
             zero_conf_tool,
         })
-    }
-
-    fn wallet_client(&self) -> &ChainClient {
-        match &self.lowball_client {
-            Some(lowball) => lowball,
-            None => &self.client,
-        }
     }
 
     #[cfg(test)]
@@ -104,13 +81,6 @@ impl BaseClient for ElementsClient {
 
     async fn connect(&mut self) -> anyhow::Result<()> {
         self.client.connect().await?;
-
-        if let Some(mut lowball_client) = self.lowball_client.clone() {
-            info!("Connecting to {} lowball client", SYMBOL);
-            lowball_client.connect().await?;
-            self.lowball_client = Some(lowball_client);
-        }
-
         Ok(())
     }
 }
@@ -132,7 +102,7 @@ impl Client for ElementsClient {
         relevant_inputs: &HashSet<Outpoint>,
         relevant_outputs: &HashSet<Vec<u8>>,
     ) -> anyhow::Result<u64> {
-        self.wallet_client()
+        self.client
             .rescan(
                 chain_tip_repo,
                 start_height,
@@ -147,37 +117,37 @@ impl Client for ElementsClient {
         relevant_inputs: &HashSet<Outpoint>,
         relevant_outputs: &HashSet<Vec<u8>>,
     ) -> anyhow::Result<()> {
-        self.wallet_client()
+        self.client
             .scan_mempool(relevant_inputs, relevant_outputs)
             .await
     }
 
     async fn network_info(&self) -> anyhow::Result<NetworkInfo> {
-        self.wallet_client().network_info().await
+        self.client.network_info().await
     }
 
     async fn blockchain_info(&self) -> anyhow::Result<BlockchainInfo> {
-        self.wallet_client().blockchain_info().await
+        self.client.blockchain_info().await
     }
 
     async fn estimate_fee(&self) -> anyhow::Result<f64> {
-        self.wallet_client().estimate_fee().await
+        self.client.estimate_fee().await
     }
 
     async fn raw_transaction(&self, tx_id: &str) -> anyhow::Result<String> {
-        self.wallet_client().raw_transaction(tx_id).await
+        self.client.raw_transaction(tx_id).await
     }
 
     async fn raw_transaction_verbose(&self, tx_id: &str) -> anyhow::Result<RawTransactionVerbose> {
-        self.wallet_client().raw_transaction_verbose(tx_id).await
+        self.client.raw_transaction_verbose(tx_id).await
     }
 
     async fn send_raw_transaction(&self, tx: &str) -> anyhow::Result<String> {
-        self.wallet_client().send_raw_transaction(tx).await
+        self.client.send_raw_transaction(tx).await
     }
 
     async fn list_unspent(&self, wallet: Option<&str>) -> anyhow::Result<Vec<UnspentOutput>> {
-        self.wallet_client().list_unspent(wallet).await
+        self.client.list_unspent(wallet).await
     }
 
     async fn get_new_address(
@@ -186,7 +156,7 @@ impl Client for ElementsClient {
         label: &str,
         address_type: Option<&str>,
     ) -> anyhow::Result<String> {
-        self.wallet_client()
+        self.client
             .get_new_address(
                 wallet,
                 label,
@@ -200,9 +170,7 @@ impl Client for ElementsClient {
         wallet: Option<&str>,
         address: &str,
     ) -> anyhow::Result<String> {
-        self.wallet_client()
-            .dump_blinding_key(wallet, address)
-            .await
+        self.client.dump_blinding_key(wallet, address).await
     }
 
     async fn sign_raw_transaction_with_wallet(
@@ -210,7 +178,7 @@ impl Client for ElementsClient {
         wallet: Option<&str>,
         tx: &str,
     ) -> anyhow::Result<SignRawTransactionResponse> {
-        self.wallet_client()
+        self.client
             .sign_raw_transaction_with_wallet(wallet, tx)
             .await
     }
@@ -222,9 +190,7 @@ impl Client for ElementsClient {
         method: &str,
         params: Option<&[crate::chain::types::RpcParam<'_>]>,
     ) -> anyhow::Result<serde_json::Value> {
-        self.wallet_client()
-            .request_wallet(wallet, method, params)
-            .await
+        self.client.request_wallet(wallet, method, params).await
     }
 
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool> {
@@ -236,16 +202,16 @@ impl Client for ElementsClient {
 
         match &self.zero_conf_tool {
             Some(tool) => tool.check_transaction(transaction),
-            None => self.wallet_client().zero_conf_safe(transaction),
+            None => self.client.zero_conf_safe(transaction),
         }
     }
 
     fn tx_receiver(&self) -> Receiver<(Transactions, bool)> {
-        self.wallet_client().tx_receiver()
+        self.client.tx_receiver()
     }
 
     fn block_receiver(&self) -> Receiver<(u64, Block)> {
-        self.wallet_client().block_receiver()
+        self.client.block_receiver()
     }
 }
 
@@ -292,7 +258,6 @@ pub mod test {
                         Cache::Memory(MemCache::new()),
                         LiquidConfig {
                             base: config.clone(),
-                            lowball: Some(config.clone()),
                             zero_conf_tool: None,
                         },
                     )
@@ -305,7 +270,7 @@ pub mod test {
 
     async fn send_transaction(client: &ElementsClient) -> Transaction {
         let tx_id = client
-            .wallet_client()
+            .client
             .client
             .request_wallet::<String>(
                 None,
@@ -313,7 +278,7 @@ pub mod test {
                 Some(&[
                     RpcParam::Str(
                         &client
-                            .wallet_client()
+                            .client
                             .client
                             .request_wallet::<String>(None, "getnewaddress", None)
                             .await
@@ -328,7 +293,7 @@ pub mod test {
         Transaction::parse_hex(
             &Type::Elements,
             &client
-                .wallet_client()
+                .client
                 .client
                 .request::<String>("getrawtransaction", Some(&[RpcParam::Str(&tx_id)]))
                 .await
@@ -339,7 +304,7 @@ pub mod test {
 
     async fn generate_block(client: &ElementsClient) {
         client
-            .wallet_client()
+            .client
             .client
             .request_wallet::<serde_json::Value>(
                 None,
@@ -348,7 +313,7 @@ pub mod test {
                     RpcParam::Int(1),
                     RpcParam::Str(
                         &client
-                            .wallet_client()
+                            .client
                             .client
                             .request_wallet::<String>(None, "getnewaddress", None)
                             .await
@@ -364,47 +329,6 @@ pub mod test {
     async fn test_chain_type() {
         let (client, _) = get_client();
         assert_eq!(client.chain_type(), Type::Elements);
-    }
-
-    #[tokio::test]
-    async fn test_wallet_client() {
-        let cancellation_token = CancellationToken::new();
-
-        let (_, config) = get_client();
-        let client = ElementsClient::new(
-            cancellation_token.clone(),
-            Network::Regtest,
-            Cache::Memory(MemCache::new()),
-            LiquidConfig {
-                base: config.clone(),
-                lowball: None,
-                zero_conf_tool: None,
-            },
-        )
-        .unwrap();
-        assert!(client.lowball_client.clone().is_none());
-        assert_eq!(client.wallet_client().clone(), client.client);
-
-        let mut config_lowball = config.clone();
-        config_lowball.port = 123;
-        let client = ElementsClient::new(
-            cancellation_token.clone(),
-            Network::Regtest,
-            Cache::Memory(MemCache::new()),
-            LiquidConfig {
-                base: config,
-                lowball: Some(config_lowball),
-                zero_conf_tool: None,
-            },
-        )
-        .unwrap();
-        assert!(client.lowball_client.clone().is_some());
-        assert_eq!(
-            client.wallet_client().clone(),
-            client.lowball_client.unwrap()
-        );
-
-        cancellation_token.cancel();
     }
 
     #[tokio::test]

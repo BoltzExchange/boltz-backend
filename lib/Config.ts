@@ -53,10 +53,6 @@ type ChainConfig = {
   mempoolSpace?: string;
 };
 
-type LiquidChainConfig = ChainConfig & {
-  lowball?: ChainConfig;
-};
-
 type PreferredWallet = 'lnd' | 'core' | undefined;
 
 type BaseCurrencyConfig<T = ChainConfig> = {
@@ -238,7 +234,7 @@ type ConfigType = {
   pairs: PairConfig[];
   currencies: CurrencyConfig[];
 
-  liquid?: BaseCurrencyConfig<LiquidChainConfig>;
+  liquid?: BaseCurrencyConfig<ChainConfig>;
   ark?: ArkConfig;
 
   rsk?: EthereumConfig;
@@ -560,7 +556,6 @@ export {
   ContractsConfig,
   PreferredWallet,
   OverPaymentConfig,
-  LiquidChainConfig,
   BaseCurrencyConfig,
   NotificationConfig,
   MinSwapSizeMultipliersConfig,

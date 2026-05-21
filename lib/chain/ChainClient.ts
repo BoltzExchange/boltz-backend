@@ -45,10 +45,7 @@ interface IChainClient extends TypedEventEmitter<ChainClientEvents> {
   getBlock(hash: string): Promise<Block>;
   getBlockhash(height: number): Promise<string>;
 
-  sendRawTransaction(
-    transactionHex: string,
-    isSwapRelated?: boolean,
-  ): Promise<string>;
+  sendRawTransaction(transactionHex: string): Promise<string>;
   getRawTransaction(transactionId: string): Promise<string>;
   getRawTransactionVerbose(transactionId: string): Promise<RawTransaction>;
   getWalletTransaction(transactionId: string): Promise<WalletTransaction>;

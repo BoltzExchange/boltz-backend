@@ -468,7 +468,6 @@ class DeferredClaimer extends CoopSignerBase<{
 
         await currency!.chainClient!.sendRawTransaction(
           getHexString(res.transaction),
-          true,
         );
         break;
       }

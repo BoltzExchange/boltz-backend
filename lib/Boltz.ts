@@ -13,7 +13,7 @@ import VersionCheck from './VersionCheck';
 import Api from './api/Api';
 import ArkClient from './chain/ArkClient';
 import ChainClient, { type IChainClient } from './chain/ChainClient';
-import ElementsWrapper from './chain/ElementsWrapper';
+import ElementsClient from './chain/ElementsClient';
 import { resolveBitcoinNetwork } from './consts/BitcoinNetworks';
 import { CurrencyType } from './consts/Enums';
 import type { BlockchainInfo, NetworkInfo } from './consts/Types';
@@ -473,18 +473,14 @@ class Boltz {
 
   private connectChainClient = async (client: IChainClient) => {
     const formatChainInfo = (
-      networkInfo: (NetworkInfo & { lowball?: NetworkInfo }) | undefined,
-      blockchainInfo:
-        | (BlockchainInfo & {
-            lowball?: BlockchainInfo;
-          })
-        | undefined,
+      networkInfo: NetworkInfo | undefined,
+      blockchainInfo: BlockchainInfo | undefined,
     ) => {
       if (networkInfo === undefined || blockchainInfo === undefined) {
         return undefined;
       }
 
-      const res: any = {
+      return {
         version: networkInfo.version,
         protocolversion: networkInfo.protocolversion,
         connections: networkInfo.connections,
@@ -492,15 +488,6 @@ class Boltz {
         bestblockhash: blockchainInfo.bestblockhash,
         verificationprogress: blockchainInfo.verificationprogress,
       };
-
-      if (networkInfo.lowball && blockchainInfo.lowball) {
-        res.lowball = formatChainInfo(
-          networkInfo.lowball,
-          blockchainInfo.lowball,
-        );
-      }
-
-      return res;
     };
 
     const service = `${client.symbol} chain`;
@@ -677,7 +664,7 @@ class Boltz {
         type: CurrencyType.Liquid,
         symbol: symbol,
         network: LiquidNetworks[network],
-        chainClient: new ElementsWrapper(
+        chainClient: new ElementsClient(
           this.logger,
           this.sidecar,
           network,

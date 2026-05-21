@@ -6,7 +6,9 @@ import { BoltzService } from '../proto/boltzrpc';
 import { CertificatePrefix, getCertificate } from './Certificates';
 import Errors from './Errors';
 import type GrpcService from './GrpcService';
-import { loggingInterceptor } from './Interceptors';
+import type JwtSigner from './JwtSigner';
+import { authInterceptor } from './interceptors/AuthInterceptor';
+import { loggingInterceptor } from './interceptors/LoggingInterceptor';
 
 class GrpcServer {
   public static readonly certificateSubject = 'boltz';
@@ -17,10 +19,15 @@ class GrpcServer {
     private logger: Logger,
     private config: GrpcConfig,
     grpcService: GrpcService,
+    private jwtSigner: JwtSigner,
   ) {
-    this.server = new Server({
-      interceptors: [loggingInterceptor(this.logger)],
-    });
+    const interceptors = [loggingInterceptor(this.logger)];
+    if (!this.config.jwt?.disable) {
+      interceptors.push(authInterceptor(this.logger, this.jwtSigner));
+    } else {
+      this.logger.warn('gRPC JWT authentication is disabled');
+    }
+    this.server = new Server({ interceptors });
 
     this.server.addService(BoltzService, {
       stop: grpcService.stop,
@@ -57,6 +64,10 @@ class GrpcServer {
       setReferral: grpcService.setReferral,
       invoiceClnThreshold: grpcService.invoiceClnThreshold,
       devClearSwapUpdateCache: grpcService.devClearSwapUpdateCache,
+      issueJwt: grpcService.issueJwt,
+      revokeJwt: grpcService.revokeJwt,
+      listJwts: grpcService.listJwts,
+      listMethods: grpcService.listMethods,
     });
   }
 
@@ -65,6 +76,10 @@ class GrpcServer {
 
     if (!Number.isInteger(port) || port > 65535) {
       throw 'invalid port for gRPC server';
+    }
+
+    if (!this.config.jwt?.disable) {
+      await this.jwtSigner.ensureAdminToken();
     }
 
     await new Promise<void>((resolve, reject) => {

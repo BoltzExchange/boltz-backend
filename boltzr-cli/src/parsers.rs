@@ -44,6 +44,9 @@ pub enum AmountOrAll {
     All,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct HumanDuration(pub u64);
+
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum LogLevel {
     Error,
@@ -87,6 +90,38 @@ impl FromStr for AmountOrAll {
 
         let amount = Amount::from_str(s)?;
         Ok(AmountOrAll::Amount(amount))
+    }
+}
+
+impl FromStr for HumanDuration {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim();
+        if s.is_empty() {
+            return Err("empty duration".into());
+        }
+        let last = s.chars().last().unwrap();
+        let (digits, mult): (&str, u64) = match last.to_ascii_lowercase() {
+            's' => (&s[..s.len() - 1], 1),
+            'm' => (&s[..s.len() - 1], 60),
+            'h' => (&s[..s.len() - 1], 3_600),
+            'd' => (&s[..s.len() - 1], 86_400),
+            'w' => (&s[..s.len() - 1], 604_800),
+            // 'y' is 365 days exactly; ignores leap years
+            'y' => (&s[..s.len() - 1], 31_536_000),
+            '0'..='9' => (s, 1),
+            _ => return Err(format!("unknown duration suffix '{}'", last)),
+        };
+        if digits.is_empty() {
+            return Err("missing number before suffix".into());
+        }
+        let n: u64 = digits
+            .parse()
+            .map_err(|e: std::num::ParseIntError| format!("invalid number '{}': {}", digits, e))?;
+        n.checked_mul(mult)
+            .map(HumanDuration)
+            .ok_or_else(|| "duration overflow".to_string())
     }
 }
 
@@ -191,6 +226,36 @@ mod tests {
         } else {
             assert!(matches!(result, AmountOrAll::Amount(_)));
         }
+    }
+
+    #[rstest]
+    #[case("60", 60)]
+    #[case("60s", 60)]
+    #[case("60S", 60)]
+    #[case("15m", 15 * 60)]
+    #[case("15M", 15 * 60)]
+    #[case("24h", 24 * 3_600)]
+    #[case("24H", 24 * 3_600)]
+    #[case("7d", 7 * 86_400)]
+    #[case("7D", 7 * 86_400)]
+    #[case("4w", 4 * 604_800)]
+    #[case("4W", 4 * 604_800)]
+    #[case("1y", 31_536_000)]
+    #[case("2Y", 2 * 31_536_000)]
+    #[case("0", 0)]
+    #[case("0d", 0)]
+    fn test_human_duration_valid(#[case] input: &str, #[case] expected: u64) {
+        assert_eq!(HumanDuration::from_str(input).unwrap().0, expected);
+    }
+
+    #[rstest]
+    #[case("")]
+    #[case("5z")]
+    #[case("abc")]
+    #[case("m")]
+    #[case("18446744073709551615w")]
+    fn test_human_duration_invalid(#[case] input: &str) {
+        assert!(HumanDuration::from_str(input).is_err());
     }
 
     #[rstest]

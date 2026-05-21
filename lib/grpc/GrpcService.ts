@@ -26,6 +26,7 @@ import {
 } from '../consts/Enums';
 import type { ReferralConfig } from '../db/models/Referral';
 import type Referral from '../db/models/Referral';
+import JwtTokenRepository from '../db/repositories/JwtTokenRepository';
 import PendingEthereumTransactionRepository from '../db/repositories/PendingEthereumTransactionRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
@@ -35,6 +36,13 @@ import type Service from '../service/Service';
 import SignerControlRegistry from '../service/SignerControlRegistry';
 import { isValidSigner } from '../service/SignerControlUtils';
 import Sidecar from '../sidecar/Sidecar';
+import type JwtSigner from './JwtSigner';
+import {
+  assertValidAllowedMethods,
+  validMethodPaths,
+  validServiceWildcards,
+  wildcardAll,
+} from './MethodRegistry';
 
 class GrpcService {
   private readonly signerControlRegistry = SignerControlRegistry.getInstance();
@@ -43,6 +51,7 @@ class GrpcService {
     private readonly logger: Logger,
     private readonly service: Service,
     private readonly api: Api,
+    private readonly jwtSigner: JwtSigner,
   ) {}
 
   public stop: handleUnaryCall<boltzrpc.StopRequest, boltzrpc.StopResponse> =
@@ -673,6 +682,115 @@ class GrpcService {
       }
 
       return {};
+    });
+  };
+
+  public issueJwt: handleUnaryCall<
+    boltzrpc.IssueJwtRequest,
+    boltzrpc.IssueJwtResponse
+  > = async (call, callback) => {
+    await GrpcService.handleCallback(call, callback, async () => {
+      const { label, allowedMethods, expiresInSeconds } = call.request;
+      if (label === '') {
+        throw GrpcService.invalidArgument('label must not be empty');
+      }
+      if (allowedMethods.length === 0) {
+        throw GrpcService.invalidArgument('allowedMethods must not be empty');
+      }
+      try {
+        assertValidAllowedMethods(allowedMethods);
+      } catch (error) {
+        throw GrpcService.invalidArgument(error);
+      }
+
+      const issuedAt = new Date();
+      const expiresInSecondsNum =
+        expiresInSeconds !== undefined && expiresInSeconds !== ''
+          ? Number(expiresInSeconds)
+          : 0;
+      if (!Number.isInteger(expiresInSecondsNum) || expiresInSecondsNum < 0) {
+        throw GrpcService.invalidArgument(
+          'expiresInSeconds must be a non-negative integer',
+        );
+      }
+      const expiresAt =
+        expiresInSecondsNum > 0
+          ? new Date(issuedAt.getTime() + expiresInSecondsNum * 1000)
+          : null;
+
+      const row = await JwtTokenRepository.issue({
+        label,
+        allowedMethods,
+        issuedAt,
+        expiresAt,
+      });
+      const token = await this.jwtSigner.sign(row.id, issuedAt, expiresAt);
+
+      this.logger.info(
+        `Issued JWT ${row.id} (label "${label}", methods ${JSON.stringify(allowedMethods)})`,
+      );
+
+      return { id: row.id, token };
+    });
+  };
+
+  public revokeJwt: handleUnaryCall<
+    boltzrpc.RevokeJwtRequest,
+    boltzrpc.RevokeJwtResponse
+  > = async (call, callback) => {
+    await GrpcService.handleCallback(call, callback, async () => {
+      const { id } = call.request;
+      if (id === '') {
+        throw GrpcService.invalidArgument('id must not be empty');
+      }
+
+      const row = await JwtTokenRepository.revoke(id);
+      if (row === null) {
+        throw {
+          code: status.NOT_FOUND,
+          message: `no jwt with id ${id}`,
+        };
+      }
+
+      this.logger.info(`Revoked JWT ${id}`);
+      return {
+        revokedAt: toProtoInt(Math.floor(row.revokedAt!.getTime() / 1000)),
+      };
+    });
+  };
+
+  public listMethods: handleUnaryCall<
+    boltzrpc.ListMethodsRequest,
+    boltzrpc.ListMethodsResponse
+  > = async (call, callback) => {
+    await GrpcService.handleCallback(call, callback, async () => ({
+      methods: [...validMethodPaths].sort(),
+      wildcards: [wildcardAll, ...[...validServiceWildcards].sort()],
+    }));
+  };
+
+  public listJwts: handleUnaryCall<
+    boltzrpc.ListJwtsRequest,
+    boltzrpc.ListJwtsResponse
+  > = async (call, callback) => {
+    await GrpcService.handleCallback(call, callback, async () => {
+      const rows = await JwtTokenRepository.list();
+      return {
+        tokens: rows.map((row) => ({
+          id: row.id,
+          label: row.label,
+          allowedMethods: row.allowedMethods,
+          issuedAt: toProtoInt(Math.floor(row.issuedAt.getTime() / 1000)),
+          expiresAt:
+            row.expiresAt !== null
+              ? toProtoInt(Math.floor(row.expiresAt.getTime() / 1000))
+              : undefined,
+          revokedAt:
+            row.revokedAt !== null
+              ? toProtoInt(Math.floor(row.revokedAt.getTime() / 1000))
+              : undefined,
+        })),
+      };
     });
   };
 

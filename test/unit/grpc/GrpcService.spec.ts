@@ -14,6 +14,7 @@ import PendingEthereumTransactionRepository from '../../../lib/db/repositories/P
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import GrpcService from '../../../lib/grpc/GrpcService';
+import type JwtSigner from '../../../lib/grpc/JwtSigner';
 import * as boltzrpc from '../../../lib/proto/boltzrpc';
 import Service from '../../../lib/service/Service';
 import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
@@ -219,7 +220,16 @@ describe('GrpcService', () => {
     },
   } as unknown as Api;
 
-  const grpcService = new GrpcService(Logger.disabledLogger, service, api);
+  const jwtSigner = {
+    sign: jest.fn(),
+    verify: jest.fn(),
+  } as unknown as JwtSigner;
+  const grpcService = new GrpcService(
+    Logger.disabledLogger,
+    service,
+    api,
+    jwtSigner,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();

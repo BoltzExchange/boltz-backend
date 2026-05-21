@@ -137,11 +137,18 @@ type ApiConfig = {
   port: number;
 };
 
+type GrpcJwtConfig = {
+  disable?: boolean;
+  secretFile?: string;
+  adminTokenFile?: string;
+};
+
 type GrpcConfig = {
   host: string;
   port: number;
   disableSsl?: boolean;
   certificates: string;
+  jwt?: GrpcJwtConfig;
 };
 
 type RatesConfig = {

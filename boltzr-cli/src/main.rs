@@ -5,6 +5,7 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand, ValueEnum};
 use rand::Rng;
 use std::fs;
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
 mod api;
@@ -89,6 +90,17 @@ struct Cli {
     grpc_certificates: PathBuf,
     #[arg(short = 'd', long, default_value_t = false)]
     grpc_disable_ssl: bool,
+
+    /// JWT to send in the `authorization` header. Overrides --jwt-file when set.
+    #[arg(long, conflicts_with = "no_jwt")]
+    jwt: Option<String>,
+    /// Path to a file containing a JWT. Defaults to `<grpc-certificates>/admin.jwt`
+    /// (silently ignored if the file does not exist).
+    #[arg(long, conflicts_with = "no_jwt")]
+    jwt_file: Option<PathBuf>,
+    /// Send no Authorization header at all. Use when the server has JWT auth disabled.
+    #[arg(long, default_value_t = false)]
+    no_jwt: bool,
 }
 
 #[derive(Clone, Subcommand)]
@@ -165,6 +177,50 @@ enum Commands {
         #[command(subcommand)]
         command: DevCommands,
     },
+    #[command(about = "JWT issuance, revocation and listing")]
+    Jwt {
+        #[command(subcommand)]
+        command: JwtCommands,
+    },
+}
+
+#[derive(Clone, Subcommand)]
+enum JwtCommands {
+    #[command(about = "Issues a new JWT")]
+    Issue {
+        #[arg(short, long, help = "Human-readable label for the token")]
+        label: String,
+        #[arg(
+            short,
+            long,
+            num_args = 1..,
+            required = true,
+            help = "Allowed gRPC method paths, e.g. /boltzrpc.Boltz/GetInfo. Use '*' for all methods or /boltzrpc.Boltz/* for a whole service. See `jwt methods`."
+        )]
+        method: Vec<String>,
+        #[arg(
+            short,
+            long,
+            help = "Token lifetime. Plain integer = seconds; suffixes s/m/h/d/w/y accepted (e.g. '30d', '24h', '1y'). Omit for a never-expiring token."
+        )]
+        expires_in: Option<parsers::HumanDuration>,
+    },
+    #[command(about = "Revokes a previously issued JWT")]
+    Revoke {
+        #[arg(help = "JWT id (jti)")]
+        id: String,
+        #[arg(short, long, help = "Skip the confirmation prompt")]
+        yes: bool,
+    },
+    #[command(
+        about = "Lists known JWTs; optionally filters to those whose id starts with the given prefix"
+    )]
+    List {
+        #[arg(help = "Optional JWT id (jti) or prefix to filter by")]
+        id: Option<String>,
+    },
+    #[command(about = "Lists all gRPC method paths the server accepts in --method")]
+    Methods {},
 }
 
 #[derive(Clone, Subcommand)]
@@ -1101,6 +1157,59 @@ async fn run_command(cli: Cli) -> Result<()> {
                 ws::subscribe_swap_updates(endpoint, ids.clone()).await?;
             }
         },
+        Commands::Jwt { ref command } => match command {
+            JwtCommands::Issue {
+                label,
+                method,
+                expires_in,
+            } => {
+                if let Some(d) = expires_in
+                    && d.0 == 0
+                {
+                    bail!("--expires-in must be > 0; omit it for a never-expiring token");
+                }
+                let response = get_grpc_client(&cli)
+                    .await?
+                    .issue_jwt(label.clone(), method.clone(), expires_in.map(|d| d.0))
+                    .await?;
+                print_pretty(&response)?;
+            }
+            JwtCommands::Revoke { id, yes } => {
+                let needs_prompt = !*yes;
+                if needs_prompt {
+                    if !std::io::stdin().is_terminal() {
+                        bail!(
+                            "refusing to revoke '{}' without confirmation (stdin is not a TTY); pass --yes to confirm",
+                            id
+                        );
+                    }
+                    let confirmed = inquire::Confirm::new(&format!(
+                        "Revoke JWT '{}'? This will reject all future requests using this token.",
+                        id
+                    ))
+                    .with_default(false)
+                    .prompt()?;
+                    if !confirmed {
+                        println!("Aborted");
+                        return Ok(());
+                    }
+                }
+
+                let response = get_grpc_client(&cli).await?.revoke_jwt(id.clone()).await?;
+                print_pretty(&response)?;
+            }
+            JwtCommands::List { id } => {
+                let mut response = get_grpc_client(&cli).await?.list_jwts().await?;
+                if let Some(prefix) = id.as_deref().map(str::trim).filter(|p| !p.is_empty()) {
+                    response.tokens.retain(|t| t.id.starts_with(prefix));
+                }
+                print_pretty(&response)?;
+            }
+            JwtCommands::Methods {} => {
+                let response = get_grpc_client(&cli).await?.list_methods().await?;
+                print_pretty(&response)?;
+            }
+        },
     }
 
     Ok(())
@@ -1115,8 +1224,47 @@ async fn get_grpc_client(cli: &Cli) -> Result<grpc::BoltzClient> {
         } else {
             Some(cli.grpc_certificates.clone())
         },
+        resolve_jwt(cli)?,
     )
     .await
+}
+
+fn resolve_jwt(cli: &Cli) -> Result<Option<String>> {
+    if cli.no_jwt {
+        return Ok(None);
+    }
+    if let Some(token) = &cli.jwt {
+        let trimmed = token.trim();
+        if trimmed.is_empty() {
+            return Ok(None);
+        }
+        return Ok(Some(trimmed.to_string()));
+    }
+
+    let path = match &cli.jwt_file {
+        Some(p) => utils::resolve_home(p.clone())?,
+        None => {
+            let base = utils::resolve_home(cli.grpc_certificates.clone())?;
+            base.join("admin.jwt")
+        }
+    };
+
+    if !path.exists() {
+        if cli.jwt_file.is_some() {
+            bail!("jwt file does not exist: {}", path.display());
+        }
+        return Ok(None);
+    }
+
+    let token = fs::read_to_string(&path)
+        .with_context(|| format!("failed to read jwt file {}", path.display()))?
+        .trim()
+        .to_string();
+
+    if token.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(token))
 }
 
 fn print_pretty<T: Serialize>(value: &T) -> Result<()> {
@@ -1168,4 +1316,105 @@ fn print_evm_address_from_mnemonic(mnemonic_file: &Path, derivation_path: &str) 
         .build()?;
     println!("{}", signer.address());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Parse a Cli from a synthetic argv that always carries a subcommand
+    // (clap requires one). We pick `get-info` since it takes no args.
+    fn parse(extra: &[&str]) -> Cli {
+        let mut argv = vec!["boltzr-cli"];
+        argv.extend_from_slice(extra);
+        argv.push("get-info");
+        Cli::try_parse_from(argv).expect("parse")
+    }
+
+    #[test]
+    fn resolve_jwt_returns_none_when_no_jwt_set() {
+        let cli = parse(&["--no-jwt"]);
+        assert!(matches!(resolve_jwt(&cli), Ok(None)));
+    }
+
+    #[test]
+    fn resolve_jwt_returns_explicit_token() {
+        let cli = parse(&["--jwt", "raw-token"]);
+        let got = resolve_jwt(&cli).unwrap().unwrap();
+        assert_eq!(got, "raw-token");
+    }
+
+    #[test]
+    fn resolve_jwt_trims_explicit_token() {
+        let cli = parse(&["--jwt", "  spaced-token \n"]);
+        assert_eq!(resolve_jwt(&cli).unwrap().unwrap(), "spaced-token");
+    }
+
+    #[test]
+    fn resolve_jwt_treats_empty_explicit_token_as_no_token() {
+        let cli = parse(&["--jwt", "   "]);
+        assert!(matches!(resolve_jwt(&cli), Ok(None)));
+    }
+
+    #[test]
+    fn resolve_jwt_reads_explicit_file() {
+        let tmp = tempfile_path("token-file");
+        std::fs::write(&tmp, "from-file\n").unwrap();
+        let cli = parse(&["--jwt-file", tmp.to_str().unwrap()]);
+        assert_eq!(resolve_jwt(&cli).unwrap().unwrap(), "from-file");
+        std::fs::remove_file(&tmp).ok();
+    }
+
+    #[test]
+    fn resolve_jwt_errors_on_explicit_missing_file() {
+        let cli = parse(&["--jwt-file", "/does/not/exist/nope.jwt"]);
+        assert!(resolve_jwt(&cli).is_err());
+    }
+
+    #[test]
+    fn resolve_jwt_treats_empty_file_as_no_token() {
+        let tmp = tempfile_path("empty-file");
+        std::fs::write(&tmp, "   \n").unwrap();
+        let cli = parse(&["--jwt-file", tmp.to_str().unwrap()]);
+        assert!(matches!(resolve_jwt(&cli), Ok(None)));
+        std::fs::remove_file(&tmp).ok();
+    }
+
+    #[test]
+    fn resolve_jwt_default_missing_admin_jwt_returns_none() {
+        // Point --grpc-certificates at a directory that doesn't contain admin.jwt
+        let tmp_dir = tempfile_dir("certs");
+        let cli = parse(&["--grpc-certificates", tmp_dir.to_str().unwrap()]);
+        assert!(matches!(resolve_jwt(&cli), Ok(None)));
+        std::fs::remove_dir_all(&tmp_dir).ok();
+    }
+
+    #[test]
+    fn cli_rejects_no_jwt_with_jwt() {
+        let res = Cli::try_parse_from(["boltzr-cli", "--no-jwt", "--jwt", "foo", "get-info"]);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn cli_rejects_no_jwt_with_jwt_file() {
+        let res =
+            Cli::try_parse_from(["boltzr-cli", "--no-jwt", "--jwt-file", "/tmp/x", "get-info"]);
+        assert!(res.is_err());
+    }
+
+    fn tempfile_path(suffix: &str) -> PathBuf {
+        let mut p = std::env::temp_dir();
+        p.push(format!(
+            "boltzr-cli-test-{}-{}",
+            suffix,
+            rand::random::<u64>()
+        ));
+        p
+    }
+
+    fn tempfile_dir(suffix: &str) -> PathBuf {
+        let p = tempfile_path(suffix);
+        std::fs::create_dir_all(&p).unwrap();
+        p
+    }
 }

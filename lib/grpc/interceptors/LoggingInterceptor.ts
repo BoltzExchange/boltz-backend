@@ -1,6 +1,6 @@
 import type { ServerInterceptor } from '@grpc/grpc-js';
 import { ServerInterceptingCall, status } from '@grpc/grpc-js';
-import type Logger from '../Logger';
+import type Logger from '../../Logger';
 
 export const loggingInterceptor =
   (logger: Logger): ServerInterceptor =>

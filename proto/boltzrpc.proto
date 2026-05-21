@@ -73,6 +73,11 @@ service Boltz {
 
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
   rpc DevClearSwapUpdateCache (DevClearSwapUpdateCacheRequest) returns (DevClearSwapUpdateCacheResponse);
+
+  rpc IssueJwt (IssueJwtRequest) returns (IssueJwtResponse);
+  rpc RevokeJwt (RevokeJwtRequest) returns (RevokeJwtResponse);
+  rpc ListJwts (ListJwtsRequest) returns (ListJwtsResponse);
+  rpc ListMethods (ListMethodsRequest) returns (ListMethodsResponse);
 }
 
 enum OutputType {
@@ -520,3 +525,51 @@ message DevClearSwapUpdateCacheRequest {
   optional string id = 1;
 }
 message DevClearSwapUpdateCacheResponse {}
+
+message IssueJwtRequest {
+  string label = 1;
+  // gRPC method paths the token is allowed to call (e.g. "/boltzrpc.Boltz/GetInfo").
+  // "*" matches all methods; "<service>/*" matches all methods on a service.
+  repeated string allowed_methods = 2;
+  // When set, the token expires after this many seconds. Otherwise the token never expires.
+  optional uint64 expires_in_seconds = 3;
+}
+
+message IssueJwtResponse {
+  string id = 1;
+  string token = 2;
+}
+
+message RevokeJwtRequest {
+  string id = 1;
+}
+
+message RevokeJwtResponse {
+  // Unix timestamp in seconds at which the token was revoked.
+  uint64 revoked_at = 1;
+}
+
+message ListJwtsRequest {}
+
+message ListJwtsResponse {
+  message JwtInfo {
+    string id = 1;
+    string label = 2;
+    repeated string allowed_methods = 3;
+    // Unix timestamps in seconds.
+    uint64 issued_at = 4;
+    optional uint64 expires_at = 5;
+    optional uint64 revoked_at = 6;
+  }
+
+  repeated JwtInfo tokens = 1;
+}
+
+message ListMethodsRequest {}
+
+message ListMethodsResponse {
+  // Exact method paths e.g. "/boltzrpc.Boltz/GetInfo"
+  repeated string methods = 1;
+  // Wildcard entries accepted in allowed_methods (e.g. "*", "/boltzrpc.Boltz/*")
+  repeated string wildcards = 2;
+}

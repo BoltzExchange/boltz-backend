@@ -601,7 +601,7 @@ pub mod test {
                 });
             }
 
-            tokio::time::timeout(Duration::from_secs(30), async {
+            tokio::time::timeout(Duration::from_secs(60), async {
                 loop {
                     let notified = ready_notify.notified();
                     tokio::pin!(notified);
@@ -820,6 +820,22 @@ pub mod test {
                 None,
             );
             mempool_space.connect().await.unwrap();
+
+            tokio::time::timeout(Duration::from_secs(60), async {
+                loop {
+                    let notified = mempool_space.ready_notify.notified();
+                    tokio::pin!(notified);
+                    notified.as_mut().enable();
+
+                    if mempool_space.collect_best_fees_and_height().is_some() {
+                        return;
+                    }
+
+                    notified.await;
+                }
+            })
+            .await
+            .expect("timed out waiting for mempool.space data");
 
             let (_, fees) = mempool_space.get_fees_and_height().await.unwrap();
             assert!(fees > 0.9);

@@ -1,5 +1,3 @@
-import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import type {
   ContractEventPayload,
   Provider,
@@ -12,6 +10,8 @@ import TypedEventEmitter from '../../../consts/TypedEventEmitter';
 import type { ERC20SwapValues, EtherSwapValues } from '../../../consts/Types';
 import { parseBuffer } from '../EthereumUtils';
 import type { NetworkDetails } from '../EvmNetworks';
+import type { ERC20Swap } from '../typechain/ERC20Swap';
+import type { EtherSwap } from '../typechain/EtherSwap';
 import { formatERC20SwapValues, formatEtherSwapValues } from './ContractUtils';
 
 type Events = {

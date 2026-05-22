@@ -1,7 +1,4 @@
 import { sha256 } from '@noble/hashes/sha2.js';
-import type { ERC20 } from 'boltz-core/typechain/ERC20';
-import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { Wallet as EthersWallet } from 'ethers';
 import type { OverPaymentConfig } from '../../../../../lib/Config';
@@ -32,6 +29,9 @@ import { networks } from '../../../../../lib/wallet/ethereum/EvmNetworks';
 import Commitments from '../../../../../lib/wallet/ethereum/contracts/Commitments';
 import type Contracts from '../../../../../lib/wallet/ethereum/contracts/Contracts';
 import { Feature } from '../../../../../lib/wallet/ethereum/contracts/Contracts';
+import type { ERC20 } from '../../../../../lib/wallet/ethereum/typechain/ERC20';
+import type { ERC20Swap } from '../../../../../lib/wallet/ethereum/typechain/ERC20Swap';
+import type { EtherSwap } from '../../../../../lib/wallet/ethereum/typechain/EtherSwap';
 import ERC20WalletProvider from '../../../../../lib/wallet/providers/ERC20WalletProvider';
 import { getPostgresDatabase, wait } from '../../../../Utils';
 import type { EthereumSetup } from '../../EthereumTools';

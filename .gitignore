@@ -83,6 +83,7 @@ boltzr/tarpaulin-report.html
 # Version file generated in build process
 lib/Version.ts
 lib/proto/
+lib/wallet/ethereum/typechain/
 
 # Folder from which regtest contracts are deployed
 ./contracts/

@@ -1,5 +1,3 @@
-import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import type { ContractTransactionResponse, Provider, Signer } from 'ethers';
 import type Logger from '../../../Logger';
 import { ethereumPrepayMinerFeeGasLimit } from '../../../consts/Consts';
@@ -11,6 +9,8 @@ import type ERC20WalletProvider from '../../providers/ERC20WalletProvider';
 import Errors from '../Errors';
 import { getGasPrices } from '../EthereumUtils';
 import type { NetworkDetails } from '../EvmNetworks';
+import type { ERC20Swap } from '../typechain/ERC20Swap';
+import type { EtherSwap } from '../typechain/EtherSwap';
 import { Feature } from './Contracts';
 
 export type BatchClaimValues = {

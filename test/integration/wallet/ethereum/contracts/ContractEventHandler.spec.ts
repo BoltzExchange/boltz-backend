@@ -1,12 +1,12 @@
 import { sha256 } from '@noble/hashes/sha2.js';
-import type { ERC20 } from 'boltz-core/typechain/ERC20';
-import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { MaxUint256 } from 'ethers';
 import Logger from '../../../../../lib/Logger';
 import { networks } from '../../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractEventHandler from '../../../../../lib/wallet/ethereum/contracts/ContractEventHandler';
+import type { ERC20 } from '../../../../../lib/wallet/ethereum/typechain/ERC20';
+import type { ERC20Swap } from '../../../../../lib/wallet/ethereum/typechain/ERC20Swap';
+import type { EtherSwap } from '../../../../../lib/wallet/ethereum/typechain/EtherSwap';
 import type { EthereumSetup } from '../../EthereumTools';
 import { fundSignerWallet, getContracts, getSigner } from '../../EthereumTools';
 

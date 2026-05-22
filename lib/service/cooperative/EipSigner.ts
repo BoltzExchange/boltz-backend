@@ -1,6 +1,4 @@
 import AsyncLock from 'async-lock';
-import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { type Provider, verifyMessage } from 'ethers';
 import { Op } from 'sequelize';
 import type Logger from '../../Logger';
@@ -30,6 +28,8 @@ import {
   queryEtherSwapValuesFromLock,
   queryEtherSwapValuesFromTransaction,
 } from '../../wallet/ethereum/contracts/ContractUtils';
+import type { ERC20Swap } from '../../wallet/ethereum/typechain/ERC20Swap';
+import type { EtherSwap } from '../../wallet/ethereum/typechain/EtherSwap';
 import Errors from '../Errors';
 import SignerControlRegistry from '../SignerControlRegistry';
 import { cooperativeSignaturesDisabledMessage } from './CoopSignerBase';

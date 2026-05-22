@@ -1,7 +1,4 @@
 import { sha256 } from '@noble/hashes/sha2.js';
-import type { ERC20 } from 'boltz-core/typechain/ERC20';
-import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { Signature, Wallet } from 'ethers';
 import Logger from '../../../../../lib/Logger';
@@ -22,6 +19,9 @@ import type { BatchClaimValues } from '../../../../../lib/wallet/ethereum/contra
 import ContractHandler from '../../../../../lib/wallet/ethereum/contracts/ContractHandler';
 import { computeLockupHash } from '../../../../../lib/wallet/ethereum/contracts/ContractUtils';
 import { Feature } from '../../../../../lib/wallet/ethereum/contracts/Contracts';
+import type { ERC20 } from '../../../../../lib/wallet/ethereum/typechain/ERC20';
+import type { ERC20Swap } from '../../../../../lib/wallet/ethereum/typechain/ERC20Swap';
+import type { EtherSwap } from '../../../../../lib/wallet/ethereum/typechain/EtherSwap';
 import ERC20WalletProvider from '../../../../../lib/wallet/providers/ERC20WalletProvider';
 import { wait } from '../../../../Utils';
 import type { EthereumSetup } from '../../EthereumTools';

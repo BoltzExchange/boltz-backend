@@ -1,11 +1,3 @@
-import type {
-  ERC20Swap,
-  LockupEvent as ERC20SwapLockupEvent,
-} from 'boltz-core/typechain/ERC20Swap';
-import type {
-  EtherSwap,
-  LockupEvent as EtherSwapLockupEvent,
-} from 'boltz-core/typechain/EtherSwap';
 import type { Provider, Result } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import type {
@@ -16,6 +8,14 @@ import type {
 import CommitmentRepository from '../../../db/repositories/CommitmentRepository';
 import Errors from '../Errors';
 import { parseBuffer } from '../EthereumUtils';
+import type {
+  ERC20Swap,
+  LockupEvent as ERC20SwapLockupEvent,
+} from '../typechain/ERC20Swap';
+import type {
+  EtherSwap,
+  LockupEvent as EtherSwapLockupEvent,
+} from '../typechain/EtherSwap';
 
 export type LockupIdentifier =
   | { preimageHash: Buffer }

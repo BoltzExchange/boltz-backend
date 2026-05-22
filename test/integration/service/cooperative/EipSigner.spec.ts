@@ -1,6 +1,3 @@
-import type { ERC20 } from 'boltz-core/typechain/ERC20';
-import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { Signature } from 'ethers';
 import Logger from '../../../../lib/Logger';
@@ -25,6 +22,9 @@ import Sidecar from '../../../../lib/sidecar/Sidecar';
 import type WalletManager from '../../../../lib/wallet/WalletManager';
 import type EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
 import { computeLockupHash } from '../../../../lib/wallet/ethereum/contracts/ContractUtils';
+import type { ERC20 } from '../../../../lib/wallet/ethereum/typechain/ERC20';
+import type { ERC20Swap } from '../../../../lib/wallet/ethereum/typechain/ERC20Swap';
+import type { EtherSwap } from '../../../../lib/wallet/ethereum/typechain/EtherSwap';
 import { sidecar, startSidecar } from '../../sidecar/Utils';
 import type { EthereumSetup } from '../../wallet/EthereumTools';
 import { getContracts, getSigner } from '../../wallet/EthereumTools';

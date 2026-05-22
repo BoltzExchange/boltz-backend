@@ -1,8 +1,8 @@
-import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import type { PairTimeoutBlocksDelta } from '../service/TimeoutDeltaProvider';
+import type { ERC20 } from '../wallet/ethereum/typechain/ERC20';
 
 export type EtherSwapValues = {
   preimageHash: Buffer;

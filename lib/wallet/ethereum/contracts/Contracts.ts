@@ -1,5 +1,3 @@
-import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import type { Signer } from 'ethers';
 import { Contract } from 'ethers';
 import type { ContractsConfig } from '../../../Config';
@@ -9,6 +7,8 @@ import Errors from '../../../wallet/Errors';
 import type ConsolidatedEventHandler from '../ConsolidatedEventHandler';
 import type { NetworkDetails } from '../EvmNetworks';
 import type InjectedProvider from '../InjectedProvider';
+import type { ERC20Swap } from '../typechain/ERC20Swap';
+import type { EtherSwap } from '../typechain/EtherSwap';
 import ContractEventHandler from './ContractEventHandler';
 import ContractHandler from './ContractHandler';
 import ERC20SwapABIv5 from './abis/v5/ERC20Swap.json';

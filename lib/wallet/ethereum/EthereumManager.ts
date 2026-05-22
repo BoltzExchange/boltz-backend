@@ -1,4 +1,3 @@
-import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type { Signer } from 'ethers';
 import {
   Contract,
@@ -26,6 +25,7 @@ import InjectedProvider from './InjectedProvider';
 import SequentialSigner from './SequentialSigner';
 import Commitments from './contracts/Commitments';
 import Contracts, { Feature } from './contracts/Contracts';
+import type { ERC20 } from './typechain/ERC20';
 
 type Network = {
   name: string;

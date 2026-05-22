@@ -17,6 +17,6 @@ module.exports = {
     ],
   },
   transformIgnorePatterns: [
-    '<rootDir>/node_modules/(?!(@noble|@scure|micro-packed|jose))',
+    '<rootDir>/node_modules/(?!(@noble|@scure|micro-packed|jose|boltz-core))',
   ],
 };

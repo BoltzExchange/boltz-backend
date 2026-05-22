@@ -1,9 +1,9 @@
-import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import Logger from '../../../../lib/Logger';
 import type { Token } from '../../../../lib/consts/Types';
 import Database from '../../../../lib/db/Database';
 import TransactionLabel from '../../../../lib/db/models/TransactionLabel';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
+import type { ERC20 } from '../../../../lib/wallet/ethereum/typechain/ERC20';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import type { EthereumSetup } from '../EthereumTools';
 import {

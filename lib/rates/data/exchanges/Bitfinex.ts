@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { getJson } from '../../../Http';
 import type Exchange from '../Exchange';
 import { requestTimeout } from '../Exchange';
 
@@ -9,7 +9,7 @@ class Bitfinex implements Exchange {
     baseAsset: string,
     quoteAsset: string,
   ): Promise<number> {
-    const { data } = await axios.get(
+    const data = await getJson<number[]>(
       `${Bitfinex.API}/ticker/t${this.replaceUSDT(baseAsset)}${this.replaceUSDT(quoteAsset)}`,
       { timeout: requestTimeout },
     );

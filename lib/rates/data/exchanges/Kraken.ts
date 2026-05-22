@@ -1,6 +1,10 @@
-import axios from 'axios';
+import { getJson } from '../../../Http';
 import type Exchange from '../Exchange';
 import { requestTimeout } from '../Exchange';
+
+type KrakenTickerResponse = {
+  result: Record<string, { c: string[] }>;
+};
 
 class Kraken implements Exchange {
   private static readonly API = 'https://api.kraken.com/0/public';
@@ -10,12 +14,11 @@ class Kraken implements Exchange {
     quoteAsset: string,
   ): Promise<number> {
     const pair = `${this.parseAsset(baseAsset)}${this.parseAsset(quoteAsset)}`;
-    const { data } = await axios.get(`${Kraken.API}/Ticker?pair=${pair}`, {
-      timeout: requestTimeout,
-    });
-    const lastTrade = (
-      Object.values(data['result'])[0] as Record<string, string[]>
-    )['c'];
+    const data = await getJson<KrakenTickerResponse>(
+      `${Kraken.API}/Ticker?pair=${pair}`,
+      { timeout: requestTimeout },
+    );
+    const lastTrade = Object.values(data.result)[0].c;
 
     return Number(lastTrade[0]);
   }

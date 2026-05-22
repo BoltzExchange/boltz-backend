@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 
-const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { exit } = require('child_process');
@@ -12,8 +11,11 @@ if (!fs.existsSync(dir)) {
 
 const downloadAndSave = async (url, filename) => {
   try {
-    const response = await axios.get(url);
-    const content = response.data;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    }
+    const content = await response.text();
 
     const filePath = path.join(dir, filename);
     fs.writeFileSync(filePath, content);

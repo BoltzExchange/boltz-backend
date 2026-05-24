@@ -7,6 +7,7 @@ use elements::hex::ToHex;
 use elements::pset::serialize::Serialize;
 use futures_util::{StreamExt, TryStreamExt};
 use lightning::util::ser::Writeable;
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
@@ -54,6 +55,38 @@ pub fn encode_address(
                 anyhow::anyhow!("failed to parse liquid script: {:?}", script.to_hex()),
             )?;
             Ok(addr.to_string())
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecodedAddress {
+    pub script_pubkey: Vec<u8>,
+    pub blinding_pubkey: Option<Vec<u8>>,
+}
+
+pub fn decode_address(
+    address_type: Type,
+    address: &str,
+    network: Network,
+) -> anyhow::Result<DecodedAddress> {
+    match address_type {
+        Type::Bitcoin => {
+            let parsed = bitcoin::Address::from_str(address)?.require_network(network.bitcoin())?;
+            Ok(DecodedAddress {
+                script_pubkey: parsed.script_pubkey().to_bytes(),
+                blinding_pubkey: None,
+            })
+        }
+        Type::Elements => {
+            let parsed = elements::Address::from_str(address)?;
+            if parsed.params != network.liquid()? {
+                return Err(anyhow::anyhow!("invalid network"));
+            }
+            Ok(DecodedAddress {
+                script_pubkey: parsed.script_pubkey().to_bytes(),
+                blinding_pubkey: parsed.blinding_pubkey.map(|pk| pk.serialize().to_vec()),
+            })
         }
     }
 }
@@ -374,6 +407,136 @@ mod test {
             block.transactions[2].txid_hex(),
             "ca56648ce69b89a1b8a47d339032c2638738a76eb974d982b14537822eb0d83d"
         );
+    }
+
+    mod address_codec {
+        use crate::chain::types::Type;
+        use crate::chain::utils::{decode_address, encode_address};
+        use crate::wallet::Network;
+
+        const P2WPKH_CONFIDENTIAL: &str =
+            "el1qq0cm53ae2e5trn6wxa9lhcg7k42rrsdtqkzw2gucr9f30rchqr4dttge6skvgjr4nfu9wa4cmhef2g4vsshr6gxcl9hn0j6t6";
+        const P2WPKH_UNCONFIDENTIAL: &str = "ert1q45vagtxyfp6e57zhw6udmu54y2kggt3a772qqc";
+        const P2TR_CONFIDENTIAL: &str =
+            "el1pqt0dzt0mh2gxxvrezmzqexg0n66rkmd5997wn255wmfpqdegd2qyh284rq5v4h2vtj0ey3399k8d8v8qwsphj3qt4cf9zj08h0zqhraf0qcqltm5nfxq";
+        const P2TR_UNCONFIDENTIAL: &str =
+            "ert1p4r63s2x2m4x9e8ujgcjjmrknkrs8gqmegs96uyj3f8nmh3qt375sypfq5m";
+        const P2SH_NESTED_CONFIDENTIAL: &str =
+            "Azpnk8khuDiLxTZxyU1SptRGHiScPgEvc8UW91reeM7abwxupYeDRWKYrdXmhBhcWjAU4VBhvn8GS5C1";
+        const P2SH_NESTED_UNCONFIDENTIAL: &str = "XG1S1H3Wj6jg4CjTGVsrchUmBfNKSRVvuL";
+
+        #[test]
+        fn decode_unconfidential_yields_no_blinding_pubkey() {
+            let decoded =
+                decode_address(Type::Elements, P2WPKH_UNCONFIDENTIAL, Network::Regtest).unwrap();
+            assert!(decoded.blinding_pubkey.is_none());
+            assert!(!decoded.script_pubkey.is_empty());
+        }
+
+        #[test]
+        fn decode_confidential_yields_blinding_pubkey() {
+            let decoded =
+                decode_address(Type::Elements, P2WPKH_CONFIDENTIAL, Network::Regtest).unwrap();
+            let blinding = decoded.blinding_pubkey.expect("blinding pubkey expected");
+            assert_eq!(blinding.len(), 33);
+        }
+
+        #[test]
+        fn confidential_and_unconfidential_share_script_pubkey() {
+            let confidential =
+                decode_address(Type::Elements, P2WPKH_CONFIDENTIAL, Network::Regtest).unwrap();
+            let unconfidential =
+                decode_address(Type::Elements, P2WPKH_UNCONFIDENTIAL, Network::Regtest).unwrap();
+            assert_eq!(confidential.script_pubkey, unconfidential.script_pubkey);
+        }
+
+        #[test]
+        fn round_trips_unconfidential_p2wpkh() {
+            let decoded =
+                decode_address(Type::Elements, P2WPKH_UNCONFIDENTIAL, Network::Regtest).unwrap();
+            let encoded =
+                encode_address(Type::Elements, decoded.script_pubkey, None, Network::Regtest)
+                    .unwrap();
+            assert_eq!(encoded, P2WPKH_UNCONFIDENTIAL);
+        }
+
+        #[test]
+        fn round_trips_confidential_p2wpkh() {
+            let decoded =
+                decode_address(Type::Elements, P2WPKH_CONFIDENTIAL, Network::Regtest).unwrap();
+            let encoded = encode_address(
+                Type::Elements,
+                decoded.script_pubkey,
+                decoded.blinding_pubkey,
+                Network::Regtest,
+            )
+            .unwrap();
+            assert_eq!(encoded, P2WPKH_CONFIDENTIAL);
+        }
+
+        #[test]
+        fn round_trips_unconfidential_p2tr() {
+            let decoded =
+                decode_address(Type::Elements, P2TR_UNCONFIDENTIAL, Network::Regtest).unwrap();
+            let encoded =
+                encode_address(Type::Elements, decoded.script_pubkey, None, Network::Regtest)
+                    .unwrap();
+            assert_eq!(encoded, P2TR_UNCONFIDENTIAL);
+        }
+
+        #[test]
+        fn round_trips_confidential_p2tr() {
+            let decoded =
+                decode_address(Type::Elements, P2TR_CONFIDENTIAL, Network::Regtest).unwrap();
+            let encoded = encode_address(
+                Type::Elements,
+                decoded.script_pubkey,
+                decoded.blinding_pubkey,
+                Network::Regtest,
+            )
+            .unwrap();
+            assert_eq!(encoded, P2TR_CONFIDENTIAL);
+        }
+
+        #[test]
+        fn round_trips_unconfidential_p2sh_nested() {
+            let decoded =
+                decode_address(Type::Elements, P2SH_NESTED_UNCONFIDENTIAL, Network::Regtest)
+                    .unwrap();
+            let encoded =
+                encode_address(Type::Elements, decoded.script_pubkey, None, Network::Regtest)
+                    .unwrap();
+            assert_eq!(encoded, P2SH_NESTED_UNCONFIDENTIAL);
+        }
+
+        #[test]
+        fn round_trips_confidential_p2sh_nested() {
+            let decoded =
+                decode_address(Type::Elements, P2SH_NESTED_CONFIDENTIAL, Network::Regtest)
+                    .unwrap();
+            let encoded = encode_address(
+                Type::Elements,
+                decoded.script_pubkey,
+                decoded.blinding_pubkey,
+                Network::Regtest,
+            )
+            .unwrap();
+            assert_eq!(encoded, P2SH_NESTED_CONFIDENTIAL);
+        }
+
+        #[test]
+        fn rejects_mismatched_network() {
+            let result =
+                decode_address(Type::Elements, P2WPKH_UNCONFIDENTIAL, Network::Mainnet);
+            assert!(result.is_err());
+            assert_eq!(result.unwrap_err().to_string(), "invalid network");
+        }
+
+        #[test]
+        fn rejects_garbage_address() {
+            let result = decode_address(Type::Elements, "this-is-not-an-address", Network::Regtest);
+            assert!(result.is_err());
+        }
     }
 
     #[test]

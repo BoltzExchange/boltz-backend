@@ -54,6 +54,7 @@ import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvi
 import ElementsWalletProvider from '../../../../lib/wallet/providers/ElementsWalletProvider';
 import { regtest as bitcoinRegtest } from '../../../Networks';
 import { bitcoinClient, elementsClient } from '../../Nodes';
+import { sidecar } from '../../sidecar/Utils';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 
@@ -94,13 +95,10 @@ describe('ChainSwapSigner', () => {
   );
   const liquidWallet = new WalletLiquid(
     Logger.disabledLogger,
-    new ElementsWalletProvider(
-      Logger.disabledLogger,
-      elementsClient,
-      LiquidNetworks.liquidRegtest,
-    ),
+    new ElementsWalletProvider(Logger.disabledLogger, elementsClient, sidecar),
     slip77FromSeed(mnemonicToSeedSync(mnemonic)),
     LiquidNetworks.liquidRegtest,
+    sidecar,
   );
 
   const walletManager = {
@@ -182,7 +180,7 @@ describe('ChainSwapSigner', () => {
         currency.type,
         await currency.chainClient!.getRawTransaction(
           await currency.chainClient!.sendToAddress(
-            wallet.encodeAddress(lockupScript),
+            await wallet.encodeAddress(lockupScript),
             100_000,
             undefined,
             false,
@@ -314,7 +312,7 @@ describe('ChainSwapSigner', () => {
             internalKey: lockupDetails.musig.internalKey,
           },
         ],
-        btcWallet.decodeAddress(await bitcoinClient.getNewAddress('')),
+        await btcWallet.decodeAddress(await bitcoinClient.getNewAddress('')),
         chainSwapInfo.receivingData.timeoutBlockHeight,
         BigInt(200),
       );
@@ -786,7 +784,7 @@ describe('ChainSwapSigner', () => {
             internalKey: claimDetails.musig.internalKey,
           },
         ],
-        liquidWallet.decodeAddress(await elementsClient.getNewAddress('')),
+        await liquidWallet.decodeAddress(await elementsClient.getNewAddress('')),
         BigInt(200),
         false,
         LiquidNetworks.liquidRegtest,
@@ -858,7 +856,7 @@ describe('ChainSwapSigner', () => {
             internalKey: claimDetails.musig.internalKey,
           },
         ],
-        liquidWallet.decodeAddress(await elementsClient.getNewAddress('')),
+        await liquidWallet.decodeAddress(await elementsClient.getNewAddress('')),
         BigInt(200),
         false,
         LiquidNetworks.liquidRegtest,
@@ -908,7 +906,7 @@ describe('ChainSwapSigner', () => {
             internalKey: claimDetails.musig.internalKey,
           },
         ],
-        liquidWallet.decodeAddress(await elementsClient.getNewAddress('')),
+        await liquidWallet.decodeAddress(await elementsClient.getNewAddress('')),
         BigInt(200),
         false,
         LiquidNetworks.liquidRegtest,

@@ -56,19 +56,20 @@ export const waitForFunctionToBeTrue = (
   });
 };
 
-export const generateAddress = (
-  outputType: OutputType,
-): { outputScript: Buffer; address: string } => {
+export const generateOutputScript = (outputType: OutputType): Buffer => {
   const keys = makeRandomKeys();
   const encodeFunction = getPubkeyHashFunction(outputType);
+  return encodeFunction(Buffer.from(hash160(keys.publicKey))) as Buffer;
+};
 
-  const outputScript = encodeFunction(
-    Buffer.from(hash160(keys.publicKey)),
-  ) as Buffer;
+export const generateAddress = async (
+  outputType: OutputType,
+): Promise<{ outputScript: Buffer; address: string }> => {
+  const outputScript = generateOutputScript(outputType);
 
   return {
     outputScript,
-    address: addressFromOutputScript(
+    address: await addressFromOutputScript(
       CurrencyType.BitcoinLike,
       outputScript,
       regtestNetwork,
@@ -81,7 +82,7 @@ export const constructTransaction = (
   input: string,
   outputAmount = 1,
 ): Transaction => {
-  const { outputScript } = generateAddress(OutputType.Bech32);
+  const outputScript = generateOutputScript(OutputType.Bech32);
   const keys = makeRandomKeys();
 
   const tx = new Transaction({ allowUnknownInputs: true });

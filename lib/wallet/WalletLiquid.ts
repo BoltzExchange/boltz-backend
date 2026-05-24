@@ -2,6 +2,7 @@ import type { Network } from 'liquidjs-lib/src/networks';
 import { addressFromOutputScript } from '../AddressUtils';
 import type Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
+import type Sidecar from '../sidecar/Sidecar';
 import Errors from './Errors';
 import type { Slip77Node } from './Slip77';
 import Wallet from './Wallet';
@@ -13,18 +14,19 @@ class WalletLiquid extends Wallet {
     walletProvider: WalletProviderInterface,
     private readonly slip77: Slip77Node,
     network: Network,
+    sidecar: Sidecar,
   ) {
-    super(logger, CurrencyType.Liquid, walletProvider, network);
+    super(logger, CurrencyType.Liquid, walletProvider, network, sidecar);
   }
 
   public deriveBlindingKeyFromScript = (outputScript: Buffer) => {
     return this.slip77.derive(outputScript);
   };
 
-  public override encodeAddress = (
+  public override encodeAddress = async (
     outputScript: Buffer,
     shouldBlind = true,
-  ): string => {
+  ): Promise<string> => {
     if (this.network === undefined) {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'encodeAddress');
     }
@@ -37,11 +39,12 @@ class WalletLiquid extends Wallet {
         ? this.deriveBlindingKeyFromScript(outputScript).publicKey
         : undefined;
 
-      return addressFromOutputScript(
+      return await addressFromOutputScript(
         CurrencyType.Liquid,
         outputScript,
         this.network,
         blindingKey,
+        this.sidecar,
       );
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {

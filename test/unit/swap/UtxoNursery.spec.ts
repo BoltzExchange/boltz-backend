@@ -310,7 +310,7 @@ describe('UtxoNursery', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
-      lockupAddress: encodeAddress(
+      lockupAddress: await encodeAddress(
         Buffer.from(transaction.getOutput(0).script!),
       ),
       status: {
@@ -389,7 +389,7 @@ describe('UtxoNursery', () => {
 
   test('should check both swap types with correct status filters', async () => {
     const transaction = parseTx(sampleTransactions.lockup);
-    const address = encodeAddress(
+    const address = await encodeAddress(
       Buffer.from(transaction.getOutput(0).script!),
     );
     const checkOutputs = nursery['checkOutputs'];

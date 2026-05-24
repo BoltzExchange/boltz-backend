@@ -337,7 +337,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
     await this.lock.acquire(UtxoNursery.lockupLock, async () => {
       for (const out of TxView.of(transaction).outputs) {
-        const encoded = wallet.encodeAddress(out.script);
+        const encoded = await wallet.encodeAddress(out.script);
         await Promise.all([checkSwap(encoded), checkChainSwap(encoded)]);
       }
     });

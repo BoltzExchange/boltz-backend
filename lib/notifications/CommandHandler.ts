@@ -411,7 +411,11 @@ class CommandHandler {
         if (currency?.network !== undefined) {
           try {
             reverseSwap.dataValues.routingHint.address =
-              reverseRoutingHint.address(currency.type, currency.network);
+              await reverseRoutingHint.address(
+                currency.type,
+                currency.network,
+                this.service.sidecar,
+              );
           } catch (error) {
             this.logger.warn(
               `Could not derive routing hint address for ${swapTypeToPrettyString(reverseSwap.type)} Swap ${reverseSwap.id}: ${formatError(error)}`,

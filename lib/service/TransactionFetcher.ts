@@ -189,7 +189,7 @@ class TransactionFetcher {
         if (out.script.length === 0) {
           continue;
         }
-        const addr = wallet.encodeAddress(out.script);
+        const addr = await wallet.encodeAddress(out.script);
         if (addr !== '') {
           outputAddresses.push(addr);
         }

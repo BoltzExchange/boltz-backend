@@ -171,7 +171,7 @@ describe('DeferredClaimer', () => {
     const tweakedKey = Buffer.from(
       tweakMusig(CurrencyType.BitcoinLike, musig, tree).aggPubkey,
     );
-    const lockupAddress = btcWallet.encodeAddress(
+    const lockupAddress = await btcWallet.encodeAddress(
       Buffer.from(Scripts.p2trOutput(tweakedKey)),
     );
     const onchainAmount = 100_000;
@@ -236,7 +236,7 @@ describe('DeferredClaimer', () => {
     const tweakedKey = Buffer.from(
       tweakMusig(CurrencyType.BitcoinLike, musig, tree).aggPubkey,
     );
-    const lockupAddress = btcWallet.encodeAddress(
+    const lockupAddress = await btcWallet.encodeAddress(
       Buffer.from(Scripts.p2trOutput(tweakedKey)),
     );
     const onchainAmount = 100_000;
@@ -271,7 +271,7 @@ describe('DeferredClaimer', () => {
       receivingData: {
         swapId: id,
         symbol: 'BTC',
-        lockupAddress: btcWallet.encodeAddress(
+        lockupAddress: await btcWallet.encodeAddress(
           Buffer.from(Scripts.p2trOutput(tweakedKey)),
         ),
         timeoutBlockHeight:
@@ -1048,7 +1048,7 @@ describe('DeferredClaimer', () => {
       expect(claimTx.outputsLength).toEqual(1);
 
       const addressInfo = await bitcoinClient.getAddressInfo(
-        addressFromOutputScript(
+        await addressFromOutputScript(
           CurrencyType.BitcoinLike,
           Buffer.from(claimTx.getOutput(0).script!),
           bitcoinRegtest,
@@ -1526,7 +1526,7 @@ describe('DeferredClaimer', () => {
       expect(coopTx.getInput(0).finalScriptWitness).toHaveLength(1);
       expect(coopTx.outputsLength).toEqual(1);
       expect(Buffer.from(coopTx.getOutput(0).script!)).toEqual(
-        btcWallet.decodeAddress(toClaim.cooperative!.sweepAddress),
+        await btcWallet.decodeAddress(toClaim.cooperative!.sweepAddress),
       );
 
       expect(details.preimage).toEqual(preimage);

@@ -78,7 +78,7 @@ abstract class CoopSignerBase<
       : (toClaim.swap as ChainSwapInfo).receivingData;
 
     const ourKeys = wallet.getKeysByIndex(details.keyIndex!);
-    const transaction = constructClaimTransaction(
+    const transaction = await constructClaimTransaction(
       wallet,
       [
         await this.constructClaimDetails(

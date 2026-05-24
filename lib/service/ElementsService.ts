@@ -35,7 +35,7 @@ class ElementsService {
             walletKey.privateKey,
             getHexBuffer(
               await chainClient.dumpBlindingKey(
-                wallet.encodeAddress(out.script, false),
+                await wallet.encodeAddress(out.script, false),
               ),
             ),
           ];
@@ -55,11 +55,11 @@ class ElementsService {
     );
   };
 
-  public deriveBlindingKeys = (address: string) => {
+  public deriveBlindingKeys = async (address: string) => {
     const { wallet } = this.getElementsClients();
 
     const { publicKey, privateKey } = wallet.deriveBlindingKeyFromScript(
-      wallet.decodeAddress(address),
+      await wallet.decodeAddress(address),
     );
     return {
       publicKey: publicKey!,

@@ -7,13 +7,14 @@ use crate::grpc::service::boltzr::swap_update::{FailureDetails, TransactionInfo}
 use crate::grpc::service::boltzr::{
     Block, BlockAddedRequest, Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CheckTransactionRequest,
     CheckTransactionResponse, ClaimBatchRequest, ClaimBatchResponse, CreateWebHookRequest,
-    CreateWebHookResponse, DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse,
-    EstimateFeeRequest, EstimateFeeResponse, Feature, GetInfoRequest, GetInfoResponse,
-    GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse, LogLevel,
-    RelevantTransaction, RelevantTransactionRequest, RescanChainsRequest, RescanChainsResponse,
-    SendMessageRequest, SendMessageResponse, SendSwapUpdateRequest, SendSwapUpdateResponse,
-    SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse,
-    SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
+    CreateWebHookResponse, DecodeAddressRequest, DecodeAddressResponse,
+    DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, EncodeAddressRequest,
+    EncodeAddressResponse, EstimateFeeRequest, EstimateFeeResponse, Feature, GetInfoRequest,
+    GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse,
+    LogLevel, RelevantTransaction, RelevantTransactionRequest, RescanChainsRequest,
+    RescanChainsResponse, SendMessageRequest, SendMessageResponse, SendSwapUpdateRequest,
+    SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest,
+    SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
     StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest, SwapUpdateResponse,
     TransactionStatus, bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response,
 };
@@ -633,6 +634,52 @@ where
                     )),
                 },
             })),
+            Err(err) => Err(Status::new(Code::InvalidArgument, err.to_string())),
+        }
+    }
+
+    #[instrument(name = "grpc::decode_address", skip_all)]
+    async fn decode_address(
+        &self,
+        request: Request<DecodeAddressRequest>,
+    ) -> Result<Response<DecodeAddressResponse>, Status> {
+        let params = request.into_inner();
+        let chain_type: crate::chain::types::Type = params
+            .chain
+            .parse()
+            .map_err(|err: anyhow::Error| Status::new(Code::InvalidArgument, err.to_string()))?;
+
+        match crate::chain::utils::decode_address(
+            chain_type,
+            &params.address,
+            self.manager.get_network(),
+        ) {
+            Ok(decoded) => Ok(Response::new(DecodeAddressResponse {
+                script_pubkey: decoded.script_pubkey,
+                blinding_pubkey: decoded.blinding_pubkey,
+            })),
+            Err(err) => Err(Status::new(Code::InvalidArgument, err.to_string())),
+        }
+    }
+
+    #[instrument(name = "grpc::encode_address", skip_all)]
+    async fn encode_address(
+        &self,
+        request: Request<EncodeAddressRequest>,
+    ) -> Result<Response<EncodeAddressResponse>, Status> {
+        let params = request.into_inner();
+        let chain_type: crate::chain::types::Type = params
+            .chain
+            .parse()
+            .map_err(|err: anyhow::Error| Status::new(Code::InvalidArgument, err.to_string()))?;
+
+        match crate::chain::utils::encode_address(
+            chain_type,
+            params.script_pubkey,
+            params.blinding_pubkey,
+            self.manager.get_network(),
+        ) {
+            Ok(address) => Ok(Response::new(EncodeAddressResponse { address })),
             Err(err) => Err(Status::new(Code::InvalidArgument, err.to_string())),
         }
     }

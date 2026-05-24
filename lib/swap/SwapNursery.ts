@@ -1698,7 +1698,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       return;
     }
 
-    const claimTransaction = constructClaimTransaction(
+    const claimTransaction = await constructClaimTransaction(
       wallet,
       [
         constructClaimDetails(
@@ -2093,7 +2093,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       }
     }
 
-    const refundTransaction = constructRefundTransaction(
+    const refundTransaction = await constructRefundTransaction(
       wallet,
       [refundDetails] as RefundDetails[] | LiquidRefundDetails[],
       await wallet.getAddress(TransactionLabelRepository.refundLabel(swap)),

@@ -105,6 +105,7 @@ describe('UtxoNursery', () => {
   const walletManager = new WalletManager(
     Logger.disabledLogger,
     mockNotificationClient,
+    sidecar,
     mnemonicPath,
     mnemonicPath,
     currencies,

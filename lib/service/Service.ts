@@ -786,7 +786,7 @@ class Service {
     return {
       bip21: this.paymentRequestUtils.encodeBip21WithParams(
         hint.symbol,
-        hint.address(currency.type, currency.network!),
+        await hint.address(currency.type, currency.network!, this.sidecar),
         hint.params,
       ),
       signature: getHexString(hint.signature),

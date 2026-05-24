@@ -7,9 +7,42 @@ import { Networks } from 'boltz-core/liquid';
 import { address } from 'liquidjs-lib';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import { slip77FromSeed } from '../../../lib/wallet/Slip77';
 import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import type WalletProviderInterface from '../../../lib/wallet/providers/WalletProviderInterface';
+
+const mockSidecar: Sidecar = {
+  decodeAddress: jest.fn(async (_chain: string, addr: string) => {
+    if (address.isConfidential(addr)) {
+      const decoded = address.fromConfidential(addr);
+      return {
+        scriptPubkey: decoded.scriptPubKey!,
+        blindingPubkey: decoded.blindingKey,
+      };
+    }
+    return {
+      scriptPubkey: address.toOutputScript(addr, Networks.liquidRegtest),
+      blindingPubkey: undefined,
+    };
+  }),
+  encodeAddress: jest.fn(
+    async (
+      _chain: string,
+      scriptPubkey: Buffer,
+      blindingPubkey?: Buffer,
+    ) => {
+      const addr = address.fromOutputScript(
+        scriptPubkey,
+        Networks.liquidRegtest,
+      );
+      if (blindingPubkey && blindingPubkey.length > 0) {
+        return address.toConfidential(addr, blindingPubkey);
+      }
+      return addr;
+    },
+  ),
+} as unknown as Sidecar;
 
 const hash160 = (data: Uint8Array): Uint8Array => ripemd160(sha256(data));
 const toXOnly = (publicKey: Uint8Array): Uint8Array =>
@@ -28,6 +61,7 @@ describe('WalletLiquid', () => {
     provider,
     slip77FromSeed(mnemonicToSeedSync(mnemonic)),
     Networks.liquidRegtest,
+    mockSidecar,
   );
   wallet.initKeyProvider('', {} as any);
 
@@ -61,24 +95,26 @@ describe('WalletLiquid', () => {
     ${'P2TR'}   | ${true}     | ${Buffer.from(Scripts.p2trOutput(toXOnly(publicKey)))}
   `(
     'should encode $name address (confidential: $shouldBlind)',
-    ({ outputScript, shouldBlind }) => {
-      expect(wallet.encodeAddress(outputScript, shouldBlind)).toMatchSnapshot();
+    async ({ outputScript, shouldBlind }) => {
+      expect(
+        await wallet.encodeAddress(outputScript, shouldBlind),
+      ).toMatchSnapshot();
     },
   );
 
-  test('should return empty string as address for an empty script', () => {
-    expect(wallet.encodeAddress(Buffer.alloc(0), true)).toEqual('');
-    expect(wallet.encodeAddress(Buffer.alloc(0), false)).toEqual('');
+  test('should return empty string as address for an empty script', async () => {
+    expect(await wallet.encodeAddress(Buffer.alloc(0), true)).toEqual('');
+    expect(await wallet.encodeAddress(Buffer.alloc(0), false)).toEqual('');
   });
 
-  test('should return empty string as address for scripts that cannot be encoded', () => {
+  test('should return empty string as address for scripts that cannot be encoded', async () => {
     const outputScript = Buffer.from([OP.RETURN, 1, 2, 3]);
-    expect(wallet.encodeAddress(outputScript, true)).toEqual('');
-    expect(wallet.encodeAddress(outputScript, false)).toEqual('');
+    expect(await wallet.encodeAddress(outputScript, true)).toEqual('');
+    expect(await wallet.encodeAddress(outputScript, false)).toEqual('');
   });
 
-  test('should blind by default', () => {
-    const res = wallet.encodeAddress(
+  test('should blind by default', async () => {
+    const res = await wallet.encodeAddress(
       Buffer.from(Scripts.p2trOutput(toXOnly(publicKey))),
     );
     expect(res.startsWith(Networks.liquidRegtest.blech32)).toEqual(true);

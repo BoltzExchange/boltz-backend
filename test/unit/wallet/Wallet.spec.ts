@@ -5,16 +5,52 @@ import { wordlist } from '@scure/bip39/wordlists/english.js';
 import type { Transaction } from '@scure/btc-signer';
 import { Script } from '@scure/btc-signer/script.js';
 import { randomBytes } from 'crypto';
-import { networks as networkLiquid } from 'liquidjs-lib';
+import {
+  address as liquidAddress,
+  networks as networkLiquid,
+} from 'liquidjs-lib';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import { CurrencyType } from '../../../lib/consts/Enums';
 import Database from '../../../lib/db/Database';
 import KeyRepository from '../../../lib/db/repositories/KeyRepository';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import { slip77FromSeed } from '../../../lib/wallet/Slip77';
 import Wallet from '../../../lib/wallet/Wallet';
 import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import CoreWalletProvider from '../../../lib/wallet/providers/CoreWalletProvider';
+
+const mockSidecar: Sidecar = {
+  decodeAddress: jest.fn(async (_chain: string, address: string) => {
+    if (liquidAddress.isConfidential(address)) {
+      const decoded = liquidAddress.fromConfidential(address);
+      return {
+        scriptPubkey: decoded.scriptPubKey!,
+        blindingPubkey: decoded.blindingKey,
+      };
+    }
+    return {
+      scriptPubkey: liquidAddress.toOutputScript(address, networkLiquid.liquid),
+      blindingPubkey: undefined,
+    };
+  }),
+  encodeAddress: jest.fn(
+    async (
+      _chain: string,
+      scriptPubkey: Buffer,
+      blindingPubkey?: Buffer,
+    ) => {
+      const addr = liquidAddress.fromOutputScript(
+        scriptPubkey,
+        networkLiquid.liquid,
+      );
+      if (blindingPubkey && blindingPubkey.length > 0) {
+        return liquidAddress.toConfidential(addr, blindingPubkey);
+      }
+      return addr;
+    },
+  ),
+} as unknown as Sidecar;
 import type {
   SentTransaction,
   WalletBalance,
@@ -108,6 +144,7 @@ describe('Wallet', () => {
     walletProvider,
     slip77FromSeed(seed),
     networkLiquid.liquid,
+    mockSidecar,
   );
 
   walletLiquid.initKeyProvider(derivationPath, masterNode);
@@ -175,19 +212,19 @@ describe('Wallet', () => {
     expect(index).toEqual(highestUsedIndex);
   });
 
-  test('should encode addresses', () => {
-    expect(wallet.encodeAddress(encodeOutput)).toEqual(encodedAddress);
+  test('should encode addresses', async () => {
+    expect(await wallet.encodeAddress(encodeOutput)).toEqual(encodedAddress);
   });
 
-  test('should ignore OP_RETURN outputs', () => {
+  test('should ignore OP_RETURN outputs', async () => {
     const outputScript = Buffer.from(
       Script.encode(['RETURN', sha256(randomBytes(64))]),
     );
 
-    expect(wallet.encodeAddress(outputScript)).toEqual('');
+    expect(await wallet.encodeAddress(outputScript)).toEqual('');
   });
 
-  test('should ignore all invalid addresses', () => {
+  test('should ignore all invalid addresses', async () => {
     const invalidScripts = [
       Buffer.from(Script.encode([randomBytes(32)])),
       Buffer.from(Script.encode(['OP_6'])),
@@ -203,12 +240,12 @@ describe('Wallet', () => {
     ];
 
     for (const script of invalidScripts) {
-      expect(wallet.encodeAddress(script)).toEqual('');
+      expect(await wallet.encodeAddress(script)).toEqual('');
     }
   });
 
-  test('should decode addresses', () => {
-    expect(wallet.decodeAddress(encodedAddress)).toEqual(encodeOutput);
+  test('should decode addresses', async () => {
+    expect(await wallet.decodeAddress(encodedAddress)).toEqual(encodeOutput);
   });
 
   test('should update highest used index in database', async () => {
@@ -263,14 +300,14 @@ describe('Wallet', () => {
     expect(mockSweepWallet).toHaveBeenCalledWith(address, satPerVbyte, label);
   });
 
-  test('should blind Liquid addresses', () => {
+  test('should blind Liquid addresses', async () => {
     expect(walletLiquid.type).toEqual(CurrencyType.Liquid);
-    const enc = walletLiquid.encodeAddress(encodeOutput);
+    const enc = await walletLiquid.encodeAddress(encodeOutput);
     expect(enc.startsWith('lq1qq')).toBeTruthy();
   });
 
-  test('should encode unblinded Liquid addresses', () => {
-    const enc = walletLiquid.encodeAddress(encodeOutput, false);
+  test('should encode unblinded Liquid addresses', async () => {
+    const enc = await walletLiquid.encodeAddress(encodeOutput, false);
     expect(enc.startsWith('ex')).toBeTruthy();
   });
 });

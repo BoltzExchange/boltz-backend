@@ -1,3 +1,7 @@
+import {
+  address as liquidAddress,
+  networks as liquidNetworks,
+} from 'liquidjs-lib';
 import { liquid } from 'liquidjs-lib/src/networks';
 import type { Sequelize } from 'sequelize';
 import { addressFromOutputScript } from '../../../lib/AddressUtils';
@@ -6,8 +10,41 @@ import { CurrencyType } from '../../../lib/consts/Enums';
 import Migration, { decodeBip21 } from '../../../lib/db/Migration';
 import DatabaseVersion from '../../../lib/db/models/DatabaseVersion';
 import DatabaseVersionRepository from '../../../lib/db/repositories/DatabaseVersionRepository';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import { bitcoin } from '../../Networks';
+
+const mockSidecar: Sidecar = {
+  decodeAddress: jest.fn(async (_chain: string, address: string) => {
+    if (liquidAddress.isConfidential(address)) {
+      const decoded = liquidAddress.fromConfidential(address);
+      return {
+        scriptPubkey: decoded.scriptPubKey!,
+        blindingPubkey: decoded.blindingKey,
+      };
+    }
+    return {
+      scriptPubkey: liquidAddress.toOutputScript(address, liquidNetworks.liquid),
+      blindingPubkey: undefined,
+    };
+  }),
+  encodeAddress: jest.fn(
+    async (
+      _chain: string,
+      scriptPubkey: Buffer,
+      blindingPubkey?: Buffer,
+    ) => {
+      const addr = liquidAddress.fromOutputScript(
+        scriptPubkey,
+        liquidNetworks.liquid,
+      );
+      if (blindingPubkey && blindingPubkey.length > 0) {
+        return liquidAddress.toConfidential(addr, blindingPubkey);
+      }
+      return addr;
+    },
+  ),
+} as unknown as Sidecar;
 
 const MockedSequelize = <Sequelize>(
   (<any>jest.fn().mockImplementation(() => {}))
@@ -41,7 +78,7 @@ describe('Migration', () => {
   });
 
   test('should insert the latest database schema version in case there none already', async () => {
-    await migration.migrate(emptyCurrenciesMap);
+    await migration.migrate(emptyCurrenciesMap, mockSidecar);
 
     expect(mockGetVersion).toHaveBeenCalledTimes(1);
 
@@ -56,7 +93,7 @@ describe('Migration', () => {
       version: Migration['latestSchemaVersion'],
     };
 
-    await migration.migrate(emptyCurrenciesMap);
+    await migration.migrate(emptyCurrenciesMap, mockSidecar);
 
     expect(mockGetVersion).toHaveBeenCalledTimes(1);
   });
@@ -66,7 +103,9 @@ describe('Migration', () => {
     async (version) => {
       mockGetVersionResult = { version };
 
-      await expect(migration.migrate(emptyCurrenciesMap)).rejects.toThrow(
+      await expect(
+        migration.migrate(emptyCurrenciesMap, mockSidecar),
+      ).rejects.toThrow(
         `database schema version ${version} is no longer supported; please upgrade using an older boltz-backend release first`,
       );
     },
@@ -77,7 +116,9 @@ describe('Migration', () => {
       version: -42,
     };
 
-    await expect(migration.migrate(emptyCurrenciesMap)).rejects.toEqual(
+    await expect(
+      migration.migrate(emptyCurrenciesMap, mockSidecar),
+    ).rejects.toEqual(
       `found unexpected database version ${mockGetVersionResult.version}`,
     );
   });
@@ -97,8 +138,8 @@ describe('Migration', () => {
     ${'bitcoin:bc1qrknxymxah6vxw8lvd8h4knymz2f0w80qsdhx76?amount=3'}                                                                  | ${'BTC'}   | ${'amount=3'} | ${false}
     ${'liquidnetwork:ex1q7c2nrxek8wclh9m8v4yanm2e0g0gx48j7zjm9x?amount=3'}                                                            | ${'L-BTC'} | ${'amount=3'} | ${false}
     ${'liquidnetwork:lq1qqv0ae3h4ja8su0wha8f2wzlc33ssqyvf2lvu3kwyt6s3vk063m7l2c0rkcqekntg5g5f8wkx3qzgyskeg2s4jh4uhnxn70m58?amount=3'} | ${'L-BTC'} | ${'amount=3'} | ${true}
-  `('should decode bip21', ({ bip21, symbol, params, confidential }) => {
-    const result = decodeBip21(bip21, currencies);
+  `('should decode bip21', async ({ bip21, symbol, params, confidential }) => {
+    const result = await decodeBip21(bip21, currencies, mockSidecar);
     expect(result.symbol).toEqual(symbol);
     expect(result.params).toEqual(params);
     expect(result.scriptPubkey).toBeDefined();
@@ -107,10 +148,12 @@ describe('Migration', () => {
     } else {
       expect(result.blindingKey).toBeUndefined();
     }
-    const decodedAddress = addressFromOutputScript(
+    const decodedAddress = await addressFromOutputScript(
       currencies.get(symbol)!.type,
       result.scriptPubkey,
       currencies.get(symbol)!.network!,
+      undefined,
+      mockSidecar,
     );
     expect(decodedAddress).toBeDefined();
   });

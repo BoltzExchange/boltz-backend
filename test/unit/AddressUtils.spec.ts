@@ -1,11 +1,12 @@
 import { ripemd160 } from '@noble/hashes/legacy.js';
 import { sha256 } from '@noble/hashes/sha2.js';
-import { networks as liquidNetworks } from 'liquidjs-lib';
+import { address as liquidAddress, networks as liquidNetworks } from 'liquidjs-lib';
 import {
   addressFromOutputScript,
   outputScriptFromAddress,
 } from '../../lib/AddressUtils';
 import { CurrencyType } from '../../lib/consts/Enums';
+import type Sidecar from '../../lib/sidecar/Sidecar';
 import { bitcoin, regtest, testnet } from '../Networks';
 
 type AddressVector = {
@@ -17,6 +18,43 @@ type AddressVector = {
 
 const networkOf = (n: AddressVector['network']) =>
   n === 'bitcoin' ? bitcoin : n === 'testnet' ? testnet : regtest;
+
+// Mock sidecar that delegates to liquidjs-lib so unit tests don't need a running sidecar.
+// The Rust impl is covered by chain::utils::test::address_codec in boltzr.
+const mockSidecar: Sidecar = {
+  decodeAddress: jest.fn(async (_chain: string, address: string) => {
+    if (liquidAddress.isConfidential(address)) {
+      const decoded = liquidAddress.fromConfidential(address);
+      return {
+        scriptPubkey: decoded.scriptPubKey!,
+        blindingPubkey: decoded.blindingKey,
+      };
+    }
+    return {
+      scriptPubkey: liquidAddress.toOutputScript(
+        address,
+        liquidNetworks.regtest,
+      ),
+      blindingPubkey: undefined,
+    };
+  }),
+  encodeAddress: jest.fn(
+    async (
+      _chain: string,
+      scriptPubkey: Buffer,
+      blindingPubkey?: Buffer,
+    ) => {
+      const addr = liquidAddress.fromOutputScript(
+        scriptPubkey,
+        liquidNetworks.regtest,
+      );
+      if (blindingPubkey && blindingPubkey.length > 0) {
+        return liquidAddress.toConfidential(addr, blindingPubkey);
+      }
+      return addr;
+    },
+  ),
+} as unknown as Sidecar;
 
 const vectors: AddressVector[] = [
   {
@@ -63,8 +101,8 @@ describe('AddressUtils', () => {
   describe('outputScriptFromAddress (bitcoin)', () => {
     it.each(vectors)(
       'encodes $name to the expected scriptPubKey',
-      ({ network, address, scriptHex }) => {
-        const got = outputScriptFromAddress(
+      async ({ network, address, scriptHex }) => {
+        const got = await outputScriptFromAddress(
           CurrencyType.BitcoinLike,
           address,
           networkOf(network),
@@ -73,32 +111,32 @@ describe('AddressUtils', () => {
       },
     );
 
-    it('throws on a malformed address', () => {
-      expect(() =>
+    it('throws on a malformed address', async () => {
+      await expect(
         outputScriptFromAddress(
           CurrencyType.BitcoinLike,
           'this-is-not-an-address',
           bitcoin,
         ),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    it('rejects a mismatched-network bech32 address', () => {
-      expect(() =>
+    it('rejects a mismatched-network bech32 address', async () => {
+      await expect(
         outputScriptFromAddress(
           CurrencyType.BitcoinLike,
           'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',
           testnet,
         ),
-      ).toThrow();
+      ).rejects.toThrow();
     });
   });
 
   describe('addressFromOutputScript (bitcoin)', () => {
     it.each(vectors)(
       'decodes $name scriptPubKey back to the expected address',
-      ({ network, address, scriptHex }) => {
-        const got = addressFromOutputScript(
+      async ({ network, address, scriptHex }) => {
+        const got = await addressFromOutputScript(
           CurrencyType.BitcoinLike,
           Buffer.from(scriptHex, 'hex'),
           networkOf(network),
@@ -111,13 +149,13 @@ describe('AddressUtils', () => {
   describe('round-trip', () => {
     it.each(vectors)(
       'address → script → address yields the original for $name',
-      ({ network, address }) => {
-        const script = outputScriptFromAddress(
+      async ({ network, address }) => {
+        const script = await outputScriptFromAddress(
           CurrencyType.BitcoinLike,
           address,
           networkOf(network),
         );
-        const back = addressFromOutputScript(
+        const back = await addressFromOutputScript(
           CurrencyType.BitcoinLike,
           script,
           networkOf(network),
@@ -145,92 +183,129 @@ describe('AddressUtils', () => {
 
     const liquidRegtest = liquidNetworks.regtest;
 
-    it('encodes a regtest P2WPKH script to an ert1q address (unblinded)', () => {
+    it('encodes a regtest P2WPKH script to an ert1q address (unblinded)', async () => {
       expect(
-        addressFromOutputScript(
+        await addressFromOutputScript(
           CurrencyType.Liquid,
           p2wpkhScript,
           liquidRegtest,
+          undefined,
+          mockSidecar,
         ),
       ).toEqual('ert1q84ufadu3juwu6zjcdcweqhe9ewhwxrvtj3lmzj');
     });
 
-    it('encodes a regtest P2TR script to an ert1p address (unblinded)', () => {
+    it('encodes a regtest P2TR script to an ert1p address (unblinded)', async () => {
       expect(
-        addressFromOutputScript(CurrencyType.Liquid, p2trScript, liquidRegtest),
+        await addressFromOutputScript(
+          CurrencyType.Liquid,
+          p2trScript,
+          liquidRegtest,
+          undefined,
+          mockSidecar,
+        ),
       ).toEqual(
         'ert1p7qypc2gpr437ws0yhl3yvk57rweq8pfdyw04g8vjmjxeus9ak0nqwf79lm',
       );
     });
 
-    it('decodes an ert1q regtest address back to its scriptPubKey', () => {
-      const got = outputScriptFromAddress(
+    it('decodes an ert1q regtest address back to its scriptPubKey', async () => {
+      const got = await outputScriptFromAddress(
         CurrencyType.Liquid,
         'ert1q84ufadu3juwu6zjcdcweqhe9ewhwxrvtj3lmzj',
         liquidRegtest,
+        mockSidecar,
       );
       expect(got.toString('hex')).toEqual(p2wpkhScript.toString('hex'));
     });
 
-    it('round-trips a regtest P2WPKH (unblinded)', () => {
-      const addr = addressFromOutputScript(
+    it('round-trips a regtest P2WPKH (unblinded)', async () => {
+      const addr = await addressFromOutputScript(
         CurrencyType.Liquid,
         p2wpkhScript,
         liquidRegtest,
+        undefined,
+        mockSidecar,
       );
-      const back = outputScriptFromAddress(
+      const back = await outputScriptFromAddress(
         CurrencyType.Liquid,
         addr,
         liquidRegtest,
+        mockSidecar,
       );
       expect(back.toString('hex')).toEqual(p2wpkhScript.toString('hex'));
     });
 
-    it('encodes a confidential P2WPKH (el1q…) when a blindingKey is supplied', () => {
-      const got = addressFromOutputScript(
+    it('encodes a confidential P2WPKH (el1q…) when a blindingKey is supplied', async () => {
+      const got = await addressFromOutputScript(
         CurrencyType.Liquid,
         p2wpkhScript,
         liquidRegtest,
         blindingKey,
+        mockSidecar,
       );
       expect(got).toMatchSnapshot();
       expect(got.startsWith('el1qq')).toBe(true);
     });
 
-    it('encodes a confidential P2TR (el1p…) when a blindingKey is supplied', () => {
-      const got = addressFromOutputScript(
+    it('encodes a confidential P2TR (el1p…) when a blindingKey is supplied', async () => {
+      const got = await addressFromOutputScript(
         CurrencyType.Liquid,
         p2trScript,
         liquidRegtest,
         blindingKey,
+        mockSidecar,
       );
       expect(got).toMatchSnapshot();
       expect(got.startsWith('el1p')).toBe(true);
     });
 
-    it('falls back to the unblinded address when blindingKey is empty', () => {
-      const got = addressFromOutputScript(
+    it('falls back to the unblinded address when blindingKey is empty', async () => {
+      const got = await addressFromOutputScript(
         CurrencyType.Liquid,
         p2wpkhScript,
         liquidRegtest,
         Buffer.alloc(0),
+        mockSidecar,
       );
       expect(got).toEqual('ert1q84ufadu3juwu6zjcdcweqhe9ewhwxrvtj3lmzj');
     });
 
-    it('decoding a confidential address yields the unblinded scriptPubKey', () => {
-      const confidential = addressFromOutputScript(
+    it('decoding a confidential address yields the unblinded scriptPubKey', async () => {
+      const confidential = await addressFromOutputScript(
         CurrencyType.Liquid,
         p2wpkhScript,
         liquidRegtest,
         blindingKey,
+        mockSidecar,
       );
-      const back = outputScriptFromAddress(
+      const back = await outputScriptFromAddress(
         CurrencyType.Liquid,
         confidential,
         liquidRegtest,
+        mockSidecar,
       );
       expect(back.toString('hex')).toEqual(p2wpkhScript.toString('hex'));
+    });
+
+    it('throws when sidecar is not provided for Liquid encode', async () => {
+      await expect(
+        addressFromOutputScript(
+          CurrencyType.Liquid,
+          p2wpkhScript,
+          liquidRegtest,
+        ),
+      ).rejects.toThrow('sidecar required');
+    });
+
+    it('throws when sidecar is not provided for Liquid decode', async () => {
+      await expect(
+        outputScriptFromAddress(
+          CurrencyType.Liquid,
+          'ert1q84ufadu3juwu6zjcdcweqhe9ewhwxrvtj3lmzj',
+          liquidRegtest,
+        ),
+      ).rejects.toThrow('sidecar required');
     });
   });
 });

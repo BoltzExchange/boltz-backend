@@ -8,6 +8,7 @@ import { SelfPaymentNodeId } from '../BaseClient';
 import type Logger from '../Logger';
 import { formatError, getHexBuffer } from '../Utils';
 import { SwapType, swapTypeToPrettyString } from '../consts/Enums';
+import type Sidecar from '../sidecar/Sidecar';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import { networks } from '../wallet/ethereum/EvmNetworks';
@@ -31,9 +32,10 @@ import SwapRepository from './repositories/SwapRepository';
 const LegacyLndNodeId = 'legacy-lnd';
 const LegacyClnNodeId = 'legacy-cln';
 
-export const decodeBip21 = (
+export const decodeBip21 = async (
   bip21: string,
   currencies: Map<string, Currency>,
+  sidecar: Sidecar,
 ) => {
   const url = new URL(bip21);
   const chain = url.protocol.replace(':', '');
@@ -51,12 +53,13 @@ export const decodeBip21 = (
   const address = url.pathname;
   return {
     symbol,
-    scriptPubkey: outputScriptFromAddress(
+    scriptPubkey: await outputScriptFromAddress(
       currency.type,
       address,
       currency.network!,
+      sidecar,
     ),
-    blindingKey: getBlindingKey(currency.type, address),
+    blindingKey: await getBlindingKey(currency.type, address, sidecar),
     params: url.search.replace('?', ''),
   };
 };
@@ -73,7 +76,26 @@ class Migration {
     private sequelize: Sequelize,
   ) {}
 
-  public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
+  private sidecarInstance?: Sidecar;
+
+  private get sidecar(): Sidecar {
+    if (this.sidecarInstance === undefined) {
+      throw new Error('sidecar not set on Migration');
+    }
+    return this.sidecarInstance;
+  }
+
+  public migrate = async (
+    currencies: Map<string, Currency>,
+    sidecar: Sidecar,
+  ): Promise<void> => {
+    this.sidecarInstance = sidecar;
+    return this.migrateInner(currencies);
+  };
+
+  private migrateInner = async (
+    currencies: Map<string, Currency>,
+  ): Promise<void> => {
     await DatabaseVersion.sync();
     const versionRow = await DatabaseVersionRepository.getVersion();
 
@@ -351,10 +373,8 @@ class Migration {
 
           for (const record of records) {
             try {
-              const { symbol, scriptPubkey, blindingKey, params } = decodeBip21(
-                record.bip21,
-                currencies,
-              );
+              const { symbol, scriptPubkey, blindingKey, params } =
+                await decodeBip21(record.bip21, currencies, this.sidecar);
               await this.sequelize.query(
                 'UPDATE "reverseRoutingHints" SET symbol = $1, "scriptPubkey" = $2, params = $3, "signatureBlob" = $4 WHERE "swapId" = $5',
                 {
@@ -816,7 +836,7 @@ class Migration {
               await ScriptPubKeyRepository.add(
                 swap.id,
                 chainCurrency,
-                wallet.decodeAddress(swap.lockupAddress),
+                await wallet.decodeAddress(swap.lockupAddress),
                 { transaction: tx },
               );
             },
@@ -846,7 +866,7 @@ class Migration {
               await ScriptPubKeyRepository.add(
                 swap.id,
                 swap.receivingData.symbol,
-                wallet.decodeAddress(swap.receivingData.lockupAddress),
+                await wallet.decodeAddress(swap.receivingData.lockupAddress),
                 { transaction: tx },
               );
             },
@@ -919,7 +939,7 @@ class Migration {
 
     // Run the migration again if the current schema version is not the latest one
     if (currentVersion !== Migration.latestSchemaVersion) {
-      await this.migrate(currencies);
+      await this.migrateInner(currencies);
     }
   };
 

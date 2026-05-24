@@ -95,6 +95,12 @@ class Boltz {
       `Starting Boltz ${getVersion()} (Node.js ${process.version}; NODE_ENV=${process.env.NODE_ENV})`,
     );
 
+    this.sidecar = new Sidecar(
+      this.logger,
+      this.config.sidecar,
+      this.config.datadir,
+    );
+
     this.db = new Database(
       this.logger,
       this.config.dbpath,
@@ -186,11 +192,6 @@ class Boltz {
       })
       .filter((manager): manager is EthereumManager => manager !== undefined);
 
-    this.sidecar = new Sidecar(
-      this.logger,
-      this.config.sidecar,
-      this.config.datadir,
-    );
     this.routingFee = new RoutingFee(this.logger, this.config.routing);
 
     this.currencies = this.parseCurrencies();
@@ -205,6 +206,7 @@ class Boltz {
     this.walletManager = new WalletManager(
       this.logger,
       notificationClient,
+      this.sidecar,
       this.config.mnemonicpath,
       this.config.mnemonicpathEvm,
       walletCurrencies,
@@ -293,7 +295,7 @@ class Boltz {
     await setup();
 
     try {
-      await this.db.migrate(this.currencies);
+      await this.db.migrate(this.currencies, this.sidecar);
       await this.db.init();
       await this.redis?.connect();
 

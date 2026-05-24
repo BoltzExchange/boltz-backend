@@ -20,6 +20,7 @@ import KeyRepository from '../db/repositories/KeyRepository';
 import type LndClient from '../lightning/LndClient';
 import type ClnClient from '../lightning/cln/ClnClient';
 import type NotificationClient from '../notifications/NotificationClient';
+import type Sidecar from '../sidecar/Sidecar';
 import Errors from './Errors';
 import type { Slip77Node } from './Slip77';
 import { slip77FromSeed } from './Slip77';
@@ -110,6 +111,7 @@ class WalletManager {
   constructor(
     private readonly logger: Logger,
     private readonly notificationClient: NotificationClient,
+    private readonly sidecar: Sidecar,
     mnemonicPath: string,
     mnemonicPathEvm: string,
     private readonly currencies: Currency[],
@@ -157,7 +159,7 @@ class WalletManager {
         walletProvider = new ElementsWalletProvider(
           this.logger,
           currency.chainClient! as IElementsClient,
-          currency.network! as LiquidNetwork,
+          this.sidecar,
           this.notificationClient,
         );
       }
@@ -207,6 +209,7 @@ class WalletManager {
               walletProvider,
               this.slip77,
               currency.network! as LiquidNetwork,
+              this.sidecar,
             );
 
       wallet.initKeyProvider(keyProviderInfo.derivationPath, this.masterNode);

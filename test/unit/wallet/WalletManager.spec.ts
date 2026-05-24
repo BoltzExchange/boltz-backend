@@ -9,9 +9,12 @@ import Database from '../../../lib/db/Database';
 import KeyRepository from '../../../lib/db/repositories/KeyRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import type NotificationClient from '../../../lib/notifications/NotificationClient';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import WalletErrors from '../../../lib/wallet/Errors';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import WalletManager from '../../../lib/wallet/WalletManager';
+
+const mockSidecar = {} as Sidecar;
 import { regtest as bitcoinRegtest } from '../../Networks';
 
 const symbol = 'BTC';
@@ -147,6 +150,7 @@ describe('WalletManager', () => {
     new WalletManager(
       Logger.disabledLogger,
       mockNotificationClient,
+      mockSidecar,
       mnemonicPath,
       mnemonicPathEvm,
       currencies,
@@ -172,6 +176,7 @@ describe('WalletManager', () => {
       new WalletManager(
         Logger.disabledLogger,
         mockNotificationClient,
+        mockSidecar,
         tmpPath,
         tmpPathEvm,
         currencies,
@@ -203,6 +208,7 @@ describe('WalletManager', () => {
     const noLndWalletManager = new WalletManager(
       Logger.disabledLogger,
       mockNotificationClient,
+      mockSidecar,
       mnemonicPath,
       mnemonicPathEvm,
       currenciesNoLnd,
@@ -230,6 +236,7 @@ describe('WalletManager', () => {
     const noLndWalletManager = new WalletManager(
       Logger.disabledLogger,
       mockNotificationClient,
+      mockSidecar,
       mnemonicPath,
       mnemonicPathEvm,
       currenciesNoLnd,
@@ -246,6 +253,7 @@ describe('WalletManager', () => {
     walletManager = new WalletManager(
       Logger.disabledLogger,
       mockNotificationClient,
+      mockSidecar,
       mnemonicPath,
       mnemonicPathEvm,
       currencies,
@@ -296,6 +304,7 @@ describe('WalletManager', () => {
         new WalletManager(
           Logger.disabledLogger,
           mockNotificationClient,
+          mockSidecar,
           mnemonicPath,
           mnemonicPathEvm,
           [],

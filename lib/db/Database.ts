@@ -2,6 +2,7 @@ import { types } from 'pg';
 import Sequelize from 'sequelize';
 import type { PostgresConfig } from '../Config';
 import type Logger from '../Logger';
+import type Sidecar from '../sidecar/Sidecar';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import Migration from './Migration';
@@ -130,8 +131,11 @@ class Database {
     ]);
   };
 
-  public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
-    await this.migration.migrate(currencies);
+  public migrate = async (
+    currencies: Map<string, Currency>,
+    sidecar: Sidecar,
+  ): Promise<void> => {
+    await this.migration.migrate(currencies, sidecar);
   };
 
   public backFillMigrations = async (

@@ -102,7 +102,7 @@ describe('CoopSignerBase', () => {
     );
 
     const txId = await bitcoinClient.sendToAddress(
-      wallet.encodeAddress(Buffer.from(Scripts.p2trOutput(tweakedKey))),
+      await wallet.encodeAddress(Buffer.from(Scripts.p2trOutput(tweakedKey))),
       100_000,
       undefined,
       false,

@@ -29,7 +29,6 @@ import type { TxOutput as LiquidTxOutput } from 'liquidjs-lib';
 import {
   Transaction as LiquidTransaction,
   confidential,
-  address as liquidAddress,
   bip341 as liquidBip341,
 } from 'liquidjs-lib';
 import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
@@ -42,6 +41,7 @@ import {
   reverseBuffer,
 } from './Utils';
 import type { IChainClient } from './chain/ChainClient';
+import ElementsClient from './chain/ElementsClient';
 import {
   CurrencyType,
   SwapType,
@@ -51,6 +51,7 @@ import {
 import { liquidSymbol } from './consts/LiquidTypes';
 import type ChainSwapData from './db/models/ChainSwapData';
 import type Swap from './db/models/Swap';
+import type Sidecar from './sidecar/Sidecar';
 import type SwapOutputType from './swap/SwapOutputType';
 import type Wallet from './wallet/Wallet';
 import type WalletLiquid from './wallet/WalletLiquid';
@@ -97,11 +98,16 @@ export const parseTransaction = <
   return LiquidTransaction.fromBuffer(Buffer.from(rawTx)) as T;
 };
 
-export const getBlindingKey = (type: CurrencyType, address: string) => {
-  if (type === CurrencyType.Liquid && liquidAddress.isConfidential(address)) {
-    return liquidAddress.fromConfidential(address).blindingKey;
+export const getBlindingKey = async (
+  type: CurrencyType,
+  address: string,
+  sidecar: Sidecar,
+): Promise<Buffer | undefined> => {
+  if (type !== CurrencyType.Liquid) {
+    return undefined;
   }
-  return undefined;
+  return (await sidecar.decodeAddress(ElementsClient.symbol, address))
+    .blindingPubkey;
 };
 
 export const unblindOutput = (
@@ -262,12 +268,12 @@ export const constructClaimDetails = (
   }
 };
 
-export const constructClaimTransaction = (
+export const constructClaimTransaction = async (
   wallet: Wallet,
   claimDetails: ClaimDetails[] | LiquidClaimDetails[],
   destinationAddress: string,
   feePerVbyte: number,
-): ConstructedTransaction => {
+): Promise<ConstructedTransaction> => {
   const span = Tracing.tracer.startSpan('constructClaimTransaction', {
     kind: SpanKind.INTERNAL,
     attributes: {
@@ -278,51 +284,57 @@ export const constructClaimTransaction = (
   const ctx = trace.setSpan(context.active(), span);
 
   try {
-    return context.with(ctx, () => {
-      if (isBitcoin(wallet.type)) {
-        return targetFee(feePerVbyte, (fee) =>
+    if (isBitcoin(wallet.type)) {
+      const destinationScript = await wallet.decodeAddress(destinationAddress);
+      return context.with(ctx, () =>
+        targetFee(feePerVbyte, (fee) =>
           constructClaimTransactionBitcoin(
             claimDetails as ClaimDetails[],
-            wallet.decodeAddress(destinationAddress),
+            destinationScript,
             fee,
             true,
           ),
-        );
-      }
-
-      const walletLiquid = wallet as WalletLiquid;
-      const liquidDetails = populateBlindingKeys(
-        walletLiquid,
-        claimDetails as LiquidClaimDetails[],
+        ),
       );
-      const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
+    }
 
-      return targetFee(
+    const walletLiquid = wallet as WalletLiquid;
+    const liquidDetails = populateBlindingKeys(
+      walletLiquid,
+      claimDetails as LiquidClaimDetails[],
+    );
+    const decodedAddress = await walletLiquid.sidecar!.decodeAddress(
+      ElementsClient.symbol,
+      destinationAddress,
+    );
+
+    return context.with(ctx, () =>
+      targetFee(
         feePerVbyte,
         (fee) =>
           constructClaimTransactionLiquid(
             liquidDetails,
-            decodedAddress.scriptPubKey!,
+            decodedAddress.scriptPubkey,
             fee,
             true,
             wallet.network as LiquidNetwork,
-            decodedAddress.blindingKey,
+            decodedAddress.blindingPubkey,
           ),
         true,
-      );
-    });
+      ),
+    );
   } finally {
     span.end();
   }
 };
 
-export const constructRefundTransaction = (
+export const constructRefundTransaction = async (
   wallet: Wallet,
   refundDetails: RefundDetails[] | LiquidRefundDetails[],
   destinationAddress: string,
   timeoutBlockHeight: number,
   feePerVbyte: number,
-): ConstructedTransaction => {
+): Promise<ConstructedTransaction> => {
   const span = Tracing.tracer.startSpan('constructRefundTransaction', {
     kind: SpanKind.INTERNAL,
     attributes: {
@@ -333,41 +345,47 @@ export const constructRefundTransaction = (
   const ctx = trace.setSpan(context.active(), span);
 
   try {
-    return context.with(ctx, () => {
-      if (isBitcoin(wallet.type)) {
-        return targetFee(feePerVbyte, (fee) =>
+    if (isBitcoin(wallet.type)) {
+      const destinationScript = await wallet.decodeAddress(destinationAddress);
+      return context.with(ctx, () =>
+        targetFee(feePerVbyte, (fee) =>
           constructRefundTransactionBitcoin(
             refundDetails as RefundDetails[],
-            wallet.decodeAddress(destinationAddress),
+            destinationScript,
             timeoutBlockHeight,
             fee,
             true,
           ),
-        );
-      }
-
-      const walletLiquid = wallet as WalletLiquid;
-      const liquidDetails = populateBlindingKeys(
-        walletLiquid,
-        refundDetails as LiquidRefundDetails[],
+        ),
       );
-      const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
+    }
 
-      return targetFee(
+    const walletLiquid = wallet as WalletLiquid;
+    const liquidDetails = populateBlindingKeys(
+      walletLiquid,
+      refundDetails as LiquidRefundDetails[],
+    );
+    const decodedAddress = await walletLiquid.sidecar!.decodeAddress(
+      ElementsClient.symbol,
+      destinationAddress,
+    );
+
+    return context.with(ctx, () =>
+      targetFee(
         feePerVbyte,
         (fee) =>
           constructRefundTransactionLiquid(
             liquidDetails,
-            decodedAddress.scriptPubKey!,
+            decodedAddress.scriptPubkey,
             timeoutBlockHeight,
             fee,
             true,
             wallet.network as LiquidNetwork,
-            decodedAddress.blindingKey,
+            decodedAddress.blindingPubkey,
           ),
         true,
-      );
-    });
+      ),
+    );
   } finally {
     span.end();
   }

@@ -346,6 +346,42 @@ class Sidecar extends BaseClient<
     );
   };
 
+  public decodeAddress = async (
+    chain: string,
+    address: string,
+  ): Promise<{ scriptPubkey: Buffer; blindingPubkey?: Buffer }> => {
+    const req: sidecarrpc.DecodeAddressRequest = { chain, address };
+
+    const res = await this.unaryNodeCall<
+      sidecarrpc.DecodeAddressRequest,
+      sidecarrpc.DecodeAddressResponse
+    >('decodeAddress', req);
+
+    return {
+      scriptPubkey: res.scriptPubkey,
+      blindingPubkey: res.blindingPubkey,
+    };
+  };
+
+  public encodeAddress = async (
+    chain: string,
+    scriptPubkey: Buffer,
+    blindingPubkey?: Buffer,
+  ): Promise<string> => {
+    const req: sidecarrpc.EncodeAddressRequest = {
+      chain,
+      scriptPubkey,
+      blindingPubkey,
+    };
+
+    const res = await this.unaryNodeCall<
+      sidecarrpc.EncodeAddressRequest,
+      sidecarrpc.EncodeAddressResponse
+    >('encodeAddress', req);
+
+    return res.address;
+  };
+
   public isMarked = async (ip: string) => {
     const req: sidecarrpc.IsMarkedRequest = {
       ip,

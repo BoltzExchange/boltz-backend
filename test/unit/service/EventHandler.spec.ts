@@ -9,7 +9,7 @@ import type Swap from '../../../lib/db/models/Swap';
 import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
 import EventHandler from '../../../lib/service/EventHandler';
 import SwapNursery from '../../../lib/swap/SwapNursery';
-import { generateAddress } from '../../Utils';
+import { generateOutputScript } from '../../Utils';
 
 class StubEventEmitter extends EventEmitter {
   constructor() {
@@ -40,7 +40,7 @@ const chainSwap = {
 } as ChainSwapInfo;
 
 const mockTransaction = () => {
-  const { outputScript } = generateAddress(OutputType.Bech32);
+  const outputScript = generateOutputScript(OutputType.Bech32);
   const transaction = new Transaction({
     allowUnknownInputs: true,
     allowUnknownOutputs: true,

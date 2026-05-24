@@ -206,7 +206,7 @@ describe('MusigSigner', () => {
       hexToBytes(
         await bitcoinClient.getRawTransaction(
           await bitcoinClient.sendToAddress(
-            addressFromOutputScript(
+            await addressFromOutputScript(
               CurrencyType.BitcoinLike,
               swapOutputScript,
               bitcoinRegtest,
@@ -237,7 +237,7 @@ describe('MusigSigner', () => {
           internalKey: musig.internalKey,
         },
       ],
-      outputScriptFromAddress(
+      await outputScriptFromAddress(
         CurrencyType.BitcoinLike,
         await bitcoinClient.getNewAddress(''),
         bitcoinRegtest,
@@ -482,7 +482,7 @@ describe('MusigSigner', () => {
         hexToBytes(
           await bitcoinClient.getRawTransaction(
             await bitcoinClient.sendToAddress(
-              addressFromOutputScript(
+              await addressFromOutputScript(
                 CurrencyType.BitcoinLike,
                 swapOutputScript,
                 bitcoinRegtest,
@@ -514,7 +514,7 @@ describe('MusigSigner', () => {
             internalKey: musig.internalKey,
           },
         ],
-        outputScriptFromAddress(
+        await outputScriptFromAddress(
           CurrencyType.BitcoinLike,
           await bitcoinClient.getNewAddress(''),
           bitcoinRegtest,

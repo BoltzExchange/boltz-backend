@@ -22,6 +22,9 @@ service BoltzR {
 
   rpc DecodeInvoiceOrOffer (DecodeInvoiceOrOfferRequest) returns (DecodeInvoiceOrOfferResponse);
 
+  rpc DecodeAddress (DecodeAddressRequest) returns (DecodeAddressResponse);
+  rpc EncodeAddress (EncodeAddressRequest) returns (EncodeAddressResponse);
+
   rpc IsMarked (IsMarkedRequest) returns (IsMarkedResponse);
 
   rpc RescanChains (RescanChainsRequest) returns (RescanChainsResponse);
@@ -231,6 +234,29 @@ message DecodeInvoiceOrOfferResponse {
     Bolt12Offer offer = 3;
     Bolt12Invoice bolt12_invoice = 4;
   }
+}
+
+message DecodeAddressRequest {
+  // Chain symbol the address belongs to (e.g. "BTC" or "L-BTC")
+  string chain = 1;
+  string address = 2;
+}
+
+message DecodeAddressResponse {
+  bytes script_pubkey = 1;
+  // Set only for confidential Liquid addresses
+  optional bytes blinding_pubkey = 2;
+}
+
+message EncodeAddressRequest {
+  string chain = 1;
+  bytes script_pubkey = 2;
+  // Set to produce a confidential Liquid address
+  optional bytes blinding_pubkey = 3;
+}
+
+message EncodeAddressResponse {
+  string address = 1;
 }
 
 message IsMarkedRequest {

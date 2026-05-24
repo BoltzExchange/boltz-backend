@@ -1,10 +1,10 @@
-import { Transaction, address as addressLib } from 'liquidjs-lib';
-import type { Network } from 'liquidjs-lib/src/networks';
+import { Transaction } from 'liquidjs-lib';
 import type Logger from '../../Logger';
 import { getHexBuffer } from '../../Utils';
 import ChainClient from '../../chain/ChainClient';
 import type { IElementsClient } from '../../chain/ElementsClient';
 import type NotificationClient from '../../notifications/NotificationClient';
+import type Sidecar from '../../sidecar/Sidecar';
 import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
 import type WalletProviderInterface from './WalletProviderInterface';
 import { checkMempoolAndSaveRebroadcast } from './WalletProviderInterface';
@@ -17,7 +17,7 @@ class ElementsWalletProvider implements WalletProviderInterface {
   constructor(
     public logger: Logger,
     public chainClient: IElementsClient,
-    private readonly network: Network,
+    private readonly sidecar: Sidecar,
     private readonly notifications?: NotificationClient,
   ) {
     this.symbol = chainClient.symbol;
@@ -99,7 +99,9 @@ class ElementsWalletProvider implements WalletProviderInterface {
     );
 
     const rawTransaction = Transaction.fromHex(walletTransaction.hex);
-    const targetScriptPubKey = addressLib.toOutputScript(address, this.network);
+    const targetScriptPubKey = (
+      await this.sidecar.decodeAddress(this.symbol, address)
+    ).scriptPubkey;
 
     const vout = rawTransaction.outs.findIndex((output) =>
       output.script.equals(targetScriptPubKey),

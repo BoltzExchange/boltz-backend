@@ -111,7 +111,7 @@ class CoreWalletProvider implements WalletProviderInterface {
     const rawTransaction = Transaction.fromRaw(
       hexToBytes(walletTransaction.hex),
     );
-    const targetScriptPubKey = outputScriptFromAddress(
+    const targetScriptPubKey = await outputScriptFromAddress(
       CurrencyType.BitcoinLike,
       address,
       this.network,

@@ -346,9 +346,10 @@ describe('CommandHandler', () => {
       );
       reverseSwapWithHint!.dataValues.routingHint = {
         ...reverseRoutingHint!.dataValues,
-        address: reverseRoutingHint!.address(
+        address: await reverseRoutingHint!.address(
           CurrencyType.BitcoinLike,
           bitcoinRegtest,
+          {} as any,
         ),
         scriptPubkey: reverseRoutingHint!.scriptPubkey.toString('hex'),
         signature: reverseRoutingHint!.signature.toString('hex'),

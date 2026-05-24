@@ -8,6 +8,7 @@ import type Logger from '../Logger';
 import type { BitcoinNetwork } from '../consts/BitcoinNetworks';
 import type { CurrencyType } from '../consts/Enums';
 import KeyRepository from '../db/repositories/KeyRepository';
+import type Sidecar from '../sidecar/Sidecar';
 import Errors from './Errors';
 import type {
   BalancerFetcher,
@@ -35,6 +36,7 @@ class Wallet implements BalancerFetcher {
     public type: CurrencyType,
     public walletProvider: WalletProviderInterface,
     public readonly network?: BitcoinNetwork | LiquidNetwork,
+    public readonly sidecar?: Sidecar,
   ) {
     this.symbol = this.walletProvider.symbol;
   }
@@ -95,13 +97,19 @@ class Wallet implements BalancerFetcher {
    *
    * @param outputScript the output script to encode
    */
-  public encodeAddress = (outputScript: Buffer): string => {
+  public encodeAddress = async (outputScript: Buffer): Promise<string> => {
     if (this.network === undefined) {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'encodeAddress');
     }
 
     try {
-      return addressFromOutputScript(this.type, outputScript, this.network);
+      return await addressFromOutputScript(
+        this.type,
+        outputScript,
+        this.network,
+        undefined,
+        this.sidecar,
+      );
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       // Ignore invalid addresses
@@ -112,12 +120,17 @@ class Wallet implements BalancerFetcher {
   /**
    * Decodes an address
    */
-  public decodeAddress = (toDecode: string): Buffer => {
+  public decodeAddress = (toDecode: string): Promise<Buffer> => {
     if (this.network === undefined) {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'decodeAddress');
     }
 
-    return outputScriptFromAddress(this.type, toDecode, this.network);
+    return outputScriptFromAddress(
+      this.type,
+      toDecode,
+      this.network,
+      this.sidecar,
+    );
   };
 
   public getAddress = (label: string): Promise<string> => {

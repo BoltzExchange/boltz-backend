@@ -56,6 +56,7 @@ import type { Currency } from '../../lib/wallet/WalletManager';
 import CoreWalletProvider from '../../lib/wallet/providers/CoreWalletProvider';
 import ElementsWalletProvider from '../../lib/wallet/providers/ElementsWalletProvider';
 import { regtest as bitcoinRegtest } from '../Networks';
+import { sidecar } from './sidecar/Utils';
 import { bitcoinClient, elementsClient } from './Nodes';
 
 const toXOnly = (publicKey: Uint8Array): Buffer =>
@@ -112,13 +113,10 @@ describe('Core', () => {
 
     walletLiquid = new WalletLiquid(
       Logger.disabledLogger,
-      new ElementsWalletProvider(
-        Logger.disabledLogger,
-        elementsClient,
-        networks.regtest,
-      ),
+      new ElementsWalletProvider(Logger.disabledLogger, elementsClient, sidecar),
       slip77FromSeed(mnemonicToSeedSync(generateMnemonic(wordlist))),
       networks.regtest,
+      sidecar,
     );
     initWallet(walletLiquid);
 
@@ -159,14 +157,17 @@ describe('Core', () => {
   test('should get output value of unblinded Liquid transactions', async () => {
     const outputAmount = 562312;
     const { transaction, vout } = await walletLiquid.sendToAddress(
-      addressFromOutputScript(
+      await addressFromOutputScript(
         CurrencyType.Liquid,
-        outputScriptFromAddress(
+        await outputScriptFromAddress(
           CurrencyType.Liquid,
           await walletLiquid.getAddress(''),
           networks.regtest,
+          sidecar,
         ),
         networks.regtest,
+        undefined,
+        sidecar,
       ),
       outputAmount,
       undefined,
@@ -196,15 +197,16 @@ describe('Core', () => {
   });
 
   test('should get output value of blinded Liquid transactions', async () => {
-    const script = outputScriptFromAddress(
+    const script = await outputScriptFromAddress(
       CurrencyType.Liquid,
       await walletLiquid.getAddress(''),
       walletLiquid.network!,
+      sidecar,
     );
 
     const outputAmount = 1245412;
     const { transaction, vout } = await walletLiquid.sendToAddress(
-      walletLiquid.encodeAddress(script),
+      await walletLiquid.encodeAddress(script),
       outputAmount,
       undefined,
       '',
@@ -251,7 +253,7 @@ describe('Core', () => {
       hexToBytes(
         await bitcoinClient.getRawTransaction(
           await bitcoinClient.sendToAddress(
-            wallet.encodeAddress(outputScript),
+            await wallet.encodeAddress(outputScript),
             100_00,
             undefined,
             false,
@@ -314,7 +316,7 @@ describe('Core', () => {
       hexToBytes(
         await bitcoinClient.getRawTransaction(
           await bitcoinClient.sendToAddress(
-            wallet.encodeAddress(outputScript),
+            await wallet.encodeAddress(outputScript),
             100_00,
             undefined,
             false,
@@ -392,7 +394,7 @@ describe('Core', () => {
         hexToBytes(
           await bitcoinClient.getRawTransaction(
             await bitcoinClient.sendToAddress(
-              addressFromOutputScript(
+              await addressFromOutputScript(
                 CurrencyType.BitcoinLike,
                 lockupOutputScript,
                 bitcoinRegtest,
@@ -503,7 +505,7 @@ describe('Core', () => {
       CurrencyType.BitcoinLike,
       await bitcoinClient.getRawTransaction(
         await bitcoinClient.sendToAddress(
-          addressFromOutputScript(
+          await addressFromOutputScript(
             CurrencyType.BitcoinLike,
             outputScript,
             bitcoinRegtest,
@@ -535,7 +537,7 @@ describe('Core', () => {
       },
     });
     spendTx.addOutput({
-      script: outputScriptFromAddress(
+      script: await outputScriptFromAddress(
         CurrencyType.BitcoinLike,
         await bitcoinClient.getNewAddress(''),
         bitcoinRegtest,
@@ -691,8 +693,8 @@ describe('Core', () => {
       ${CurrencyType.Liquid}      | ${'el1qqvjyv27jmxu6tsly8ha26plksv6lnw8ayyyx0svjxu2v6gxvl2eg7p2ngdsn937d2wft8gutt2lh0elalrdazhdv063nuytmy'} | ${'0324462bd2d9b9a5c3e43dfaad07f68335f9b8fd210867c1923714cd20ccfab28f'}
     `(
       'should get correct blinding key for address',
-      ({ currency, address, blindingKey }) => {
-        const result = getBlindingKey(currency, address);
+      async ({ currency, address, blindingKey }) => {
+        const result = await getBlindingKey(currency, address, sidecar);
         expect(result).toEqual(
           blindingKey ? getHexBuffer(blindingKey) : undefined,
         );

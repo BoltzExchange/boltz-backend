@@ -15,19 +15,17 @@ import type { Currency } from '../../../lib/wallet/WalletManager';
 import type WalletManager from '../../../lib/wallet/WalletManager';
 import ElementsWalletProvider from '../../../lib/wallet/providers/ElementsWalletProvider';
 import { bitcoinClient, elementsClient } from '../Nodes';
+import { sidecar } from '../sidecar/Utils';
 
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('ElementsService', () => {
   const wallet = new WalletLiquid(
     Logger.disabledLogger,
-    new ElementsWalletProvider(
-      Logger.disabledLogger,
-      elementsClient,
-      networks.regtest,
-    ),
+    new ElementsWalletProvider(Logger.disabledLogger, elementsClient, sidecar),
     slip77FromSeed(mnemonicToSeedSync(generateMnemonic(wordlist))),
     networks.regtest,
+    sidecar,
   );
 
   const es = new ElementsService(
@@ -56,8 +54,8 @@ describe('ElementsService', () => {
   });
 
   test('should unblind outputs that were blinded by known keys', async () => {
-    const script = wallet.decodeAddress(await wallet.getAddress(''));
-    const address = wallet.encodeAddress(script);
+    const script = await wallet.decodeAddress(await wallet.getAddress(''));
+    const address = await wallet.encodeAddress(script);
     const amount = 100_000;
 
     const tx = Transaction.fromHex(
@@ -93,16 +91,17 @@ describe('ElementsService', () => {
       new ElementsWalletProvider(
         Logger.disabledLogger,
         elementsClient,
-        networks.regtest,
+        sidecar,
       ),
       slip77FromSeed(mnemonicToSeedSync(generateMnemonic(wordlist))),
       networks.regtest,
+      sidecar,
     );
 
-    const script = secondWallet.decodeAddress(
+    const script = await secondWallet.decodeAddress(
       await secondWallet.getAddress(''),
     );
-    const address = secondWallet.encodeAddress(script);
+    const address = await secondWallet.encodeAddress(script);
 
     const tx = Transaction.fromHex(
       await elementsClient.getRawTransaction(
@@ -162,11 +161,11 @@ describe('ElementsService', () => {
     address
     ${'ert1qthfavjaamvpnav05klwgmtvg68qhq45daxn9hd'}
     ${'el1qqwts7wxqn32rv9jdp86dr06q5y6keuxkjgdjmpn8x50jfepgspvwlw7hzcr33r9mf0yees30g2r8mrvpnn73qya0jqg3za6hu'}
-  `('should derive blinding keys for $address', ({ address }) => {
-    const script = wallet.decodeAddress(address);
+  `('should derive blinding keys for $address', async ({ address }) => {
+    const script = await wallet.decodeAddress(address);
     const { publicKey, privateKey } = wallet['slip77'].derive(script);
 
-    expect(es.deriveBlindingKeys(address)).toEqual({
+    expect(await es.deriveBlindingKeys(address)).toEqual({
       publicKey,
       privateKey,
     });

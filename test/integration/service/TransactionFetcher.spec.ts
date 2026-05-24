@@ -386,7 +386,7 @@ describe('TransactionFetcher', () => {
       for (let i = 0; i < transaction.outputsLength; i++) {
         const out = transaction.getOutput(i);
         if (!out.script || out.script.length === 0) continue;
-        outputAddresses.push(encodeAddress(Buffer.from(out.script)));
+        outputAddresses.push(await encodeAddress(Buffer.from(out.script)));
       }
 
       expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);

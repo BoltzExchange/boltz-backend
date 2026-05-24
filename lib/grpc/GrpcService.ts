@@ -100,7 +100,7 @@ class GrpcService {
     await GrpcService.handleCallback(call, callback, async () => {
       const { address } = call.request;
       const { publicKey, privateKey } =
-        this.service.elementsService.deriveBlindingKeys(address);
+        await this.service.elementsService.deriveBlindingKeys(address);
       return {
         publicKey: getHexString(publicKey),
         privateKey: getHexString(privateKey),

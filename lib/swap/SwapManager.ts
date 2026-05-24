@@ -488,7 +488,9 @@ class SwapManager {
         }
       }
 
-      result.address = receivingCurrency.wallet.encodeAddress(outputScript);
+      result.address = await receivingCurrency.wallet.encodeAddress(
+        outputScript,
+      );
 
       if (receivingCurrency.type === CurrencyType.Liquid) {
         result.blindingKey = getHexString(
@@ -964,7 +966,7 @@ class SwapManager {
             }
 
             try {
-              sendingCurrency.wallet.decodeAddress(args.userAddress);
+              await sendingCurrency.wallet.decodeAddress(args.userAddress);
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (e) {
               throw Errors.INVALID_ADDRESS();
@@ -984,7 +986,7 @@ class SwapManager {
                     this.walletManager.wallets.get(sendingCurrency.symbol)!
                       .network as LiquidNetwork
                   ).assetHash,
-                  outputScript: this.walletManager.wallets
+                  outputScript: await this.walletManager.wallets
                     .get(sendingCurrency.symbol)!
                     .decodeAddress(args.userAddress!),
                 },
@@ -1030,7 +1032,8 @@ class SwapManager {
         }
       }
 
-      result.lockupAddress = sendingCurrency.wallet.encodeAddress(outputScript);
+      result.lockupAddress =
+        await sendingCurrency.wallet.encodeAddress(outputScript);
 
       if (sendingCurrency.type === CurrencyType.Liquid) {
         result.blindingKey = getHexString(
@@ -1071,18 +1074,20 @@ class SwapManager {
         args.userAddress !== undefined &&
         args.userAddressSignature !== undefined
       ) {
-        const scriptPubkey = outputScriptFromAddress(
+        const scriptPubkey = await outputScriptFromAddress(
           sendingCurrency.type,
           args.userAddress,
           sendingCurrency.network!,
+          this.sidecar,
         );
 
         await ReverseRoutingHintRepository.addHint({
           swapId: id,
           scriptPubkey,
-          blindingPubkey: getBlindingKey(
+          blindingPubkey: await getBlindingKey(
             sendingCurrency.type,
             args.userAddress,
+            this.sidecar,
           ),
           symbol: sendingCurrency.symbol,
           params: hints.bip21Params,
@@ -1282,7 +1287,9 @@ class SwapManager {
           tweakMusig(currency.type, musig, tree).aggPubkey,
         );
         res.scriptPubKey = Buffer.from(Scripts.p2trOutput(tweakedKey));
-        res.lockupAddress = currency.wallet.encodeAddress(res.scriptPubKey);
+        res.lockupAddress = await currency.wallet.encodeAddress(
+          res.scriptPubKey,
+        );
 
         if (currency.type === CurrencyType.Liquid) {
           blindingKey = getHexString(

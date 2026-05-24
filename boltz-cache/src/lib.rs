@@ -52,6 +52,18 @@ impl Cache {
         }
     }
 
+    pub async fn set_multiple<V: Serialize + Sync>(
+        &self,
+        key: &str,
+        values: &[(String, &V)],
+        ttl: Option<u64>,
+    ) -> Result<()> {
+        match self {
+            Cache::Redis(redis) => redis.set_multiple(key, values, ttl).await,
+            Cache::Memory(memory) => memory.set_multiple(key, values, ttl),
+        }
+    }
+
     pub async fn take<V: DeserializeOwned>(&self, key: &str, field: &str) -> Result<Option<V>> {
         match self {
             Cache::Redis(redis) => redis.take(key, field).await,

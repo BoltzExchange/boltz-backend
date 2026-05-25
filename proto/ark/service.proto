@@ -274,8 +274,8 @@ message SignTransactionResponse {
 
 message CreateVHTLCRequest {
   string preimage_hash = 1;
-  string sender_pubkey = 2; 
-  string receiver_pubkey = 3; 
+  string sender_pubkey = 2;
+  string receiver_pubkey = 3;
   // Optional absolute locktime for refund condition (in blocks)
   uint32 refund_locktime = 4;
   // Optional unilateral claim delay (relative timelock)
@@ -284,6 +284,8 @@ message CreateVHTLCRequest {
   RelativeLocktime unilateral_refund_delay = 6;
   // Optional unilateral refund without receiver delay (relative timelock)
   RelativeLocktime unilateral_refund_without_receiver_delay = 7;
+  // Optional non-interactive claim config
+  NonInteractiveClaim non_interactive_claim = 8;
 }
 message CreateVHTLCResponse {
   string id = 1;
@@ -413,6 +415,14 @@ message RelativeLocktime {
   }
   LocktimeType type = 1;
   uint32 value = 2;
+}
+
+message NonInteractiveClaim {
+  string claim_receiver_address = 1; // fulmine will use it to compute the ArkadeScript (ark address)
+  string introspector_pubkey = 2; // tweaked by ArkadeScript (33 bytes compressed public key)
+  // solver may require extra packet to be set when the VHTLC is funded
+  // if set, the funding tx should include an extension output with the extra_packet
+  optional string extra_packet = 3; // hex encoded
 }
 
 message Tapscripts {

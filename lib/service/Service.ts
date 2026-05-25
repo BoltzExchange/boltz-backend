@@ -31,7 +31,10 @@ import {
 } from '../Utils';
 import ApiErrors from '../api/Errors';
 import { checkPreimageHashLength, errorsNotToLog } from '../api/Utils';
-import type { Timeouts as ArkTimeouts } from '../chain/ArkClient';
+import type {
+  Timeouts as ArkTimeouts,
+  NonInteractiveClaim,
+} from '../chain/ArkClient';
 import type ArkClient from '../chain/ArkClient';
 import ElementsClient from '../chain/ElementsClient';
 import {
@@ -1770,6 +1773,9 @@ class Service {
 
     claimCovenant?: boolean;
 
+    // Only used for Reverse Swaps to Ark
+    nonInteractiveClaim?: NonInteractiveClaim;
+
     // Description for the invoice and magic routing hint
     description?: string;
     descriptionHash?: Buffer;
@@ -1895,6 +1901,13 @@ class Service {
         args.claimAddress = checkEvmAddress(args.claimAddress);
 
         break;
+    }
+
+    if (
+      args.nonInteractiveClaim !== undefined &&
+      sendingCurrency.type !== CurrencyType.Ark
+    ) {
+      throw ApiErrors.UNSUPPORTED_PARAMETER(sending, 'nonInteractiveClaim');
     }
 
     const [onchainTimeoutBlockDelta] =
@@ -2071,6 +2084,7 @@ class Service {
       claimPublicKey: args.claimPublicKey,
       descriptionHash: args.descriptionHash,
       claimCovenant: args.claimCovenant || false,
+      nonInteractiveClaim: args.nonInteractiveClaim,
       userAddressSignature: args.userAddressSignature,
       invoice:
         args.invoice !== undefined && decodedInvoice !== undefined

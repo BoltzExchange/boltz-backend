@@ -7,6 +7,7 @@ import { unsafeKeys } from '../../../data/Utils';
 import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
 import ReferralRepository from '../../../db/repositories/ReferralRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
+import SwapRoutingMetadataRepository from '../../../db/repositories/SwapRoutingMetadataRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import Errors from '../../../service/Errors';
 import type { SwapUpdate } from '../../../service/EventHandler';
@@ -29,6 +30,12 @@ import {
   validateRequest,
 } from '../../Utils';
 import RouterBase from './RouterBase';
+
+const EncryptedRoutingInfoVersion = 1;
+const EncryptedRoutingInfoMinLength = 45;
+const EncryptedRoutingInfoMaxLength = 512;
+const Base64Regex =
+  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 class SwapRouter extends RouterBase {
   constructor(
@@ -251,6 +258,10 @@ class SwapRouter extends RouterBase {
      *         paymentTimeout:
      *           type: number
      *           description: Payment timeout in seconds
+     *         encryptedRoutingInfo:
+     *           type: string
+     *           format: byte
+     *           description: Encrypted client routing metadata envelope encoded as base64
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -953,6 +964,10 @@ class SwapRouter extends RouterBase {
      *         invoiceExpiry:
      *           type: number
      *           description: Expiry of the invoice in seconds
+     *         encryptedRoutingInfo:
+     *           type: string
+     *           format: byte
+     *           description: Encrypted client routing metadata envelope encoded as base64
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -1355,6 +1370,10 @@ class SwapRouter extends RouterBase {
      *         referralId:
      *           type: string
      *           description: Referral ID to be used for the Chain Swap
+     *         encryptedRoutingInfo:
+     *           type: string
+     *           format: byte
+     *           description: Encrypted client routing metadata envelope encoded as base64
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -2198,6 +2217,10 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/RestoreClaimDetails'
      *         refundDetails:
      *           $ref: '#/components/schemas/RestoreRefundDetails'
+     *         encryptedRoutingInfo:
+     *           type: string
+     *           format: byte
+     *           description: Encrypted client routing metadata envelope encoded as base64, if available
      */
 
     /**
@@ -2568,6 +2591,7 @@ class SwapRouter extends RouterBase {
       extraFees,
       paymentTimeout,
       refundPublicKey,
+      encryptedRoutingInfo,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
@@ -2577,8 +2601,11 @@ class SwapRouter extends RouterBase {
       { name: 'extraFees', type: 'object', optional: true },
       { name: 'paymentTimeout', type: 'number', optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'encryptedRoutingInfo', type: 'string', optional: true },
     ]);
     const referralId = parseReferralId(req);
+    const routingMetadata =
+      this.parseEncryptedRoutingInfo(encryptedRoutingInfo);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const webHookData = this.parseWebHook(webhook);
@@ -2617,6 +2644,7 @@ class SwapRouter extends RouterBase {
       });
     }
 
+    await this.persistEncryptedRoutingInfo(response.id, routingMetadata);
     await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created new Swap with id: ${response.id}`);
@@ -2786,6 +2814,7 @@ class SwapRouter extends RouterBase {
       claimPublicKey,
       descriptionHash,
       addressSignature,
+      encryptedRoutingInfo,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
@@ -2805,8 +2834,11 @@ class SwapRouter extends RouterBase {
       { name: 'descriptionHash', type: 'string', hex: true, optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'addressSignature', type: 'string', hex: true, optional: true },
+      { name: 'encryptedRoutingInfo', type: 'string', optional: true },
     ]);
     const referralId = parseReferralId(req);
+    const routingMetadata =
+      this.parseEncryptedRoutingInfo(encryptedRoutingInfo);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const webHookData = this.parseWebHook(webhook);
@@ -2836,6 +2868,7 @@ class SwapRouter extends RouterBase {
       userAddressSignature: addressSignature,
     });
 
+    await this.persistEncryptedRoutingInfo(response.id, routingMetadata);
     await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
@@ -2951,6 +2984,7 @@ class SwapRouter extends RouterBase {
       userLockAmount,
       refundPublicKey,
       serverLockAmount,
+      encryptedRoutingInfo,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
@@ -2963,8 +2997,11 @@ class SwapRouter extends RouterBase {
       { name: 'serverLockAmount', type: 'number', optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'encryptedRoutingInfo', type: 'string', optional: true },
     ]);
     const referralId = parseReferralId(req);
+    const routingMetadata =
+      this.parseEncryptedRoutingInfo(encryptedRoutingInfo);
 
     checkPreimageHashLength(preimageHash);
     const webHookData = this.parseWebHook(webhook);
@@ -2986,6 +3023,7 @@ class SwapRouter extends RouterBase {
       extraFees: extraFeesData,
     });
 
+    await this.persistEncryptedRoutingInfo(response.id, routingMetadata);
     await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created Chain Swap with id: ${response.id}`);
@@ -3311,6 +3349,38 @@ class SwapRouter extends RouterBase {
       id: res.id,
       percentage: res.percentage ?? 0,
     };
+  };
+
+  private parseEncryptedRoutingInfo = (data?: string): Buffer | undefined => {
+    if (data === undefined) {
+      return undefined;
+    }
+
+    if (!Base64Regex.test(data)) {
+      throw ApiErrors.INVALID_PARAMETER('encryptedRoutingInfo');
+    }
+
+    const decoded = Buffer.from(data, 'base64');
+    if (
+      decoded.length < EncryptedRoutingInfoMinLength ||
+      decoded.length > EncryptedRoutingInfoMaxLength ||
+      decoded[0] !== EncryptedRoutingInfoVersion
+    ) {
+      throw ApiErrors.INVALID_PARAMETER('encryptedRoutingInfo');
+    }
+
+    return decoded;
+  };
+
+  private persistEncryptedRoutingInfo = async (
+    swapId: string,
+    data?: Buffer,
+  ): Promise<void> => {
+    if (data === undefined) {
+      return;
+    }
+
+    await SwapRoutingMetadataRepository.add(swapId, data);
   };
 
   private getReferralFromHeader = async (req: Request) => {

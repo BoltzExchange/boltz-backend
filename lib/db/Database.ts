@@ -27,6 +27,7 @@ import ReverseRoutingHint from './models/ReverseRoutingHint';
 import ReverseSwap from './models/ReverseSwap';
 import ScriptPubKey from './models/ScriptPubKey';
 import Swap from './models/Swap';
+import SwapRoutingMetadata from './models/SwapRoutingMetadata';
 import TransactionLabel from './models/TransactionLabel';
 import TransactionLabelRepository from './repositories/TransactionLabelRepository';
 
@@ -127,6 +128,7 @@ class Database {
       RefundTransaction.sync(),
       ClaimTransaction.sync(),
       ScriptPubKey.sync(),
+      SwapRoutingMetadata.sync(),
     ]);
   };
 
@@ -173,6 +175,7 @@ class Database {
     ScriptPubKey.load(Database.sequelize);
     Commitment.load(Database.sequelize);
     JwtToken.load(Database.sequelize);
+    SwapRoutingMetadata.load(Database.sequelize);
 
     TransactionLabelRepository.setLogger(this.logger);
   };

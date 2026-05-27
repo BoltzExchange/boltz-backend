@@ -2,6 +2,7 @@ use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
+use crate::db::helpers::swap_routing_metadata::SwapRoutingMetadataHelper;
 use crate::service::country_codes::CountryCodes;
 use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
 use crate::service::pair_stats::PairStatsFetcher;
@@ -34,10 +35,12 @@ pub struct Service {
 }
 
 impl Service {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         swap_helper: Arc<dyn SwapHelper + Sync + Send>,
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         reverse_swap_helper: Arc<dyn ReverseSwapHelper + Sync + Send>,
+        swap_routing_metadata_helper: Arc<dyn SwapRoutingMetadataHelper + Sync + Send>,
         currencies: Currencies,
         markings_config: Option<MarkingsConfig>,
         historical_config: Option<HistoricalConfig>,
@@ -50,7 +53,8 @@ impl Service {
                 chain_swap_helper,
                 reverse_swap_helper,
                 currencies.clone(),
-            ),
+            )
+            .with_swap_routing_metadata_helper(swap_routing_metadata_helper),
             country_codes: CountryCodes::new(markings_config),
             lightning_info: Box::new(ClnLightningInfo::new(cache.clone(), currencies)),
             pair_stats: if let Some(config) = historical_config {

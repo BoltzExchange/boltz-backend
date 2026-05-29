@@ -51,12 +51,10 @@ diesel::table! {
 }
 
 diesel::table! {
-    #[allow(non_snake_case)]
-    swap_routing_metadata (swapId) {
-        swapId -> Text,
+    swap_metadata (swap_id) {
+        swap_id -> Text,
         data -> Binary,
-        createdAt -> Timestamptz,
-        updatedAt -> Timestamptz,
+        created_at -> Timestamptz,
     }
 }
 

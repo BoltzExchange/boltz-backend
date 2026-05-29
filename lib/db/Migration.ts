@@ -21,7 +21,7 @@ import Referral from './models/Referral';
 import RefundTransaction from './models/RefundTransaction';
 import ReverseSwap from './models/ReverseSwap';
 import Swap from './models/Swap';
-import SwapRoutingMetadata from './models/SwapRoutingMetadata';
+import SwapMetadata from './models/SwapMetadata';
 import ChainSwapRepository from './repositories/ChainSwapRepository';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
 import PendingEthereumTransactionRepository from './repositories/PendingEthereumTransactionRepository';
@@ -780,42 +780,8 @@ class Migration {
       }
 
       case 26: {
-        const queryInterface = this.sequelize.getQueryInterface();
-        const tableName = SwapRoutingMetadata.tableName;
-
-        let tableExists = true;
-        try {
-          await queryInterface.describeTable(tableName);
-        } catch (error) {
-          if (this.isMissingTableError(error, tableName)) {
-            tableExists = false;
-          } else {
-            throw error;
-          }
-        }
-
-        if (!tableExists) {
-          this.logUpdatingTable(tableName);
-          await queryInterface.createTable(tableName, {
-            swapId: {
-              type: new DataTypes.STRING(255),
-              primaryKey: true,
-              allowNull: false,
-            },
-            data: {
-              type: new DataTypes.BLOB(),
-              allowNull: false,
-            },
-            createdAt: {
-              type: new DataTypes.DATE(),
-              allowNull: false,
-            },
-            updatedAt: {
-              type: new DataTypes.DATE(),
-              allowNull: false,
-            },
-          });
-        }
+        this.logUpdatingTable(SwapMetadata.tableName);
+        await SwapMetadata.sync();
 
         await this.finishMigration(versionRow.version, currencies);
         break;

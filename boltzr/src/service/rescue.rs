@@ -2,7 +2,7 @@ use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
-use crate::db::helpers::swap_routing_metadata::SwapRoutingMetadataHelper;
+use crate::db::helpers::swap_metadata::SwapMetadataHelper;
 use crate::db::models::{
     ChainSwapData, ChainSwapInfo, LightningSwap, ReverseSwap, SomeSwap, Swap, SwapType,
 };
@@ -367,11 +367,8 @@ pub struct RestorableSwap {
     pub claim_details: Option<ClaimDetails>,
     #[serde(rename = "refundDetails", skip_serializing_if = "Option::is_none")]
     pub refund_details: Option<SwapDetailsBase>,
-    #[serde(
-        rename = "encryptedRoutingInfo",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub encrypted_routing_info: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<String>,
 }
 
 impl Identifiable for RestorableSwap {
@@ -398,7 +395,7 @@ impl TryFrom<(&Swap, u32, String, Option<String>)> for RestorableSwap {
             invoice: s.invoice.clone(),
             claim_details: None,
             refund_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
-            encrypted_routing_info: None,
+            metadata: None,
         })
     }
 }
@@ -422,7 +419,7 @@ impl TryFrom<(&ReverseSwap, u32, String, Option<String>)> for RestorableSwap {
             invoice: Some(s.invoice.clone()),
             claim_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
             refund_details: None,
-            encrypted_routing_info: None,
+            metadata: None,
         })
     }
 }
@@ -433,7 +430,7 @@ pub struct SwapRescue {
     swap_helper: Arc<dyn SwapHelper + Sync + Send>,
     chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
     reverse_swap_helper: Arc<dyn ReverseSwapHelper + Sync + Send>,
-    swap_routing_metadata_helper: Option<Arc<dyn SwapRoutingMetadataHelper + Sync + Send>>,
+    metadata_helper: Option<Arc<dyn SwapMetadataHelper + Sync + Send>>,
 }
 
 impl SwapRescue {
@@ -450,15 +447,15 @@ impl SwapRescue {
             swap_helper,
             chain_swap_helper,
             reverse_swap_helper,
-            swap_routing_metadata_helper: None,
+            metadata_helper: None,
         }
     }
 
-    pub fn with_swap_routing_metadata_helper(
+    pub fn with_metadata_helper(
         mut self,
-        swap_routing_metadata_helper: Arc<dyn SwapRoutingMetadataHelper + Sync + Send>,
+        metadata_helper: Arc<dyn SwapMetadataHelper + Sync + Send>,
     ) -> Self {
-        self.swap_routing_metadata_helper = Some(swap_routing_metadata_helper);
+        self.metadata_helper = Some(metadata_helper);
         self
     }
 
@@ -499,7 +496,7 @@ impl SwapRescue {
             pagination,
         )?;
 
-        self.attach_encrypted_routing_info(&mut restorable)?;
+        self.attach_metadata(&mut restorable)?;
 
         restorable.sort_by(|a, b| {
             fn get_key_index(swap: &RestorableSwap) -> Option<u32> {
@@ -517,19 +514,19 @@ impl SwapRescue {
         Ok(restorable)
     }
 
-    fn attach_encrypted_routing_info(&self, swaps: &mut [RestorableSwap]) -> Result<()> {
-        let Some(helper) = &self.swap_routing_metadata_helper else {
+    fn attach_metadata(&self, swaps: &mut [RestorableSwap]) -> Result<()> {
+        let Some(helper) = &self.metadata_helper else {
             return Ok(());
         };
 
         let rows = helper.get_all(swaps.iter().map(|s| s.base.id.clone()).collect())?;
-        let mut routing_metadata = rows
+        let mut metadata = rows
             .into_iter()
             .map(|(swap_id, data)| (swap_id, BASE64_STANDARD.encode(data)))
             .collect::<HashMap<_, _>>();
 
         for swap in swaps {
-            swap.encrypted_routing_info = routing_metadata.remove(&swap.base.id);
+            swap.metadata = metadata.remove(&swap.base.id);
         }
 
         Ok(())
@@ -945,7 +942,7 @@ impl SwapRescue {
             invoice: None,
             claim_details,
             refund_details,
-            encrypted_routing_info: None,
+            metadata: None,
         })
     }
 
@@ -1049,7 +1046,7 @@ mod test {
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
-    use crate::db::helpers::swap_routing_metadata::test::MockSwapRoutingMetadataHelper;
+    use crate::db::helpers::swap_metadata::test::MockSwapMetadataHelper;
     use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo, ReverseSwap, Swap};
     use crate::service::{SingleKeyIterator, XpubIterator};
     use crate::wallet::{Elements, Network};
@@ -1361,7 +1358,7 @@ mod test {
             .returning(|_| Ok(vec![]))
             .times(1);
 
-        let mut metadata_helper = MockSwapRoutingMetadataHelper::new();
+        let mut metadata_helper = MockSwapMetadataHelper::new();
         {
             let swap_id = swap.id.clone();
             metadata_helper
@@ -1403,7 +1400,7 @@ mod test {
                 ),
             ])),
         )
-        .with_swap_routing_metadata_helper(Arc::new(metadata_helper));
+        .with_metadata_helper(Arc::new(metadata_helper));
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let res = rescue
             .restore(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
@@ -1442,7 +1439,7 @@ mod test {
                     ),
                     timeout_block_height: 321,
                 }),
-                encrypted_routing_info: Some("AQID".to_string()),
+                metadata: Some("AQID".to_string()),
             }
         );
 
@@ -1483,7 +1480,7 @@ mod test {
                     preimage_hash: reverse_swap.preimageHash.clone(),
                 }),
                 refund_details: None,
-                encrypted_routing_info: None,
+                metadata: None,
             }
         );
 
@@ -1550,7 +1547,7 @@ mod test {
                     ),
                     timeout_block_height: 13_211,
                 }),
-                encrypted_routing_info: None,
+                metadata: None,
             }
         );
     }
@@ -1658,7 +1655,7 @@ mod test {
                     preimage_hash: reverse_swap.preimageHash.clone(),
                 }),
                 refund_details: None,
-                encrypted_routing_info: None,
+                metadata: None,
             }
         );
     }

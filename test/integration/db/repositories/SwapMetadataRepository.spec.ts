@@ -1,10 +1,10 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../../lib/Logger';
 import Database from '../../../../lib/db/Database';
-import SwapRoutingMetadata from '../../../../lib/db/models/SwapRoutingMetadata';
-import SwapRoutingMetadataRepository from '../../../../lib/db/repositories/SwapRoutingMetadataRepository';
+import SwapMetadata from '../../../../lib/db/models/SwapMetadata';
+import SwapMetadataRepository from '../../../../lib/db/repositories/SwapMetadataRepository';
 
-describe('SwapRoutingMetadataRepository', () => {
+describe('SwapMetadataRepository', () => {
   let database: Database;
 
   beforeAll(async () => {
@@ -13,24 +13,23 @@ describe('SwapRoutingMetadataRepository', () => {
   });
 
   beforeEach(async () => {
-    await SwapRoutingMetadata.truncate();
+    await SwapMetadata.truncate();
   });
 
   afterAll(async () => {
     await database.close();
   });
 
-  test('should add and get encrypted routing metadata', async () => {
+  test('should add and get encrypted metadata', async () => {
     const swapId = 'swapId';
     const data = Buffer.concat([Buffer.from([1]), randomBytes(44)]);
 
-    await SwapRoutingMetadataRepository.add(swapId, data);
-    const metadata = await SwapRoutingMetadataRepository.get(swapId);
+    await SwapMetadataRepository.add(swapId, data);
+    const metadata = await SwapMetadataRepository.get(swapId);
 
     expect(metadata).not.toBeNull();
     expect(metadata!.swapId).toEqual(swapId);
     expect(metadata!.data).toEqual(data);
     expect(metadata!.createdAt).toBeInstanceOf(Date);
-    expect(metadata!.updatedAt).toBeInstanceOf(Date);
   });
 });

@@ -1,6 +1,0 @@
-CREATE TABLE IF NOT EXISTS swap_routing_metadata (
-  "swapId" VARCHAR(255) PRIMARY KEY NOT NULL,
-  data BYTEA NOT NULL,
-  "createdAt" TIMESTAMPTZ NOT NULL,
-  "updatedAt" TIMESTAMPTZ NOT NULL
-);

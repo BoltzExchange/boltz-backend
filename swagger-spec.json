@@ -4038,10 +4038,10 @@
             "type": "number",
             "description": "Payment timeout in seconds"
           },
-          "encryptedRoutingInfo": {
+          "metadata": {
             "type": "string",
             "format": "byte",
-            "description": "Encrypted client routing metadata envelope encoded as base64"
+            "description": "Client metadata encoded as base64"
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
@@ -4374,10 +4374,10 @@
             "type": "number",
             "description": "Expiry of the invoice in seconds"
           },
-          "encryptedRoutingInfo": {
+          "metadata": {
             "type": "string",
             "format": "byte",
-            "description": "Encrypted client routing metadata envelope encoded as base64"
+            "description": "Client metadata encoded as base64"
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
@@ -4649,10 +4649,10 @@
             "type": "string",
             "description": "Referral ID to be used for the Chain Swap"
           },
-          "encryptedRoutingInfo": {
+          "metadata": {
             "type": "string",
             "format": "byte",
-            "description": "Encrypted client routing metadata envelope encoded as base64"
+            "description": "Client metadata encoded as base64"
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
@@ -5201,10 +5201,10 @@
           "refundDetails": {
             "$ref": "#/components/schemas/RestoreRefundDetails"
           },
-          "encryptedRoutingInfo": {
+          "metadata": {
             "type": "string",
             "format": "byte",
-            "description": "Encrypted client routing metadata envelope encoded as base64, if available"
+            "description": "Client metadata encoded as base64, if available"
           }
         }
       },

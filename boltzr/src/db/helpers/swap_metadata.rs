@@ -1,27 +1,27 @@
 use crate::db::Pool;
 use crate::db::helpers::QueryResponse;
-use crate::db::schema::swap_routing_metadata;
+use crate::db::schema::swap_metadata;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use tracing::instrument;
 
-pub trait SwapRoutingMetadataHelper {
+pub trait SwapMetadataHelper {
     fn get_all(&self, swap_ids: Vec<String>) -> QueryResponse<Vec<(String, Vec<u8>)>>;
 }
 
 #[derive(Clone, Debug)]
-pub struct SwapRoutingMetadataHelperDatabase {
+pub struct SwapMetadataHelperDatabase {
     pool: Pool,
 }
 
-impl SwapRoutingMetadataHelperDatabase {
+impl SwapMetadataHelperDatabase {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
 }
 
-impl SwapRoutingMetadataHelper for SwapRoutingMetadataHelperDatabase {
+impl SwapMetadataHelper for SwapMetadataHelperDatabase {
     #[instrument(
-        name = "db::SwapRoutingMetadataHelperDatabase::get_all",
+        name = "db::SwapMetadataHelperDatabase::get_all",
         skip_all,
         fields(swap_count = %swap_ids.len())
     )]
@@ -30,12 +30,9 @@ impl SwapRoutingMetadataHelper for SwapRoutingMetadataHelperDatabase {
             return Ok(vec![]);
         }
 
-        Ok(swap_routing_metadata::dsl::swap_routing_metadata
-            .select((
-                swap_routing_metadata::dsl::swapId,
-                swap_routing_metadata::dsl::data,
-            ))
-            .filter(swap_routing_metadata::dsl::swapId.eq_any(swap_ids))
+        Ok(swap_metadata::dsl::swap_metadata
+            .select((swap_metadata::dsl::swap_id, swap_metadata::dsl::data))
+            .filter(swap_metadata::dsl::swap_id.eq_any(swap_ids))
             .load(&mut self.pool.get()?)?)
     }
 }
@@ -46,13 +43,13 @@ pub mod test {
     use mockall::mock;
 
     mock! {
-        pub SwapRoutingMetadataHelper {}
+        pub SwapMetadataHelper {}
 
-        impl Clone for SwapRoutingMetadataHelper {
+        impl Clone for SwapMetadataHelper {
             fn clone(&self) -> Self;
         }
 
-        impl SwapRoutingMetadataHelper for SwapRoutingMetadataHelper {
+        impl SwapMetadataHelper for SwapMetadataHelper {
             fn get_all(&self, swap_ids: Vec<String>) -> QueryResponse<Vec<(String, Vec<u8>)>>;
         }
     }

@@ -1,10 +1,10 @@
 import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
 import DatabaseVersion from '../../../lib/db/models/DatabaseVersion';
-import SwapRoutingMetadata from '../../../lib/db/models/SwapRoutingMetadata';
+import SwapMetadata from '../../../lib/db/models/SwapMetadata';
 import DatabaseVersionRepository from '../../../lib/db/repositories/DatabaseVersionRepository';
 
-describe('SwapRoutingMetadata migration', () => {
+describe('SwapMetadata migration', () => {
   let database: Database;
 
   beforeEach(async () => {
@@ -22,18 +22,21 @@ describe('SwapRoutingMetadata migration', () => {
 
     await database.migrate(new Map());
 
-    await expect(
-      Database.sequelize
-        .getQueryInterface()
-        .describeTable(SwapRoutingMetadata.tableName),
-    ).resolves.toHaveProperty('data');
+    const table = await Database.sequelize
+      .getQueryInterface()
+      .describeTable(SwapMetadata.tableName);
+
+    expect(table).toHaveProperty('swap_id');
+    expect(table).toHaveProperty('data');
+    expect(table).toHaveProperty('created_at');
+    expect(table).not.toHaveProperty('updated_at');
     await expect(
       DatabaseVersionRepository.getVersion(),
     ).resolves.toHaveProperty('version', 27);
   });
 
-  test('should tolerate an existing swap routing metadata table', async () => {
-    await SwapRoutingMetadata.sync();
+  test('should tolerate an existing swap metadata table', async () => {
+    await SwapMetadata.sync();
     await DatabaseVersionRepository.createVersion(26);
 
     await expect(database.migrate(new Map())).resolves.toBeUndefined();

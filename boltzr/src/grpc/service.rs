@@ -1150,7 +1150,7 @@ mod test {
                     Arc::new(MockChainSwapHelper::new()),
                     Arc::new(MockReverseSwapHelper::new()),
                     Arc::new(
-                        crate::db::helpers::swap_routing_metadata::test::MockSwapRoutingMetadataHelper::new(),
+                        crate::db::helpers::swap_metadata::test::MockSwapMetadataHelper::new(),
                     ),
                     Arc::new(HashMap::from([(
                         "RBTC".to_string(),

@@ -10,7 +10,7 @@ import ChainSwapRepository from '../../../../../lib/db/repositories/ChainSwapRep
 import MarkedSwapRepository from '../../../../../lib/db/repositories/MarkedSwapRepository';
 import ReferralRepository from '../../../../../lib/db/repositories/ReferralRepository';
 import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
-import SwapRoutingMetadataRepository from '../../../../../lib/db/repositories/SwapRoutingMetadataRepository';
+import SwapMetadataRepository from '../../../../../lib/db/repositories/SwapMetadataRepository';
 import Errors from '../../../../../lib/service/Errors';
 import type Service from '../../../../../lib/service/Service';
 import { mockRequest, mockResponse } from '../../Utils';
@@ -43,7 +43,7 @@ jest.mock('../../../../../lib/db/repositories/MarkedSwapRepository', () => ({
 }));
 
 jest.mock(
-  '../../../../../lib/db/repositories/SwapRoutingMetadataRepository',
+  '../../../../../lib/db/repositories/SwapMetadataRepository',
   () => ({
     add: jest.fn().mockResolvedValue(undefined),
   }),
@@ -186,8 +186,7 @@ describe('SwapRouter', () => {
   } as unknown as SwapInfos;
 
   const swapRouter = new SwapRouter(Logger.disabledLogger, service, swapInfos);
-  const validEncryptedRoutingInfo = () =>
-    Buffer.concat([Buffer.from([1]), randomBytes(44)]);
+  const validMetadata = () => randomBytes(44);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -454,11 +453,11 @@ describe('SwapRouter', () => {
   invoice: 'lnbc1',
   refundPublicKey: 'notHex',
 }}
-    ${'invalid parameter: encryptedRoutingInfo'} | ${{
+    ${'invalid parameter: metadata'} | ${{
   to: 'BTC',
   from: 'L-BTC',
   invoice: 'lnbc1',
-  encryptedRoutingInfo: 'notBase64',
+  metadata: 'notBase64',
 }}
   `(
     'should not create submarine swaps with invalid parameters ($error)',
@@ -526,30 +525,30 @@ describe('SwapRouter', () => {
     expect(res.json).toHaveBeenCalledWith({ id: 'randomId' });
   });
 
-  test('should persist encrypted routing info for submarine swaps', async () => {
-    const routingInfo = validEncryptedRoutingInfo();
+  test('should persist metadata for submarine swaps', async () => {
+    const metadataBytes = validMetadata();
     const reqBody = {
       to: 'BTC',
       from: 'L-BTC',
       invoice: 'LNBC1',
       refundPublicKey: '0021',
-      encryptedRoutingInfo: routingInfo.toString('base64'),
+      metadata: metadataBytes.toString('base64'),
     };
     const res = mockResponse();
 
     await swapRouter['createSubmarine'](mockRequest(reqBody), res);
 
-    expect(SwapRoutingMetadataRepository.add).toHaveBeenCalledTimes(1);
-    expect(SwapRoutingMetadataRepository.add).toHaveBeenCalledWith(
+    expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
+    expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
       'randomId',
-      routingInfo,
+      metadataBytes,
     );
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
-  test('should fail submarine swap creation when encrypted routing info cannot be persisted', async () => {
-    const error = new Error('could not persist routing metadata');
-    (SwapRoutingMetadataRepository.add as jest.Mock).mockRejectedValueOnce(
+  test('should fail submarine swap creation when metadata cannot be persisted', async () => {
+    const error = new Error('could not persist metadata');
+    (SwapMetadataRepository.add as jest.Mock).mockRejectedValueOnce(
       error,
     );
 
@@ -560,7 +559,7 @@ describe('SwapRouter', () => {
           from: 'L-BTC',
           invoice: 'LNBC1',
           refundPublicKey: '0021',
-          encryptedRoutingInfo: validEncryptedRoutingInfo().toString('base64'),
+          metadata: validMetadata().toString('base64'),
         }),
         mockResponse(),
       ),
@@ -1355,12 +1354,12 @@ describe('SwapRouter', () => {
   claimPublicKey: '0011',
   descriptionHash: 'notHex',
 }}
-    ${'invalid parameter: encryptedRoutingInfo'} | ${{
+    ${'invalid parameter: metadata'} | ${{
   to: 'L-BTC',
   from: 'BTC',
   preimageHash: '00',
   claimPublicKey: '0011',
-  encryptedRoutingInfo: 'notBase64',
+  metadata: 'notBase64',
 }}
   `(
     'should not create reverse swaps with invalid parameters ($error)',
@@ -1404,23 +1403,23 @@ describe('SwapRouter', () => {
     expect(res.json).toHaveBeenCalledWith({ id: 'reverseId' });
   });
 
-  test('should persist encrypted routing info for reverse swaps', async () => {
-    const routingInfo = validEncryptedRoutingInfo();
+  test('should persist metadata for reverse swaps', async () => {
+    const metadataBytes = validMetadata();
     const reqBody = {
       to: 'L-BTC',
       from: 'BTC',
       claimPublicKey: '21',
       preimageHash: getHexString(randomBytes(32)),
-      encryptedRoutingInfo: routingInfo.toString('base64'),
+      metadata: metadataBytes.toString('base64'),
     };
     const res = mockResponse();
 
     await swapRouter['createReverse'](mockRequest(reqBody), res);
 
-    expect(SwapRoutingMetadataRepository.add).toHaveBeenCalledTimes(1);
-    expect(SwapRoutingMetadataRepository.add).toHaveBeenCalledWith(
+    expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
+    expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
       'reverseId',
-      routingInfo,
+      metadataBytes,
     );
     expect(res.status).toHaveBeenCalledWith(201);
   });
@@ -2009,11 +2008,11 @@ describe('SwapRouter', () => {
   from: 'BTC',
   preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
 }}
-    ${'invalid parameter: encryptedRoutingInfo'} | ${{
+    ${'invalid parameter: metadata'} | ${{
   to: 'L-BTC',
   from: 'BTC',
   preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
-  encryptedRoutingInfo: 'notBase64',
+  metadata: 'notBase64',
 }}
   `(
     'should not create chain swaps with invalid parameters ($error)',
@@ -2067,8 +2066,8 @@ describe('SwapRouter', () => {
     expect(res.json).toHaveBeenCalledWith({ id: 'chainId' });
   });
 
-  test('should persist encrypted routing info for chain swaps', async () => {
-    const routingInfo = validEncryptedRoutingInfo();
+  test('should persist metadata for chain swaps', async () => {
+    const metadataBytes = validMetadata();
     const reqBody = {
       to: 'L-BTC',
       from: 'BTC',
@@ -2080,16 +2079,16 @@ describe('SwapRouter', () => {
       serverLockAmount: 321,
       refundPublicKey: '12',
       preimageHash: getHexString(randomBytes(32)),
-      encryptedRoutingInfo: routingInfo.toString('base64'),
+      metadata: metadataBytes.toString('base64'),
     };
     const res = mockResponse();
 
     await swapRouter['createChain'](mockRequest(reqBody), res);
 
-    expect(SwapRoutingMetadataRepository.add).toHaveBeenCalledTimes(1);
-    expect(SwapRoutingMetadataRepository.add).toHaveBeenCalledWith(
+    expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
+    expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
       'chainId',
-      routingInfo,
+      metadataBytes,
     );
     expect(res.status).toHaveBeenCalledWith(201);
   });

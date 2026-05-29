@@ -1,4 +1,3 @@
-import { randomBytes } from 'crypto';
 import Logger from '../../../../lib/Logger';
 import Database from '../../../../lib/db/Database';
 import SwapMetadata from '../../../../lib/db/models/SwapMetadata';
@@ -22,7 +21,7 @@ describe('SwapMetadataRepository', () => {
 
   test('should add and get encrypted metadata', async () => {
     const swapId = 'swapId';
-    const data = Buffer.concat([Buffer.from([1]), randomBytes(44)]);
+    const data = 'opaque-client-metadata';
 
     await SwapMetadataRepository.add(swapId, data);
     const metadata = await SwapMetadataRepository.get(swapId);

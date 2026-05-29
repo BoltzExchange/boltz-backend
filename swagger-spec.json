@@ -4040,8 +4040,7 @@
           },
           "metadata": {
             "type": "string",
-            "format": "byte",
-            "description": "Client metadata encoded as base64"
+            "description": "Opaque client metadata"
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
@@ -4376,8 +4375,7 @@
           },
           "metadata": {
             "type": "string",
-            "format": "byte",
-            "description": "Client metadata encoded as base64"
+            "description": "Opaque client metadata"
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
@@ -4651,8 +4649,7 @@
           },
           "metadata": {
             "type": "string",
-            "format": "byte",
-            "description": "Client metadata encoded as base64"
+            "description": "Opaque client metadata"
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
@@ -5203,8 +5200,7 @@
           },
           "metadata": {
             "type": "string",
-            "format": "byte",
-            "description": "Client metadata encoded as base64, if available"
+            "description": "Opaque client metadata, if available"
           }
         }
       },

@@ -5,7 +5,7 @@ use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use tracing::instrument;
 
 pub trait SwapMetadataHelper {
-    fn get_all(&self, swap_ids: Vec<String>) -> QueryResponse<Vec<(String, Vec<u8>)>>;
+    fn get_all(&self, swap_ids: Vec<String>) -> QueryResponse<Vec<(String, String)>>;
 }
 
 #[derive(Clone, Debug)]
@@ -25,7 +25,7 @@ impl SwapMetadataHelper for SwapMetadataHelperDatabase {
         skip_all,
         fields(swap_count = %swap_ids.len())
     )]
-    fn get_all(&self, swap_ids: Vec<String>) -> QueryResponse<Vec<(String, Vec<u8>)>> {
+    fn get_all(&self, swap_ids: Vec<String>) -> QueryResponse<Vec<(String, String)>> {
         if swap_ids.is_empty() {
             return Ok(vec![]);
         }
@@ -50,7 +50,7 @@ pub mod test {
         }
 
         impl SwapMetadataHelper for SwapMetadataHelper {
-            fn get_all(&self, swap_ids: Vec<String>) -> QueryResponse<Vec<(String, Vec<u8>)>>;
+            fn get_all(&self, swap_ids: Vec<String>) -> QueryResponse<Vec<(String, String)>>;
         }
     }
 }

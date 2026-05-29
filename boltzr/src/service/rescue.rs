@@ -9,8 +9,6 @@ use crate::db::models::{
 use crate::service::pubkey_iterator::{Pagination, PubkeyIterator};
 use crate::wallet::Wallet;
 use anyhow::{Result, anyhow};
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use bitcoin::secp256k1;
 use bitcoin::secp256k1::Secp256k1;
 use boltz_cache::Cache;
@@ -520,10 +518,7 @@ impl SwapRescue {
         };
 
         let rows = helper.get_all(swaps.iter().map(|s| s.base.id.clone()).collect())?;
-        let mut metadata = rows
-            .into_iter()
-            .map(|(swap_id, data)| (swap_id, BASE64_STANDARD.encode(data)))
-            .collect::<HashMap<_, _>>();
+        let mut metadata = rows.into_iter().collect::<HashMap<_, _>>();
 
         for swap in swaps {
             swap.metadata = metadata.remove(&swap.base.id);
@@ -1365,7 +1360,10 @@ mod test {
                 .expect_get_all()
                 .returning(move |ids| {
                     assert!(ids.contains(&swap_id));
-                    Ok(vec![(swap_id.clone(), vec![1, 2, 3])])
+                    Ok(vec![(
+                        swap_id.clone(),
+                        "opaque-client-metadata".to_string(),
+                    )])
                 })
                 .times(1);
         }
@@ -1439,7 +1437,7 @@ mod test {
                     ),
                     timeout_block_height: 321,
                 }),
-                metadata: Some("AQID".to_string()),
+                metadata: Some("opaque-client-metadata".to_string()),
             }
         );
 

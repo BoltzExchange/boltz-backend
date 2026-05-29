@@ -6,8 +6,8 @@ import { SwapUpdateEvent, SwapVersion } from '../../../consts/Enums';
 import { unsafeKeys } from '../../../data/Utils';
 import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
 import ReferralRepository from '../../../db/repositories/ReferralRepository';
-import SwapRepository from '../../../db/repositories/SwapRepository';
 import SwapMetadataRepository from '../../../db/repositories/SwapMetadataRepository';
+import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import Errors from '../../../service/Errors';
 import type { SwapUpdate } from '../../../service/EventHandler';
@@ -30,8 +30,6 @@ import {
   validateRequest,
 } from '../../Utils';
 import RouterBase from './RouterBase';
-
-const metadataMaxLength = 512;
 
 class SwapRouter extends RouterBase {
   constructor(
@@ -256,8 +254,7 @@ class SwapRouter extends RouterBase {
      *           description: Payment timeout in seconds
      *         metadata:
      *           type: string
-     *           format: byte
-     *           description: Client metadata encoded as base64
+     *           description: Opaque client metadata
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -962,8 +959,7 @@ class SwapRouter extends RouterBase {
      *           description: Expiry of the invoice in seconds
      *         metadata:
      *           type: string
-     *           format: byte
-     *           description: Client metadata encoded as base64
+     *           description: Opaque client metadata
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -1368,8 +1364,7 @@ class SwapRouter extends RouterBase {
      *           description: Referral ID to be used for the Chain Swap
      *         metadata:
      *           type: string
-     *           format: byte
-     *           description: Client metadata encoded as base64
+     *           description: Opaque client metadata
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -2215,8 +2210,7 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/RestoreRefundDetails'
      *         metadata:
      *           type: string
-     *           format: byte
-     *           description: Client metadata encoded as base64, if available
+     *           description: Opaque client metadata, if available
      */
 
     /**
@@ -2600,7 +2594,6 @@ class SwapRouter extends RouterBase {
       { name: 'metadata', type: 'string', optional: true },
     ]);
     const referralId = parseReferralId(req);
-    const swapMetadata = this.parseMetadata(metadata);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const webHookData = this.parseWebHook(webhook);
@@ -2639,7 +2632,7 @@ class SwapRouter extends RouterBase {
       });
     }
 
-    await this.persistMetadata(response.id, swapMetadata);
+    await this.persistMetadata(response.id, metadata);
     await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created new Swap with id: ${response.id}`);
@@ -2832,7 +2825,6 @@ class SwapRouter extends RouterBase {
       { name: 'metadata', type: 'string', optional: true },
     ]);
     const referralId = parseReferralId(req);
-    const swapMetadata = this.parseMetadata(metadata);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const webHookData = this.parseWebHook(webhook);
@@ -2862,7 +2854,7 @@ class SwapRouter extends RouterBase {
       userAddressSignature: addressSignature,
     });
 
-    await this.persistMetadata(response.id, swapMetadata);
+    await this.persistMetadata(response.id, metadata);
     await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
@@ -2994,7 +2986,6 @@ class SwapRouter extends RouterBase {
       { name: 'metadata', type: 'string', optional: true },
     ]);
     const referralId = parseReferralId(req);
-    const swapMetadata = this.parseMetadata(metadata);
 
     checkPreimageHashLength(preimageHash);
     const webHookData = this.parseWebHook(webhook);
@@ -3016,7 +3007,7 @@ class SwapRouter extends RouterBase {
       extraFees: extraFeesData,
     });
 
-    await this.persistMetadata(response.id, swapMetadata);
+    await this.persistMetadata(response.id, metadata);
     await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created Chain Swap with id: ${response.id}`);
@@ -3344,25 +3335,9 @@ class SwapRouter extends RouterBase {
     };
   };
 
-  private parseMetadata = (data?: string): Buffer | undefined => {
-    if (data === undefined) {
-      return undefined;
-    }
-
-    const decoded = Buffer.from(data, 'base64');
-    if (
-      decoded.toString('base64') !== data ||
-      decoded.length > metadataMaxLength
-    ) {
-      throw ApiErrors.INVALID_PARAMETER('metadata');
-    }
-
-    return decoded;
-  };
-
   private persistMetadata = async (
     swapId: string,
-    data?: Buffer,
+    data?: string,
   ): Promise<void> => {
     if (data === undefined) {
       return;

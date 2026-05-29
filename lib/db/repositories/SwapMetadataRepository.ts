@@ -1,7 +1,7 @@
 import SwapMetadata from '../models/SwapMetadata';
 
 class SwapMetadataRepository {
-  public static add = (swapId: string, metadata: Buffer) =>
+  public static add = (swapId: string, metadata: string) =>
     SwapMetadata.create({
       swapId,
       data: metadata,

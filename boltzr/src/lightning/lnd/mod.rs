@@ -2,7 +2,10 @@ use crate::chain::BaseClient;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use boltz_utils::mb_to_bytes;
-use lnd_rpc::{ChanBackupExportRequest, ChannelBackupSubscription, GetInfoRequest};
+use lnd_rpc::{
+    ChanBackupExportRequest, ChannelBackupSubscription, ChannelGraph, ChannelGraphRequest,
+    GetInfoRequest,
+};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Duration;
@@ -19,7 +22,7 @@ const RECONNECT_INTERVAL: Duration = Duration::from_secs(5);
     clippy::large_enum_variant,
     clippy::doc_lazy_continuation
 )]
-mod lnd_rpc {
+pub(crate) mod lnd_rpc {
     tonic::include_proto!("lnrpc");
 }
 
@@ -149,6 +152,18 @@ impl Lnd {
 
     pub fn subscribe_channel_backups(&self) -> tokio::sync::broadcast::Receiver<Vec<u8>> {
         self.scb_backup_tx.subscribe()
+    }
+
+    #[instrument(name = "Lnd::describe_graph", skip_all)]
+    pub async fn describe_graph(&mut self) -> anyhow::Result<ChannelGraph> {
+        Ok(self
+            .lnd
+            .describe_graph(ChannelGraphRequest {
+                include_unannounced: false,
+                include_auth_proof: false,
+            })
+            .await?
+            .into_inner())
     }
 
     async fn start_listeners(&mut self) -> anyhow::Result<()> {
@@ -337,5 +352,39 @@ mod tls {
         fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
             self.supported_algs.supported_schemes()
         }
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+    use std::sync::Once;
+
+    static CRYPTO_PROVIDER_INIT: Once = Once::new();
+
+    pub async fn lnd_client(node: &str, port: u16) -> Lnd {
+        CRYPTO_PROVIDER_INIT.call_once(|| {
+            let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        });
+
+        let base = format!("../regtest/data/{node}");
+        let macaroon = format!("{base}/data/chain/bitcoin/regtest/admin.macaroon");
+        let cert = format!("{base}/tls.cert");
+
+        let mut lnd = Lnd::new(
+            CancellationToken::new(),
+            "BTC",
+            Config {
+                host: "127.0.0.1".to_string(),
+                port,
+                certpath: cert,
+                macaroonpath: macaroon,
+            },
+        )
+        .await
+        .expect("failed to construct LND client");
+
+        lnd.connect().await.expect("failed to connect LND client");
+        lnd
     }
 }

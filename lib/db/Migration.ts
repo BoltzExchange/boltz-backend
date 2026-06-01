@@ -21,7 +21,6 @@ import Referral from './models/Referral';
 import RefundTransaction from './models/RefundTransaction';
 import ReverseSwap from './models/ReverseSwap';
 import Swap from './models/Swap';
-import SwapMetadata from './models/SwapMetadata';
 import ChainSwapRepository from './repositories/ChainSwapRepository';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
 import PendingEthereumTransactionRepository from './repositories/PendingEthereumTransactionRepository';
@@ -64,7 +63,7 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 27;
+  private static latestSchemaVersion = 26;
   private static latestDeprecatedSchemaVersion = 11;
 
   private toBackFill: number[] = [];
@@ -774,14 +773,6 @@ class Migration {
             { transaction },
           );
         });
-
-        await this.finishMigration(versionRow.version, currencies);
-        break;
-      }
-
-      case 26: {
-        this.logUpdatingTable(SwapMetadata.tableName);
-        await SwapMetadata.sync();
 
         await this.finishMigration(versionRow.version, currencies);
         break;

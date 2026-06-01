@@ -428,7 +428,7 @@ pub struct SwapRescue {
     swap_helper: Arc<dyn SwapHelper + Sync + Send>,
     chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
     reverse_swap_helper: Arc<dyn ReverseSwapHelper + Sync + Send>,
-    metadata_helper: Option<Arc<dyn SwapMetadataHelper + Sync + Send>>,
+    metadata_helper: Arc<dyn SwapMetadataHelper + Sync + Send>,
 }
 
 impl SwapRescue {
@@ -438,6 +438,7 @@ impl SwapRescue {
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         reverse_swap_helper: Arc<dyn ReverseSwapHelper + Sync + Send>,
         currencies: Currencies,
+        metadata_helper: Arc<dyn SwapMetadataHelper + Sync + Send>,
     ) -> SwapRescue {
         Self {
             cache,
@@ -445,16 +446,8 @@ impl SwapRescue {
             swap_helper,
             chain_swap_helper,
             reverse_swap_helper,
-            metadata_helper: None,
+            metadata_helper,
         }
-    }
-
-    pub fn with_metadata_helper(
-        mut self,
-        metadata_helper: Arc<dyn SwapMetadataHelper + Sync + Send>,
-    ) -> Self {
-        self.metadata_helper = Some(metadata_helper);
-        self
     }
 
     #[instrument(name = "SwapRescue::rescue", skip_all)]
@@ -513,12 +506,17 @@ impl SwapRescue {
     }
 
     fn attach_metadata(&self, swaps: &mut [RestorableSwap]) -> Result<()> {
-        let Some(helper) = &self.metadata_helper else {
+        if swaps.is_empty() {
             return Ok(());
-        };
+        }
 
-        let rows = helper.get_all(swaps.iter().map(|s| s.base.id.clone()).collect())?;
-        let mut metadata = rows.into_iter().collect::<HashMap<_, _>>();
+        let rows = self
+            .metadata_helper
+            .get_all(swaps.iter().map(|s| s.base.id.clone()).collect())?;
+        let mut metadata = rows
+            .into_iter()
+            .map(|(swap_id, data)| (swap_id, hex::encode(data)))
+            .collect::<HashMap<_, _>>();
 
         for swap in swaps {
             swap.metadata = metadata.remove(&swap.base.id);
@@ -1061,6 +1059,15 @@ mod test {
         )
     }
 
+    fn empty_metadata_helper() -> MockSwapMetadataHelper {
+        let mut metadata_helper = MockSwapMetadataHelper::new();
+        metadata_helper
+            .expect_get_all()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+        metadata_helper
+    }
+
     fn get_test_tree() -> String {
         "{\"claimLeaf\":{\"version\":196,\"output\":\"a914617cc637679ded498738a09314294837227fbf938820ceb839aafaafdb6370781cb102567101f4ab628f54734792ede606fa8fd4f35fac\"},\"refundLeaf\":{\"version\":196,\"output\":\"2020103b104886a5180dd1be5146cceb12f19e59bdd63bca41470c91d94f317cdead02c527b1\"}}".to_string()
     }
@@ -1200,6 +1207,7 @@ mod test {
                     evm_manager: None,
                 },
             )])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let res = rescue
@@ -1360,10 +1368,7 @@ mod test {
                 .expect_get_all()
                 .returning(move |ids| {
                     assert!(ids.contains(&swap_id));
-                    Ok(vec![(
-                        swap_id.clone(),
-                        "opaque-client-metadata".to_string(),
-                    )])
+                    Ok(vec![(swap_id.clone(), b"opaque-client-metadata".to_vec())])
                 })
                 .times(1);
         }
@@ -1397,8 +1402,8 @@ mod test {
                     },
                 ),
             ])),
-        )
-        .with_metadata_helper(Arc::new(metadata_helper));
+            Arc::new(metadata_helper),
+        );
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let res = rescue
             .restore(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
@@ -1437,7 +1442,7 @@ mod test {
                     ),
                     timeout_block_height: 321,
                 }),
-                metadata: Some("opaque-client-metadata".to_string()),
+                metadata: Some(hex::encode("opaque-client-metadata")),
             }
         );
 
@@ -1605,6 +1610,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(empty_metadata_helper()),
         );
 
         let pubkey = PublicKey::from_str(
@@ -1748,6 +1754,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(empty_metadata_helper()),
         );
 
         let pubkey = PublicKey::from_str(
@@ -1857,6 +1864,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(empty_metadata_helper()),
         );
 
         let pubkey_refund = PublicKey::from_str(
@@ -2005,6 +2013,7 @@ mod test {
                     evm_manager: None,
                 },
             )])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
@@ -2062,6 +2071,7 @@ mod test {
                     evm_manager: None,
                 },
             )])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
@@ -2129,6 +2139,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let pubkey = PublicKey::from_str(
@@ -2239,6 +2250,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
@@ -2328,6 +2340,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
@@ -2408,6 +2421,7 @@ mod test {
                     evm_manager: None,
                 },
             )])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let index1 = rescue
@@ -2478,6 +2492,7 @@ mod test {
                     evm_manager: None,
                 },
             )])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let index = rescue

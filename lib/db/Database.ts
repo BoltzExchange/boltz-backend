@@ -128,7 +128,6 @@ class Database {
       RefundTransaction.sync(),
       ClaimTransaction.sync(),
       ScriptPubKey.sync(),
-      SwapMetadata.sync(),
     ]);
   };
 

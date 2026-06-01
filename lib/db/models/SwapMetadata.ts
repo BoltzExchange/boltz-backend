@@ -3,12 +3,12 @@ import { DataTypes, Model } from 'sequelize';
 
 export type SwapMetadataType = {
   swapId: string;
-  data: string;
+  data: Buffer;
 };
 
 class SwapMetadata extends Model implements SwapMetadataType {
   declare swapId: string;
-  declare data: string;
+  declare data: Buffer;
 
   declare createdAt: Date;
 
@@ -22,7 +22,7 @@ class SwapMetadata extends Model implements SwapMetadataType {
           field: 'swap_id',
         },
         data: {
-          type: new DataTypes.TEXT(),
+          type: new DataTypes.BLOB(),
           allowNull: false,
         },
         createdAt: {

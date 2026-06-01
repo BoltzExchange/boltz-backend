@@ -53,8 +53,8 @@ impl Service {
                 chain_swap_helper,
                 reverse_swap_helper,
                 currencies.clone(),
-            )
-            .with_metadata_helper(metadata_helper),
+                metadata_helper,
+            ),
             country_codes: CountryCodes::new(markings_config),
             lightning_info: Box::new(ClnLightningInfo::new(cache.clone(), currencies)),
             pair_stats: if let Some(config) = historical_config {
@@ -181,6 +181,9 @@ pub mod test {
                     Arc::new(chain_swap_helper),
                     Arc::new(reverse_swap_helper),
                     Arc::new(HashMap::new()),
+                    Arc::new(
+                        crate::db::helpers::swap_metadata::test::MockSwapMetadataHelper::new(),
+                    ),
                 ),
                 lightning_info: Box::new(ClnLightningInfo::new(
                     Cache::Memory(MemCache::new()),

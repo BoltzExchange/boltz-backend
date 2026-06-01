@@ -53,7 +53,7 @@ diesel::table! {
 diesel::table! {
     swap_metadata (swap_id) {
         swap_id -> Text,
-        data -> Text,
+        data -> Binary,
         created_at -> Timestamptz,
     }
 }

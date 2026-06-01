@@ -183,7 +183,9 @@ describe('SwapRouter', () => {
   } as unknown as SwapInfos;
 
   const swapRouter = new SwapRouter(Logger.disabledLogger, service, swapInfos);
-  const validMetadata = 'opaque-client-metadata';
+  const validMetadata = 'deadbeef';
+  const validMetadataBuffer = getHexBuffer(validMetadata);
+  const oversizedMetadata = '00'.repeat(1025);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -456,6 +458,24 @@ describe('SwapRouter', () => {
   invoice: 'lnbc1',
   metadata: 123,
 }}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'BTC',
+  from: 'L-BTC',
+  invoice: 'lnbc1',
+  metadata: '',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'BTC',
+  from: 'L-BTC',
+  invoice: 'lnbc1',
+  metadata: 'notHex',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'BTC',
+  from: 'L-BTC',
+  invoice: 'lnbc1',
+  metadata: oversizedMetadata,
+}}
   `(
     'should not create submarine swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -537,7 +557,7 @@ describe('SwapRouter', () => {
     expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
     expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
       'randomId',
-      validMetadata,
+      validMetadataBuffer,
     );
     expect(res.status).toHaveBeenCalledWith(201);
   });
@@ -1355,6 +1375,27 @@ describe('SwapRouter', () => {
   claimPublicKey: '0011',
   metadata: 123,
 }}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  metadata: '',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  metadata: 'notHex',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  metadata: oversizedMetadata,
+}}
   `(
     'should not create reverse swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -1412,7 +1453,7 @@ describe('SwapRouter', () => {
     expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
     expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
       'reverseId',
-      validMetadata,
+      validMetadataBuffer,
     );
     expect(res.status).toHaveBeenCalledWith(201);
   });
@@ -2007,6 +2048,24 @@ describe('SwapRouter', () => {
   preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
   metadata: 123,
 }}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+  metadata: '',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+  metadata: 'notHex',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+  metadata: oversizedMetadata,
+}}
   `(
     'should not create chain swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -2080,7 +2139,7 @@ describe('SwapRouter', () => {
     expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
     expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
       'chainId',
-      validMetadata,
+      validMetadataBuffer,
     );
     expect(res.status).toHaveBeenCalledWith(201);
   });

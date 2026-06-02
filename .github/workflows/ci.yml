@@ -60,6 +60,8 @@ jobs:
 
   build-rust:
     timeout-minutes: 60
+    permissions:
+      contents: read
     strategy:
       matrix:
         platform: [ubuntu-latest]
@@ -112,6 +114,8 @@ jobs:
 
       - name: Tests
         run: cargo test
+        env:
+          MEMPOOL_API_URL: ${{ vars.MEMPOOL_API_URL }}
 
   build-boltz-core:
     timeout-minutes: 60

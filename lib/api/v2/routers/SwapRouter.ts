@@ -1,11 +1,12 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type Logger from '../../../Logger';
-import { getHexString, stringify } from '../../../Utils';
+import { getHexBuffer, getHexString, stringify } from '../../../Utils';
 import { SwapUpdateEvent, SwapVersion } from '../../../consts/Enums';
 import { unsafeKeys } from '../../../data/Utils';
 import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
 import ReferralRepository from '../../../db/repositories/ReferralRepository';
+import SwapMetadataRepository from '../../../db/repositories/SwapMetadataRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import Errors from '../../../service/Errors';
@@ -29,6 +30,10 @@ import {
   validateRequest,
 } from '../../Utils';
 import RouterBase from './RouterBase';
+
+const metadataMaxBytes = 1024;
+const metadataMaxHexLength = metadataMaxBytes * 2;
+const metadataHexRegex = /^(?:[0-9a-fA-F]{2})+$/;
 
 class SwapRouter extends RouterBase {
   constructor(
@@ -251,6 +256,12 @@ class SwapRouter extends RouterBase {
      *         paymentTimeout:
      *           type: number
      *           description: Payment timeout in seconds
+     *         metadata:
+     *           type: string
+     *           pattern: '^(?:[0-9a-fA-F]{2})+$'
+     *           minLength: 2
+     *           maxLength: 2048
+     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -953,6 +964,12 @@ class SwapRouter extends RouterBase {
      *         invoiceExpiry:
      *           type: number
      *           description: Expiry of the invoice in seconds
+     *         metadata:
+     *           type: string
+     *           pattern: '^(?:[0-9a-fA-F]{2})+$'
+     *           minLength: 2
+     *           maxLength: 2048
+     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -1355,6 +1372,12 @@ class SwapRouter extends RouterBase {
      *         referralId:
      *           type: string
      *           description: Referral ID to be used for the Chain Swap
+     *         metadata:
+     *           type: string
+     *           pattern: '^(?:[0-9a-fA-F]{2})+$'
+     *           minLength: 2
+     *           maxLength: 2048
+     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -2198,6 +2221,12 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/RestoreClaimDetails'
      *         refundDetails:
      *           $ref: '#/components/schemas/RestoreRefundDetails'
+     *         metadata:
+     *           type: string
+     *           pattern: '^(?:[0-9a-fA-F]{2})+$'
+     *           minLength: 2
+     *           maxLength: 2048
+     *           description: Metadata stored alongside the swap encoded as HEX, if available
      */
 
     /**
@@ -2568,6 +2597,7 @@ class SwapRouter extends RouterBase {
       extraFees,
       paymentTimeout,
       refundPublicKey,
+      metadata,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
@@ -2577,12 +2607,14 @@ class SwapRouter extends RouterBase {
       { name: 'extraFees', type: 'object', optional: true },
       { name: 'paymentTimeout', type: 'number', optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'metadata', type: 'string', optional: true },
     ]);
     const referralId = parseReferralId(req);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const webHookData = this.parseWebHook(webhook);
     const extraFeesData = this.parseExtraFees(extraFees);
+    const metadataData = this.parseMetadata(metadata);
 
     let response: { id: string };
 
@@ -2617,6 +2649,7 @@ class SwapRouter extends RouterBase {
       });
     }
 
+    await this.persistMetadata(response.id, metadataData);
     await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created new Swap with id: ${response.id}`);
@@ -2786,6 +2819,7 @@ class SwapRouter extends RouterBase {
       claimPublicKey,
       descriptionHash,
       addressSignature,
+      metadata,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
@@ -2805,12 +2839,14 @@ class SwapRouter extends RouterBase {
       { name: 'descriptionHash', type: 'string', hex: true, optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'addressSignature', type: 'string', hex: true, optional: true },
+      { name: 'metadata', type: 'string', optional: true },
     ]);
     const referralId = parseReferralId(req);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const webHookData = this.parseWebHook(webhook);
     const extraFeesData = this.parseExtraFees(extraFees);
+    const metadataData = this.parseMetadata(metadata);
 
     const response = await this.service.createReverseSwap({
       pairId,
@@ -2836,6 +2872,7 @@ class SwapRouter extends RouterBase {
       userAddressSignature: addressSignature,
     });
 
+    await this.persistMetadata(response.id, metadataData);
     await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
@@ -2951,6 +2988,7 @@ class SwapRouter extends RouterBase {
       userLockAmount,
       refundPublicKey,
       serverLockAmount,
+      metadata,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
@@ -2963,12 +3001,14 @@ class SwapRouter extends RouterBase {
       { name: 'serverLockAmount', type: 'number', optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'metadata', type: 'string', optional: true },
     ]);
     const referralId = parseReferralId(req);
 
     checkPreimageHashLength(preimageHash);
     const webHookData = this.parseWebHook(webhook);
     const extraFeesData = this.parseExtraFees(extraFees);
+    const metadataData = this.parseMetadata(metadata);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const response = await this.service.createChainSwap({
@@ -2986,6 +3026,7 @@ class SwapRouter extends RouterBase {
       extraFees: extraFeesData,
     });
 
+    await this.persistMetadata(response.id, metadataData);
     await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created Chain Swap with id: ${response.id}`);
@@ -3311,6 +3352,34 @@ class SwapRouter extends RouterBase {
       id: res.id,
       percentage: res.percentage ?? 0,
     };
+  };
+
+  private parseMetadata = (data?: string): Buffer | undefined => {
+    if (data === undefined) {
+      return undefined;
+    }
+
+    if (data.length > metadataMaxHexLength || !metadataHexRegex.test(data)) {
+      throw ApiErrors.INVALID_PARAMETER('metadata');
+    }
+
+    const decoded = getHexBuffer(data);
+    if (decoded.length === 0 || decoded.length > metadataMaxBytes) {
+      throw ApiErrors.INVALID_PARAMETER('metadata');
+    }
+
+    return decoded;
+  };
+
+  private persistMetadata = async (
+    swapId: string,
+    data?: Buffer,
+  ): Promise<void> => {
+    if (data === undefined) {
+      return;
+    }
+
+    await SwapMetadataRepository.add(swapId, data);
   };
 
   private getReferralFromHeader = async (req: Request) => {

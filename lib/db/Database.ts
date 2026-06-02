@@ -27,6 +27,7 @@ import ReverseRoutingHint from './models/ReverseRoutingHint';
 import ReverseSwap from './models/ReverseSwap';
 import ScriptPubKey from './models/ScriptPubKey';
 import Swap from './models/Swap';
+import SwapMetadata from './models/SwapMetadata';
 import TransactionLabel from './models/TransactionLabel';
 import TransactionLabelRepository from './repositories/TransactionLabelRepository';
 
@@ -173,6 +174,7 @@ class Database {
     ScriptPubKey.load(Database.sequelize);
     Commitment.load(Database.sequelize);
     JwtToken.load(Database.sequelize);
+    SwapMetadata.load(Database.sequelize);
 
     TransactionLabelRepository.setLogger(this.logger);
   };

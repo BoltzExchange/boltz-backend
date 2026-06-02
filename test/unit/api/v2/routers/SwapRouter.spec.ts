@@ -9,6 +9,7 @@ import { OrderSide, SwapVersion } from '../../../../../lib/consts/Enums';
 import ChainSwapRepository from '../../../../../lib/db/repositories/ChainSwapRepository';
 import MarkedSwapRepository from '../../../../../lib/db/repositories/MarkedSwapRepository';
 import ReferralRepository from '../../../../../lib/db/repositories/ReferralRepository';
+import SwapMetadataRepository from '../../../../../lib/db/repositories/SwapMetadataRepository';
 import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../../../lib/service/Errors';
 import type Service from '../../../../../lib/service/Service';
@@ -39,6 +40,10 @@ jest.mock('../../../../../lib/db/repositories/SwapRepository', () => ({
 
 jest.mock('../../../../../lib/db/repositories/MarkedSwapRepository', () => ({
   addMarkedSwap: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('../../../../../lib/db/repositories/SwapMetadataRepository', () => ({
+  add: jest.fn().mockResolvedValue(undefined),
 }));
 
 describe('SwapRouter', () => {
@@ -178,6 +183,9 @@ describe('SwapRouter', () => {
   } as unknown as SwapInfos;
 
   const swapRouter = new SwapRouter(Logger.disabledLogger, service, swapInfos);
+  const validMetadata = 'deadbeef';
+  const validMetadataBuffer = getHexBuffer(validMetadata);
+  const oversizedMetadata = '00'.repeat(1025);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -444,6 +452,30 @@ describe('SwapRouter', () => {
   invoice: 'lnbc1',
   refundPublicKey: 'notHex',
 }}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'BTC',
+  from: 'L-BTC',
+  invoice: 'lnbc1',
+  metadata: 123,
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'BTC',
+  from: 'L-BTC',
+  invoice: 'lnbc1',
+  metadata: '',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'BTC',
+  from: 'L-BTC',
+  invoice: 'lnbc1',
+  metadata: 'notHex',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'BTC',
+  from: 'L-BTC',
+  invoice: 'lnbc1',
+  metadata: oversizedMetadata,
+}}
   `(
     'should not create submarine swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -508,6 +540,46 @@ describe('SwapRouter', () => {
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 'randomId' });
+  });
+
+  test('should persist metadata for submarine swaps', async () => {
+    const reqBody = {
+      to: 'BTC',
+      from: 'L-BTC',
+      invoice: 'LNBC1',
+      refundPublicKey: '0021',
+      metadata: validMetadata,
+    };
+    const res = mockResponse();
+
+    await swapRouter['createSubmarine'](mockRequest(reqBody), res);
+
+    expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
+    expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
+      'randomId',
+      validMetadataBuffer,
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  test('should fail submarine swap creation when metadata cannot be persisted', async () => {
+    const error = new Error('could not persist metadata');
+    (SwapMetadataRepository.add as jest.Mock).mockRejectedValueOnce(error);
+
+    await expect(
+      swapRouter['createSubmarine'](
+        mockRequest({
+          to: 'BTC',
+          from: 'L-BTC',
+          invoice: 'LNBC1',
+          refundPublicKey: '0021',
+          metadata: validMetadata,
+        }),
+        mockResponse(),
+      ),
+    ).rejects.toEqual(error);
+
+    expect(MarkedSwapRepository.addMarkedSwap).not.toHaveBeenCalled();
   });
 
   test('should return 409 when submarine swap invoice exists already', async () => {
@@ -1296,6 +1368,34 @@ describe('SwapRouter', () => {
   claimPublicKey: '0011',
   descriptionHash: 'notHex',
 }}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  metadata: 123,
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  metadata: '',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  metadata: 'notHex',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  metadata: oversizedMetadata,
+}}
   `(
     'should not create reverse swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -1336,6 +1436,26 @@ describe('SwapRouter', () => {
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 'reverseId' });
+  });
+
+  test('should persist metadata for reverse swaps', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      claimPublicKey: '21',
+      preimageHash: getHexString(randomBytes(32)),
+      metadata: validMetadata,
+    };
+    const res = mockResponse();
+
+    await swapRouter['createReverse'](mockRequest(reqBody), res);
+
+    expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
+    expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
+      'reverseId',
+      validMetadataBuffer,
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
   });
 
   test('should return 409 when reverse swap preimage hash exists already', async () => {
@@ -1922,6 +2042,30 @@ describe('SwapRouter', () => {
   from: 'BTC',
   preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
 }}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+  metadata: 123,
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+  metadata: '',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+  metadata: 'notHex',
+}}
+    ${'invalid parameter: metadata'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+  metadata: oversizedMetadata,
+}}
   `(
     'should not create chain swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -1972,6 +2116,32 @@ describe('SwapRouter', () => {
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 'chainId' });
+  });
+
+  test('should persist metadata for chain swaps', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      pairHash: 'pHash',
+      userLockAmount: 123,
+      claimPublicKey: '21',
+      referralId: 'partner',
+      claimAddress: '0x123',
+      serverLockAmount: 321,
+      refundPublicKey: '12',
+      preimageHash: getHexString(randomBytes(32)),
+      metadata: validMetadata,
+    };
+    const res = mockResponse();
+
+    await swapRouter['createChain'](mockRequest(reqBody), res);
+
+    expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
+    expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
+      'chainId',
+      validMetadataBuffer,
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
   });
 
   test('should create chain swaps with webhook', async () => {

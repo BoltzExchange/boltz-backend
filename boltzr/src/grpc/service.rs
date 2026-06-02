@@ -1149,6 +1149,9 @@ mod test {
                     Arc::new(MockSwapHelper::new()),
                     Arc::new(MockChainSwapHelper::new()),
                     Arc::new(MockReverseSwapHelper::new()),
+                    Arc::new(
+                        crate::db::helpers::swap_metadata::test::MockSwapMetadataHelper::new(),
+                    ),
                     Arc::new(HashMap::from([(
                         "RBTC".to_string(),
                         Currency {

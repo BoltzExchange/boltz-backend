@@ -51,6 +51,14 @@ diesel::table! {
 }
 
 diesel::table! {
+    swap_metadata (swap_id) {
+        swap_id -> Text,
+        data -> Binary,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     #[allow(non_snake_case)]
     reverseSwaps (id) {
         id -> Text,

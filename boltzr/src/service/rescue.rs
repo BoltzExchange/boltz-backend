@@ -2,6 +2,7 @@ use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
+use crate::db::helpers::swap_metadata::SwapMetadataHelper;
 use crate::db::models::{
     ChainSwapData, ChainSwapInfo, LightningSwap, ReverseSwap, SomeSwap, Swap, SwapType,
 };
@@ -364,6 +365,8 @@ pub struct RestorableSwap {
     pub claim_details: Option<ClaimDetails>,
     #[serde(rename = "refundDetails", skip_serializing_if = "Option::is_none")]
     pub refund_details: Option<SwapDetailsBase>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<String>,
 }
 
 impl Identifiable for RestorableSwap {
@@ -390,6 +393,7 @@ impl TryFrom<(&Swap, u32, String, Option<String>)> for RestorableSwap {
             invoice: s.invoice.clone(),
             claim_details: None,
             refund_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
+            metadata: None,
         })
     }
 }
@@ -413,6 +417,7 @@ impl TryFrom<(&ReverseSwap, u32, String, Option<String>)> for RestorableSwap {
             invoice: Some(s.invoice.clone()),
             claim_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
             refund_details: None,
+            metadata: None,
         })
     }
 }
@@ -423,6 +428,7 @@ pub struct SwapRescue {
     swap_helper: Arc<dyn SwapHelper + Sync + Send>,
     chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
     reverse_swap_helper: Arc<dyn ReverseSwapHelper + Sync + Send>,
+    metadata_helper: Arc<dyn SwapMetadataHelper + Sync + Send>,
 }
 
 impl SwapRescue {
@@ -432,6 +438,7 @@ impl SwapRescue {
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         reverse_swap_helper: Arc<dyn ReverseSwapHelper + Sync + Send>,
         currencies: Currencies,
+        metadata_helper: Arc<dyn SwapMetadataHelper + Sync + Send>,
     ) -> SwapRescue {
         Self {
             cache,
@@ -439,6 +446,7 @@ impl SwapRescue {
             swap_helper,
             chain_swap_helper,
             reverse_swap_helper,
+            metadata_helper,
         }
     }
 
@@ -479,6 +487,8 @@ impl SwapRescue {
             pagination,
         )?;
 
+        self.attach_metadata(&mut restorable)?;
+
         restorable.sort_by(|a, b| {
             fn get_key_index(swap: &RestorableSwap) -> Option<u32> {
                 swap.refund_details
@@ -493,6 +503,26 @@ impl SwapRescue {
         });
 
         Ok(restorable)
+    }
+
+    fn attach_metadata(&self, swaps: &mut [RestorableSwap]) -> Result<()> {
+        if swaps.is_empty() {
+            return Ok(());
+        }
+
+        let rows = self
+            .metadata_helper
+            .get_all(swaps.iter().map(|s| s.base.id.clone()).collect())?;
+        let mut metadata = rows
+            .into_iter()
+            .map(|(swap_id, data)| (swap_id, hex::encode(data)))
+            .collect::<HashMap<_, _>>();
+
+        for swap in swaps {
+            swap.metadata = metadata.remove(&swap.base.id);
+        }
+
+        Ok(())
     }
 
     /// Returns the highest key index for the given iterator.
@@ -905,6 +935,7 @@ impl SwapRescue {
             invoice: None,
             claim_details,
             refund_details,
+            metadata: None,
         })
     }
 
@@ -1008,6 +1039,7 @@ mod test {
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
+    use crate::db::helpers::swap_metadata::test::MockSwapMetadataHelper;
     use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo, ReverseSwap, Swap};
     use crate::service::{SingleKeyIterator, XpubIterator};
     use crate::wallet::{Elements, Network};
@@ -1025,6 +1057,15 @@ mod test {
             )
             .unwrap(),
         )
+    }
+
+    fn empty_metadata_helper() -> MockSwapMetadataHelper {
+        let mut metadata_helper = MockSwapMetadataHelper::new();
+        metadata_helper
+            .expect_get_all()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+        metadata_helper
     }
 
     fn get_test_tree() -> String {
@@ -1166,6 +1207,7 @@ mod test {
                     evm_manager: None,
                 },
             )])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let res = rescue
@@ -1319,6 +1361,18 @@ mod test {
             .returning(|_| Ok(vec![]))
             .times(1);
 
+        let mut metadata_helper = MockSwapMetadataHelper::new();
+        {
+            let swap_id = swap.id.clone();
+            metadata_helper
+                .expect_get_all()
+                .returning(move |ids| {
+                    assert!(ids.contains(&swap_id));
+                    Ok(vec![(swap_id.clone(), b"opaque-client-metadata".to_vec())])
+                })
+                .times(1);
+        }
+
         let rescue = SwapRescue::new(
             Cache::Memory(MemCache::new()),
             Arc::new(swap_helper),
@@ -1348,6 +1402,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(metadata_helper),
         );
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let res = rescue
@@ -1387,6 +1442,7 @@ mod test {
                     ),
                     timeout_block_height: 321,
                 }),
+                metadata: Some(hex::encode("opaque-client-metadata")),
             }
         );
 
@@ -1427,6 +1483,7 @@ mod test {
                     preimage_hash: reverse_swap.preimageHash.clone(),
                 }),
                 refund_details: None,
+                metadata: None,
             }
         );
 
@@ -1493,6 +1550,7 @@ mod test {
                     ),
                     timeout_block_height: 13_211,
                 }),
+                metadata: None,
             }
         );
     }
@@ -1552,6 +1610,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(empty_metadata_helper()),
         );
 
         let pubkey = PublicKey::from_str(
@@ -1600,6 +1659,7 @@ mod test {
                     preimage_hash: reverse_swap.preimageHash.clone(),
                 }),
                 refund_details: None,
+                metadata: None,
             }
         );
     }
@@ -1694,6 +1754,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(empty_metadata_helper()),
         );
 
         let pubkey = PublicKey::from_str(
@@ -1803,6 +1864,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(empty_metadata_helper()),
         );
 
         let pubkey_refund = PublicKey::from_str(
@@ -1951,6 +2013,7 @@ mod test {
                     evm_manager: None,
                 },
             )])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
@@ -2008,6 +2071,7 @@ mod test {
                     evm_manager: None,
                 },
             )])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
@@ -2075,6 +2139,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let pubkey = PublicKey::from_str(
@@ -2185,6 +2250,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
@@ -2274,6 +2340,7 @@ mod test {
                     },
                 ),
             ])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
@@ -2354,6 +2421,7 @@ mod test {
                     evm_manager: None,
                 },
             )])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let index1 = rescue
@@ -2424,6 +2492,7 @@ mod test {
                     evm_manager: None,
                 },
             )])),
+            Arc::new(MockSwapMetadataHelper::new()),
         );
 
         let index = rescue

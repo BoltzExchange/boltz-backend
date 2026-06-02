@@ -261,7 +261,7 @@ class SwapRouter extends RouterBase {
      *           pattern: '^(?:[0-9a-fA-F]{2})+$'
      *           minLength: 2
      *           maxLength: 2048
-     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint. Decoded size must be between 1 and 1024 bytes
+     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -969,7 +969,7 @@ class SwapRouter extends RouterBase {
      *           pattern: '^(?:[0-9a-fA-F]{2})+$'
      *           minLength: 2
      *           maxLength: 2048
-     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint. Decoded size must be between 1 and 1024 bytes
+     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -1377,7 +1377,7 @@ class SwapRouter extends RouterBase {
      *           pattern: '^(?:[0-9a-fA-F]{2})+$'
      *           minLength: 2
      *           maxLength: 2048
-     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint. Decoded size must be between 1 and 1024 bytes
+     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:

@@ -574,7 +574,16 @@ pub mod test {
     use rstest::rstest;
     use serial_test::serial;
 
-    const MEMPOOL_API: &str = "https://mempool.space/api";
+    /// Mempool.space API endpoint used by the network-dependent tests. Defaults
+    /// to the official instance, but can be overridden via the `MEMPOOL_API_URL`
+    /// environment variable (e.g. in CI).
+    fn mempool_api() -> String {
+        std::env::var("MEMPOOL_API_URL")
+            .ok()
+            .map(|url| url.trim().trim_end_matches('/').to_string())
+            .filter(|url| !url.is_empty())
+            .unwrap_or_else(|| "https://mempool.space/api".to_string())
+    }
 
     mod client {
         use super::*;
@@ -590,7 +599,7 @@ pub mod test {
                 cancellation_token.clone(),
                 ready_notify.clone(),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                mempool_api(),
                 None,
             );
 
@@ -629,7 +638,7 @@ pub mod test {
                 CancellationToken::new(),
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                mempool_api(),
                 None,
             );
             assert!(client.get_latest().is_err());
@@ -641,7 +650,7 @@ pub mod test {
                 CancellationToken::new(),
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                mempool_api(),
                 None,
             );
 
@@ -663,7 +672,7 @@ pub mod test {
                 CancellationToken::new(),
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                mempool_api(),
                 None,
             );
 
@@ -689,7 +698,7 @@ pub mod test {
                 CancellationToken::new(),
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                mempool_api(),
                 None,
             );
 
@@ -711,7 +720,7 @@ pub mod test {
                 CancellationToken::new(),
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                mempool_api(),
                 Some(max_age),
             );
 
@@ -739,7 +748,7 @@ pub mod test {
                 CancellationToken::new(),
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                mempool_api(),
                 None,
             );
 
@@ -760,7 +769,7 @@ pub mod test {
                 CancellationToken::new(),
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                mempool_api(),
                 None,
             );
 
@@ -799,11 +808,11 @@ pub mod test {
             let mempool_space = MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                vec![MEMPOOL_API.to_string(), second_api.to_string()],
+                vec![mempool_api(), second_api.to_string()],
                 None,
             );
             assert_eq!(mempool_space.clients.len(), 2);
-            assert_eq!(mempool_space.clients[0].url, MEMPOOL_API);
+            assert_eq!(mempool_space.clients[0].url, mempool_api());
             assert_eq!(mempool_space.clients[1].url, second_api);
         }
 
@@ -816,7 +825,7 @@ pub mod test {
             let mempool_space = MempoolSpace::new(
                 cancellation_token.clone(),
                 "BTC".to_string(),
-                vec![MEMPOOL_API.to_string()],
+                vec![mempool_api()],
                 None,
             );
             mempool_space.connect().await.unwrap();
@@ -847,7 +856,7 @@ pub mod test {
             let mempool_space = MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                vec![MEMPOOL_API.to_string(), "http://localhost:8080".to_string()],
+                vec![mempool_api(), "http://localhost:8080".to_string()],
                 None,
             );
 
@@ -888,7 +897,7 @@ pub mod test {
             let mempool_space = Arc::new(MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                vec![MEMPOOL_API.to_string()],
+                vec![mempool_api()],
                 None,
             ));
 
@@ -937,7 +946,7 @@ pub mod test {
             let mempool_space = MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                vec![MEMPOOL_API.to_string()],
+                vec![mempool_api()],
                 None,
             );
 
@@ -949,7 +958,7 @@ pub mod test {
             let mempool_space = Arc::new(MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                vec![MEMPOOL_API.to_string()],
+                vec![mempool_api()],
                 None,
             ));
 
@@ -995,7 +1004,7 @@ pub mod test {
             let mempool_space = Arc::new(MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                vec![MEMPOOL_API.to_string()],
+                vec![mempool_api()],
                 None,
             ));
 
@@ -1037,7 +1046,7 @@ pub mod test {
             let mempool_space = MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                vec![MEMPOOL_API.to_string(), "http://localhost:8080".to_string()],
+                vec![mempool_api(), "http://localhost:8080".to_string()],
                 None,
             );
 
@@ -1080,7 +1089,7 @@ pub mod test {
             let mempool_space = MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                vec![MEMPOOL_API.to_string()],
+                vec![mempool_api()],
                 Some(max_age),
             );
 
@@ -1113,7 +1122,7 @@ pub mod test {
             let mempool_space = MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                vec![MEMPOOL_API.to_string(), "http://localhost:8080".to_string()],
+                vec![mempool_api(), "http://localhost:8080".to_string()],
                 Some(max_age),
             );
 

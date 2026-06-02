@@ -14,8 +14,6 @@ type BaseConfig = {
 
 type ClnConfig = BaseConfig & {
   hold: BaseConfig;
-
-  disableMpp?: boolean;
 };
 
 const createSsl = (

@@ -7,7 +7,7 @@ use crate::db::helpers::offer::OfferHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::lightning::cln::cln_rpc::{
     Amount, FetchinvoiceRequest, GetinfoRequest, GetinfoResponse, ListchannelsChannels,
-    ListchannelsRequest, ListconfigsRequest, ListconfigsResponse, ListnodesNodes, ListnodesRequest,
+    ListchannelsRequest, ListnodesNodes, ListnodesRequest,
 };
 use crate::{utils, wallet};
 use anyhow::{Context, anyhow};
@@ -27,6 +27,7 @@ mod invoice_fetcher;
 pub use crate::lightning::cln::hold::hold_rpc::onion_message::ReplyBlindedPath;
 pub use hold::OfferError;
 
+#[allow(dead_code)]
 #[allow(clippy::enum_variant_names)]
 pub(crate) mod cln_rpc {
     tonic::include_proto!("cln");
@@ -231,14 +232,6 @@ impl Cln {
         Ok(res.into_inner())
     }
 
-    async fn list_configs(&mut self) -> anyhow::Result<ListconfigsResponse> {
-        let res = self
-            .cln
-            .list_configs(ListconfigsRequest { config: None })
-            .await?;
-        Ok(res.into_inner())
-    }
-
     fn parse_error(status: tonic::Status) -> anyhow::Error {
         let mut msg = status.message();
 
@@ -281,25 +274,6 @@ impl BaseClient for Cln {
     #[instrument(name = "Cln::connect", skip_all)]
     async fn connect(&mut self) -> anyhow::Result<()> {
         let info = self.get_info().await?;
-        let version = info.version.split(".").collect::<Vec<&str>>();
-
-        if version[0] == "24" && version[1] == "08" {
-            let configs = self.list_configs().await?;
-            let experimental_offers = match configs.configs {
-                Some(config) => match config.experimental_offers {
-                    Some(option) => option.set,
-                    None => false,
-                },
-                None => false,
-            };
-
-            if !experimental_offers {
-                return Err(crate::lightning::Error::NoBolt12Support(
-                    "experimental-offers not enabled".into(),
-                )
-                .into());
-            }
-        }
 
         info!(
             "Connected to {} CLN {} ({})",

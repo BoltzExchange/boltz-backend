@@ -24,6 +24,7 @@ describe('Router', () => {
 
       const route = await getRoute(
         clnClient['unaryNodeCall'],
+        clnClient.id,
         pubkey,
         10_000,
         undefined,
@@ -37,7 +38,7 @@ describe('Router', () => {
       const { pubkey } = await bitcoinLndClient.getInfo();
 
       await expect(
-        getRoute(clnClient['unaryNodeCall'], pubkey, 1, 0),
+        getRoute(clnClient['unaryNodeCall'], clnClient.id, pubkey, 1, 0),
       ).rejects.toEqual(expect.anything());
     });
   });

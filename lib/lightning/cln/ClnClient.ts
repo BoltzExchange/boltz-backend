@@ -58,8 +58,6 @@ class ClnClient
 
   private static readonly paymentTimeout = 30;
 
-  private readonly disableMpp: boolean;
-
   private readonly nodeUri: string;
   private readonly holdUri: string;
 
@@ -86,13 +84,6 @@ class ClnClient
     super(logger, symbol);
 
     this.id = '';
-    this.disableMpp = config.disableMpp ?? false;
-
-    if (this.disableMpp) {
-      this.logger.info(
-        `Multi-path payments disabled for ${ClnClient.serviceName}`,
-      );
-    }
 
     this.nodeCreds = createSsl(ClnClient.serviceName, symbol, config);
     this.holdCreds = createSsl(ClnClient.serviceNameHold, symbol, config.hold);
@@ -515,7 +506,14 @@ class ClnClient
     routingHints?: HopHint[][],
   ): Promise<Route[]> => {
     const prms: Promise<Route>[] = [
-      getRoute(this.unaryNodeCall, destination, amt, cltvLimit, finalCltvDelta),
+      getRoute(
+        this.unaryNodeCall,
+        this.id,
+        destination,
+        amt,
+        cltvLimit,
+        finalCltvDelta,
+      ),
     ];
 
     if (routingHints) {
@@ -527,6 +525,7 @@ class ClnClient
         prms.push(
           getRoute(
             this.unaryNodeCall,
+            this.id,
             hint[0].nodeId,
             amt,
             cltvLimit,
@@ -574,7 +573,7 @@ class ClnClient
     const req: noderpc.XpayRequest = {
       invstring: invoice,
       retryFor: ClnClient.paymentTimeout,
-      layers: this.disableMpp ? ['auto.no_mpp_support'] : [],
+      layers: [],
       maxfee: {
         msat: toProtoInt(
           this.routingFee.calculateFee(decoded, maxPaymentFeeRatio),

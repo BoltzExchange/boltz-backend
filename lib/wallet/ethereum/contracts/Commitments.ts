@@ -126,7 +126,7 @@ class Commitments {
     logIndex?: number,
     maxOverpaymentPercentage?: number,
   ) =>
-    this.refundSignatureLock(async () => {
+    this.refundSignatureLock('commit', async () => {
       let swap: Swap | ChainSwapInfo | null = await SwapRepository.getSwap({
         id: swapId,
       });

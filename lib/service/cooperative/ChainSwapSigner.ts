@@ -1,6 +1,6 @@
-import AsyncLock from 'async-lock';
 import { SwapTreeSerializer } from 'boltz-core';
 import { Op } from 'sequelize';
+import InstrumentedLock from '../../InstrumentedLock';
 import type Logger from '../../Logger';
 import { formatError, getHexBuffer, getHexString } from '../../Utils';
 import {
@@ -53,7 +53,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     preimage?: Buffer,
   ) => Promise<void>;
 
-  private readonly lock = new AsyncLock();
+  private readonly lock = new InstrumentedLock('chainSwapSigner');
   private readonly signerControlRegistry = SignerControlRegistry.getInstance();
   private readonly swapsToClaim = new Map<string, SwapToClaim<ChainSwapInfo>>();
 
@@ -66,8 +66,11 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     super(logger, walletManager, swapOutputType);
   }
 
-  public refundSignatureLock = <T>(cb: () => Promise<T>): Promise<T> =>
-    this.lock.acquire(ChainSwapSigner.refundSignatureLock, cb);
+  public refundSignatureLock = <T>(
+    op: string,
+    cb: () => Promise<T>,
+  ): Promise<T> =>
+    this.lock.acquire(ChainSwapSigner.refundSignatureLock, op, cb);
 
   public init = async () => {
     const claimableChainSwaps = await ChainSwapRepository.getChainSwaps({
@@ -94,7 +97,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     transaction: Buffer,
     index: number,
   ): Promise<PartialSignature> =>
-    this.refundSignatureLock(async () => {
+    this.refundSignatureLock('signRefund', async () => {
       const swap = await ChainSwapRepository.getChainSwap({ id: swapId });
       if (!swap) {
         throw Errors.SWAP_NOT_FOUND(swapId);
@@ -151,7 +154,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     transaction: string,
     checkpoint: string,
   ): Promise<{ transaction: string; checkpoint: string }> => {
-    return await this.refundSignatureLock(async () => {
+    return await this.refundSignatureLock('signRefundArk', async () => {
       const swap = await ChainSwapRepository.getChainSwap({ id: swapId });
       if (!swap) {
         throw Errors.SWAP_NOT_FOUND(swapId);
@@ -215,25 +218,33 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
   };
 
   public registerForClaim = async (swap: ChainSwapInfo) => {
-    await this.lock.acquire(ChainSwapSigner.swapsToClaimLock, async () => {
-      if (this.swapsToClaim.has(swap.id)) {
-        return;
-      }
+    await this.lock.acquire(
+      ChainSwapSigner.swapsToClaimLock,
+      'registerForClaim',
+      async () => {
+        if (this.swapsToClaim.has(swap.id)) {
+          return;
+        }
 
-      if (!this.canClaimCooperatively(swap)) {
-        return;
-      }
+        if (!this.canClaimCooperatively(swap)) {
+          return;
+        }
 
-      this.swapsToClaim.set(swap.id, {
-        swap,
-      });
-    });
+        this.swapsToClaim.set(swap.id, {
+          swap,
+        });
+      },
+    );
   };
 
   public removeFromClaimable = async (id: string) => {
-    await this.lock.acquire(ChainSwapSigner.swapsToClaimLock, async () => {
-      this.swapsToClaim.delete(id);
-    });
+    await this.lock.acquire(
+      ChainSwapSigner.swapsToClaimLock,
+      'removeFromClaimable',
+      async () => {
+        this.swapsToClaim.delete(id);
+      },
+    );
   };
 
   public getCooperativeDetails = async (
@@ -280,6 +291,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
 
     return await this.lock.acquire(
       ChainSwapSigner.cooperativeBroadcastLock,
+      'signClaim',
       async () => {
         if (
           this.signerControlRegistry.isDisabled(
@@ -392,9 +404,13 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
 
   private getToClaimDetails = async (id: string) => {
     let details: SwapToClaim<ChainSwapInfo> | undefined;
-    await this.lock.acquire(ChainSwapSigner.swapsToClaimLock, async () => {
-      details = this.swapsToClaim.get(id);
-    });
+    await this.lock.acquire(
+      ChainSwapSigner.swapsToClaimLock,
+      'getToClaimDetails',
+      async () => {
+        details = this.swapsToClaim.get(id);
+      },
+    );
 
     return details;
   };

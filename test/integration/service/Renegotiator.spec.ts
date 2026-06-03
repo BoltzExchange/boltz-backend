@@ -72,11 +72,11 @@ describe('Renegotiator', () => {
   } as any as SwapNursery;
 
   const chainSwapSigner = {
-    refundSignatureLock: jest.fn().mockImplementation((cb) => cb()),
+    refundSignatureLock: jest.fn().mockImplementation((_op, cb) => cb()),
   } as any as ChainSwapSigner;
 
   const eipSigner = {
-    refundSignatureLock: jest.fn().mockImplementation((cb) => cb()),
+    refundSignatureLock: jest.fn().mockImplementation((_op, cb) => cb()),
   } as any as EipSigner;
 
   const rateProvider = {

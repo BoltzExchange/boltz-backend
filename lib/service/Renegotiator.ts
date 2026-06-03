@@ -60,8 +60,8 @@ class Renegotiator {
   // Do this in the refund signature lock to avoid creating refund signatures
   // while accepting new quotes and changing the status
   public acceptQuote = (swapId: string, newQuote: number) =>
-    this.chainSwapSigner.refundSignatureLock(() =>
-      this.eipSigner.refundSignatureLock(async () => {
+    this.chainSwapSigner.refundSignatureLock('acceptQuote', () =>
+      this.eipSigner.refundSignatureLock('acceptQuote', async () => {
         const { swap, receivingCurrency } = await this.getSwap(swapId);
         await this.validateEligibility(swap, receivingCurrency);
 

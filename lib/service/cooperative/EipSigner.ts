@@ -1,6 +1,6 @@
-import AsyncLock from 'async-lock';
 import { type Provider, verifyMessage } from 'ethers';
 import { Op } from 'sequelize';
+import InstrumentedLock from '../../InstrumentedLock';
 import type Logger from '../../Logger';
 import {
   getChainCurrency,
@@ -35,7 +35,10 @@ import SignerControlRegistry from '../SignerControlRegistry';
 import { cooperativeSignaturesDisabledMessage } from './CoopSignerBase';
 import MusigSigner from './MusigSigner';
 
-export type RefundSignatureLock = <T>(cb: () => Promise<T>) => Promise<T>;
+export type RefundSignatureLock = <T>(
+  op: string,
+  cb: () => Promise<T>,
+) => Promise<T>;
 
 class EipSigner {
   private static readonly refundSignatureLock = 'refundSignature';
@@ -52,7 +55,7 @@ class EipSigner {
       `logIndex: ${logIndex ?? 'none'}`,
     ].join('\n');
 
-  private readonly lock = new AsyncLock();
+  private readonly lock = new InstrumentedLock('eipSigner');
   private readonly signerControlRegistry = SignerControlRegistry.getInstance();
 
   constructor(
@@ -62,11 +65,13 @@ class EipSigner {
     private readonly sidecar: Sidecar,
   ) {}
 
-  public refundSignatureLock = <T>(cb: () => Promise<T>): Promise<T> =>
-    this.lock.acquire(EipSigner.refundSignatureLock, cb);
+  public refundSignatureLock = <T>(
+    op: string,
+    cb: () => Promise<T>,
+  ): Promise<T> => this.lock.acquire(EipSigner.refundSignatureLock, op, cb);
 
   public signSwapRefund = async (swapIdOrPreimageHash: string) =>
-    this.refundSignatureLock(async () => {
+    this.refundSignatureLock('signSwapRefund', async () => {
       if (
         this.signerControlRegistry.isDisabled(
           Signer.SIGNER_EVM_REFUND_COOPERATIVE,
@@ -175,7 +180,7 @@ class EipSigner {
     refundAddressSignature: string,
     logIndex?: number,
   ) =>
-    this.refundSignatureLock(async () => {
+    this.refundSignatureLock('signCommitmentRefund', async () => {
       if (
         this.signerControlRegistry.isDisabled(
           Signer.SIGNER_EVM_COMMITMENT_REFUND_COOPERATIVE,

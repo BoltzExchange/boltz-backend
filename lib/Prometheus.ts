@@ -1,6 +1,7 @@
 import type { Response } from 'express';
 import express from 'express';
 import { Gauge, Registry, collectDefaultMetrics } from 'prom-client';
+import InstrumentedLock from './InstrumentedLock';
 import type Logger from './Logger';
 import { getPairId } from './Utils';
 import type Api from './api/Api';
@@ -379,6 +380,53 @@ class Prometheus {
             maxRisk,
           } of service.lockupTransactionTracker.maxRisks()) {
             this.set({ symbol }, Number(maxRisk));
+          }
+        },
+      }),
+    );
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metricPrefix}lock_pending`,
+        labelNames: ['name', 'key'],
+        help: 'number of tasks waiting to acquire a lock',
+        collect: function () {
+          this.reset();
+          for (const entry of InstrumentedLock.snapshot()) {
+            this.set({ name: entry.name, key: entry.key }, entry.pending);
+          }
+        },
+      }),
+    );
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metricPrefix}lock_hold_age_seconds`,
+        labelNames: ['name', 'key', 'op'],
+        help: 'age of the operation currently holding a lock in seconds',
+        collect: function () {
+          this.reset();
+          for (const entry of InstrumentedLock.snapshot()) {
+            if (entry.op !== undefined) {
+              this.set(
+                { name: entry.name, key: entry.key, op: entry.op },
+                entry.holdAgeMs / 1_000,
+              );
+            }
+          }
+        },
+      }),
+    );
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metricPrefix}lock_rejections`,
+        labelNames: ['name', 'key'],
+        help: 'cumulative number of tasks rejected because a lock queue was full',
+        collect: function () {
+          this.reset();
+          for (const entry of InstrumentedLock.snapshot()) {
+            this.set({ name: entry.name, key: entry.key }, entry.rejections);
           }
         },
       }),

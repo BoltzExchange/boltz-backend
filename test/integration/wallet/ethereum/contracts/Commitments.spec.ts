@@ -837,8 +837,8 @@ describe('Commitments', () => {
         [contract],
         wallets,
       );
-      commitments.setRefundSignatureLock(async <T>(cb: () => Promise<T>) =>
-        cb(),
+      commitments.setRefundSignatureLock(
+        async <T>(_op: string, cb: () => Promise<T>) => cb(),
       );
 
       return commitments;

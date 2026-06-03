@@ -117,7 +117,7 @@ describe('VersionCheck', () => {
       VersionCheck.checkLightningVersion(
         ClnClient.serviceName,
         'BTC',
-        'v25.05-modded',
+        'v26.04-modded',
       ),
     ).not.toThrow();
   });

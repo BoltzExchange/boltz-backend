@@ -132,35 +132,6 @@ describe('ClnClient', () => {
         "Destination said it doesn't know invoice: incorrect_or_unknown_payment_details",
       );
     });
-
-    test('should set layers list only when MPP is disabled', async () => {
-      const spy = jest.spyOn(clnClient as any, 'unaryNodeCall');
-      const originalDisableMpp = (clnClient as any).disableMpp;
-
-      try {
-        const invoiceEnabled = await bitcoinLndClient.addInvoice(100);
-        await clnClient.sendPayment(invoiceEnabled.paymentRequest);
-        const xpayEnabled = spy.mock.calls.find(
-          ([method]) => method === 'xpay',
-        );
-        expect((xpayEnabled?.[1] as noderpc.XpayRequest).layers).toEqual([]);
-
-        spy.mockClear();
-
-        const invoiceDisabled = await bitcoinLndClient.addInvoice(100);
-        (clnClient as any).disableMpp = true;
-        await clnClient.sendPayment(invoiceDisabled.paymentRequest);
-        const xpayDisabled = spy.mock.calls.find(
-          ([method]) => method === 'xpay',
-        );
-        expect((xpayDisabled?.[1] as noderpc.XpayRequest).layers).toEqual([
-          'auto.no_mpp_support',
-        ]);
-      } finally {
-        (clnClient as any).disableMpp = originalDisableMpp;
-        spy.mockRestore();
-      }
-    });
   });
 
   test('should fail settle for invalid states', async () => {

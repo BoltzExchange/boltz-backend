@@ -5,13 +5,16 @@ use crate::db::helpers::payjoin::{
 use crate::db::models::{NewPayjoinReceiverSession, NewPayjoinReceiverSessionEvent};
 use anyhow::{Context, Result, anyhow};
 use payjoin::bitcoin::{Address, Amount};
-use payjoin::persist::SessionPersister;
-use payjoin::receive::v2::{ReceiverBuilder, SessionEvent};
+use payjoin::persist::{OptionalTransitionOutcome, SessionPersister};
+use payjoin::receive::v2::{
+    Initialized, ReceiveSession, Receiver, ReceiverBuilder, SessionEvent, replay_event_log,
+};
 use std::error::Error;
 use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
-use tracing::instrument;
+use std::time::Duration;
+use tracing::{error, info, instrument};
 
 const OHTTP_RELAY: &str = "https://pj.bobspacebkk.com";
 const DIRECTORY: &str = "https://payjo.in";
@@ -72,9 +75,99 @@ impl PayjoinManager {
             .context("failed to persist payjoin receiver creation event")?;
         let mut uri = receiver.pj_uri();
         uri.label = label.map(Into::into);
+        let uri = uri.to_string();
 
-        Ok(uri.to_string())
+        tokio::spawn(poll_for_sender_proposal(
+            self.repo.clone(),
+            persister.session_id,
+        ));
+
+        Ok(uri)
     }
+}
+
+async fn poll_for_sender_proposal(
+    repo: Arc<PayjoinReceiverSessionHelperDatabase>,
+    session_id: i64,
+) {
+    if let Err(err) = try_poll_for_sender_proposal(repo, session_id).await {
+        error!(
+            session_id = %session_id,
+            "Payjoin receiver polling stopped: {err:#}"
+        );
+    }
+}
+
+async fn try_poll_for_sender_proposal(
+    repo: Arc<PayjoinReceiverSessionHelperDatabase>,
+    session_id: i64,
+) -> Result<()> {
+    let persister = ReceiverPersister { repo, session_id };
+    let (session, _) =
+        replay_event_log(&persister).context("failed to replay payjoin receiver event log")?;
+
+    match session {
+        ReceiveSession::Initialized(receiver) => {
+            poll_initialized_receiver(receiver, &persister).await
+        }
+        ReceiveSession::UncheckedOriginalPayload(_) => {
+            info!(
+                session_id = %session_id,
+                "Payjoin receiver already has a sender proposal"
+            );
+            Ok(())
+        }
+        other => Err(anyhow!(
+            "payjoin receiver session is not in a pollable state: {:?}",
+            other
+        )),
+    }
+}
+
+async fn poll_initialized_receiver(
+    mut receiver: Receiver<Initialized>,
+    persister: &ReceiverPersister,
+) -> Result<()> {
+    loop {
+        let (req, context) = receiver
+            .create_poll_request(OHTTP_RELAY)
+            .context("failed to create payjoin receiver poll request")?;
+        let response = post_request(req).await?;
+        let body = response
+            .bytes()
+            .await
+            .context("failed to read poll response")?;
+
+        match receiver
+            .process_response(body.as_ref(), context)
+            .save(persister)
+            .context("failed to process payjoin receiver poll response")?
+        {
+            OptionalTransitionOutcome::Progress(_) => {
+                info!(
+                    session_id = %persister.session_id,
+                    "Payjoin receiver persisted sender proposal"
+                );
+                return Ok(());
+            }
+            OptionalTransitionOutcome::Stasis(current_receiver) => {
+                receiver = current_receiver;
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        }
+    }
+}
+
+async fn post_request(req: payjoin::Request) -> Result<reqwest::Response> {
+    Ok(reqwest::Client::new()
+        .post(req.url)
+        .body(req.body)
+        .header("Content-Type", req.content_type)
+        .send()
+        .await
+        .context("failed to send payjoin HTTP request")?
+        .error_for_status()
+        .context("payjoin HTTP request returned an error status")?)
 }
 
 #[derive(Clone, Debug)]

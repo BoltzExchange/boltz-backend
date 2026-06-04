@@ -4,7 +4,7 @@ use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::helpers::swap_metadata::SwapMetadataHelper;
 use crate::service::country_codes::CountryCodes;
-use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
+use crate::service::lightning_info::{GraphLightningInfo, LightningInfo};
 use crate::service::pair_stats::PairStatsFetcher;
 use crate::service::prometheus::{CachedPrometheusClient, RawPrometheusClient};
 use crate::service::rescue::SwapRescue;
@@ -56,7 +56,7 @@ impl Service {
                 metadata_helper,
             ),
             country_codes: CountryCodes::new(markings_config),
-            lightning_info: Box::new(ClnLightningInfo::new(cache.clone(), currencies)),
+            lightning_info: Box::new(GraphLightningInfo::new(cache.clone(), currencies)),
             pair_stats: if let Some(config) = historical_config {
                 Some(PairStatsFetcher::new(
                     Arc::new(CachedPrometheusClient::new(
@@ -185,7 +185,7 @@ pub mod test {
                         crate::db::helpers::swap_metadata::test::MockSwapMetadataHelper::new(),
                     ),
                 ),
-                lightning_info: Box::new(ClnLightningInfo::new(
+                lightning_info: Box::new(GraphLightningInfo::new(
                     Cache::Memory(MemCache::new()),
                     Arc::new(HashMap::new()),
                 )),

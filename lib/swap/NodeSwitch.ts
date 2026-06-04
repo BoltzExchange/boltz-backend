@@ -17,6 +17,8 @@ import {
 import Errors from './Errors';
 import InvoicePaymentHook, {
   InvoicePaymentHookAction,
+  type InvoicePaymentHookContinue,
+  type InvoicePaymentHookHold,
 } from './hooks/InvoicePaymentHook';
 
 type NodeAmountThreshold = {
@@ -53,24 +55,11 @@ type ReverseSwapNodeResolution =
       reason: string;
     };
 
-enum InvoicePaymentDecision {
-  Continue = 'continue',
-  Hold = 'hold',
-}
-
-type InvoicePaymentHookHold = {
-  action: InvoicePaymentDecision.Hold;
-};
-
-type InvoicePaymentHookContinue = {
-  action: InvoicePaymentDecision.Continue;
-  client?: LightningClient;
-  timePreference?: number;
-};
-
-type InvoicePaymentHookResult =
+type InvoicePaymentPreference =
   | InvoicePaymentHookHold
-  | InvoicePaymentHookContinue;
+  | (Omit<InvoicePaymentHookContinue, 'nodeId'> & {
+      client?: LightningClient;
+    });
 
 class NodeSwitch {
   public readonly clnAmountThreshold: {
@@ -339,19 +328,19 @@ class NodeSwitch {
     currency: Currency,
     swap: { id: string; invoice: string },
     decoded: DecodedInvoice,
-  ): Promise<InvoicePaymentHookResult | undefined> => {
+  ): Promise<InvoicePaymentPreference | undefined> => {
     const res = await this.paymentHook.hook(swap.id, swap.invoice, decoded);
     if (!res) return undefined;
 
     if (res.action === InvoicePaymentHookAction.Hold) {
-      return { action: InvoicePaymentDecision.Hold };
+      return { action: InvoicePaymentHookAction.Hold };
     }
 
     if (res.nodeId !== undefined) {
       const requestedClient = getLightningClientById(currency, res.nodeId);
       if (requestedClient && requestedClient.isConnected()) {
         return {
-          action: InvoicePaymentDecision.Continue,
+          action: InvoicePaymentHookAction.Continue,
           client: requestedClient,
           timePreference: res.timePreference,
         };
@@ -364,7 +353,7 @@ class NodeSwitch {
 
     if (res.timePreference !== undefined) {
       return {
-        action: InvoicePaymentDecision.Continue,
+        action: InvoicePaymentHookAction.Continue,
         timePreference: res.timePreference,
       };
     }
@@ -552,10 +541,4 @@ class NodeSwitch {
 }
 
 export default NodeSwitch;
-export type {
-  InvoicePaymentHookContinue,
-  InvoicePaymentHookHold,
-  InvoicePaymentHookResult,
-  NodeSwitchConfig,
-};
-export { InvoicePaymentDecision };
+export type { InvoicePaymentPreference, NodeSwitchConfig };

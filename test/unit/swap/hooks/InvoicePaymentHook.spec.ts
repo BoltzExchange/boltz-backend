@@ -28,12 +28,9 @@ describe('InvoicePaymentHook', () => {
       emit: jest.fn(),
     };
 
-    hook = new InvoicePaymentHook(
-      Logger.disabledLogger,
-      {
-        sendMessage: jest.fn(),
-      } as unknown as NotificationClient,
-    );
+    hook = new InvoicePaymentHook(Logger.disabledLogger, {
+      sendMessage: jest.fn(),
+    } as unknown as NotificationClient);
   });
 
   describe('hook', () => {

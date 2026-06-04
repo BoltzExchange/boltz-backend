@@ -4,23 +4,31 @@ import * as boltzrpc from '../../proto/boltzrpc';
 import type DecodedInvoice from '../../sidecar/DecodedInvoice';
 import Hook from './Hook';
 
-const enum InvoicePaymentHookAction {
+enum InvoicePaymentHookAction {
   Continue,
   Hold,
 }
 
-type HookResult = {
-  action: InvoicePaymentHookAction;
+type InvoicePaymentHookHold = {
+  action: InvoicePaymentHookAction.Hold;
+};
+
+type InvoicePaymentHookContinue = {
+  action: InvoicePaymentHookAction.Continue;
   nodeId?: string;
   timePreference?: number;
 };
 
-const defaultHookResult = {
+type InvoicePaymentHookResult =
+  | InvoicePaymentHookHold
+  | InvoicePaymentHookContinue;
+
+const defaultHookResult: InvoicePaymentHookResult = {
   action: InvoicePaymentHookAction.Continue,
 };
 
 class InvoicePaymentHook extends Hook<
-  HookResult | undefined,
+  InvoicePaymentHookResult | undefined,
   boltzrpc.InvoicePaymentHookRequest,
   boltzrpc.InvoicePaymentHookResponse
 > {
@@ -39,7 +47,7 @@ class InvoicePaymentHook extends Hook<
     swapId: string,
     invoice: string,
     decoded: DecodedInvoice,
-  ): Promise<HookResult | undefined> => {
+  ): Promise<InvoicePaymentHookResult | undefined> => {
     if (!this.isConnected()) {
       return undefined;
     }
@@ -56,7 +64,7 @@ class InvoicePaymentHook extends Hook<
     return res;
   };
 
-  private logHookResult = (swapId: string, res?: HookResult) => {
+  private logHookResult = (swapId: string, res?: InvoicePaymentHookResult) => {
     if (res === undefined) {
       this.logger.debug(
         `Invoice payment hook for ${swapId} returned no response`,
@@ -86,7 +94,7 @@ class InvoicePaymentHook extends Hook<
 
   protected parseGrpcAction = (
     res: boltzrpc.InvoicePaymentHookResponse,
-  ): HookResult | undefined => {
+  ): InvoicePaymentHookResult | undefined => {
     const action = this.parseHookAction(res);
     if (action === undefined) {
       return undefined;
@@ -122,7 +130,7 @@ class InvoicePaymentHook extends Hook<
   private parseHookAction = (
     res: boltzrpc.InvoicePaymentHookResponse,
   ): InvoicePaymentHookAction | undefined => {
-    switch (res.action ?? boltzrpc.InvoicePaymentHookAction.CONTINUE) {
+    switch (res.action ?? defaultHookResult.action) {
       case boltzrpc.InvoicePaymentHookAction.CONTINUE:
         return InvoicePaymentHookAction.Continue;
 
@@ -139,4 +147,9 @@ class InvoicePaymentHook extends Hook<
 }
 
 export default InvoicePaymentHook;
+export type {
+  InvoicePaymentHookContinue,
+  InvoicePaymentHookHold,
+  InvoicePaymentHookResult,
+};
 export { InvoicePaymentHookAction };

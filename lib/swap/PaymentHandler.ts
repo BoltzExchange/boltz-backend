@@ -36,12 +36,12 @@ import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import LightningNursery from './LightningNursery';
 import type NodeSwitch from './NodeSwitch';
+import type SwapNursery from './SwapNursery';
 import type {
   InvoicePaymentHookContinue,
   InvoicePaymentHookHold,
-} from './NodeSwitch';
-import { InvoicePaymentDecision } from './NodeSwitch';
-import type SwapNursery from './SwapNursery';
+} from './hooks/InvoicePaymentHook';
+import { InvoicePaymentHookAction } from './hooks/InvoicePaymentHook';
 
 type SwapNurseryEvents = {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -97,9 +97,11 @@ type SwapNurseryEvents = {
   'invoice.settled': ReverseSwap;
 };
 
-type PreferredNode = InvoicePaymentHookHold | (InvoicePaymentHookContinue & {
-  client: LightningClient;
-});
+type PreferredNode =
+  | InvoicePaymentHookHold
+  | (Omit<InvoicePaymentHookContinue, 'nodeId'> & {
+      client: LightningClient;
+    });
 
 class PaymentHandler {
   private static readonly resetMissionControlInterval = 10 * 60 * 1000;
@@ -156,7 +158,7 @@ class PaymentHandler {
       swap,
       decoded,
     );
-    if (preferredNode.action === InvoicePaymentDecision.Hold) {
+    if (preferredNode.action === InvoicePaymentHookAction.Hold) {
       this.logger.debug(`Invoice payment of Swap ${swap.id} held by hook`);
       return undefined;
     }
@@ -401,13 +403,13 @@ class PaymentHandler {
       decoded,
     );
 
-    if (hookNode?.action === InvoicePaymentDecision.Hold) {
-      return { action: InvoicePaymentDecision.Hold };
+    if (hookNode?.action === InvoicePaymentHookAction.Hold) {
+      return { action: InvoicePaymentHookAction.Hold };
     }
 
     if (hookNode?.client) {
       return {
-        action: InvoicePaymentDecision.Continue,
+        action: InvoicePaymentHookAction.Continue,
         client: hookNode.client,
         timePreference: hookNode.timePreference,
       };
@@ -420,7 +422,7 @@ class PaymentHandler {
     );
 
     return {
-      action: InvoicePaymentDecision.Continue,
+      action: InvoicePaymentHookAction.Continue,
       client: fallbackClient,
       timePreference: hookNode?.timePreference,
     };

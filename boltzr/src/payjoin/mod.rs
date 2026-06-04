@@ -1,4 +1,5 @@
 use crate::chain::Client;
+use crate::chain::types::UnspentOutput;
 use crate::currencies::Currencies;
 use crate::db::Pool;
 use crate::db::helpers::payjoin::{
@@ -9,11 +10,13 @@ use crate::wallet::Network;
 use anyhow::{Context, Result, anyhow};
 use payjoin::ImplementationError;
 use payjoin::bitcoin::consensus::encode::serialize_hex;
-use payjoin::bitcoin::{Address, Amount};
+use payjoin::bitcoin::psbt::Input;
+use payjoin::bitcoin::{Address, Amount, OutPoint, TxIn, TxOut, Txid};
 use payjoin::persist::{OptionalTransitionOutcome, SessionPersister};
 use payjoin::receive::v2::{
     Initialized, MaybeInputsOwned, MaybeInputsSeen, OutputsUnknown, ReceiveSession, Receiver,
-    ReceiverBuilder, SessionEvent, UncheckedOriginalPayload, WantsOutputs, replay_event_log,
+    ReceiverBuilder, SessionEvent, UncheckedOriginalPayload, WantsFeeRange, WantsInputs,
+    WantsOutputs, replay_event_log,
 };
 use std::error::Error;
 use std::fmt;
@@ -163,9 +166,16 @@ async fn try_poll_for_sender_proposal(
                 .await
         }
         ReceiveSession::OutputsUnknown(receiver) => {
-            identify_receiver_outputs(receiver, &persister, receiver_address, network).await
+            identify_receiver_outputs(receiver, &persister, btc_chain, receiver_address, network)
+                .await
         }
-        ReceiveSession::WantsOutputs(_) => stop_at_wants_outputs(&persister),
+        ReceiveSession::WantsOutputs(receiver) => {
+            commit_outputs(receiver, &persister, btc_chain).await
+        }
+        ReceiveSession::WantsInputs(receiver) => {
+            contribute_inputs(receiver, &persister, btc_chain).await
+        }
+        ReceiveSession::WantsFeeRange(_) => stop_at_wants_fee_range(&persister),
         other => Err(anyhow!(
             "payjoin receiver session is not in a pollable state: {:?}",
             other
@@ -273,7 +283,7 @@ async fn check_inputs_not_owned(
 async fn check_no_inputs_seen_before(
     receiver: Receiver<MaybeInputsSeen>,
     persister: &ReceiverPersister,
-    _btc_chain: Arc<dyn Client + Send + Sync>,
+    btc_chain: Arc<dyn Client + Send + Sync>,
     receiver_address: Address,
     network: payjoin::bitcoin::Network,
 ) -> Result<()> {
@@ -285,12 +295,13 @@ async fn check_no_inputs_seen_before(
         .save(persister)
         .context("failed to persist payjoin seen-input check")?;
 
-    identify_receiver_outputs(receiver, persister, receiver_address, network).await
+    identify_receiver_outputs(receiver, persister, btc_chain, receiver_address, network).await
 }
 
 async fn identify_receiver_outputs(
     receiver: Receiver<OutputsUnknown>,
     persister: &ReceiverPersister,
+    btc_chain: Arc<dyn Client + Send + Sync>,
     receiver_address: Address,
     network: payjoin::bitcoin::Network,
 ) -> Result<()> {
@@ -302,15 +313,105 @@ async fn identify_receiver_outputs(
         .save(persister)
         .context("failed to persist payjoin receiver output identification")?;
 
-    stop_at_wants_outputs(persister)?;
-    let _receiver: Receiver<WantsOutputs> = receiver;
+    commit_outputs(receiver, persister, btc_chain).await
+}
+
+async fn commit_outputs(
+    receiver: Receiver<WantsOutputs>,
+    persister: &ReceiverPersister,
+    btc_chain: Arc<dyn Client + Send + Sync>,
+) -> Result<()> {
+    let receiver = receiver
+        .commit_outputs()
+        .save(persister)
+        .context("failed to persist payjoin output commit")?;
+
+    contribute_inputs(receiver, persister, btc_chain).await
+}
+
+async fn contribute_inputs(
+    receiver: Receiver<WantsInputs>,
+    persister: &ReceiverPersister,
+    btc_chain: Arc<dyn Client + Send + Sync>,
+) -> Result<()> {
+    let selected = select_contribution_input(receiver.clone(), btc_chain)
+        .await
+        .context("failed to select payjoin contribution input")?;
+    let receiver = receiver
+        .contribute_inputs(vec![selected])
+        .context("failed to contribute payjoin input")?
+        .commit_inputs()
+        .save(persister)
+        .context("failed to persist payjoin input commit")?;
+
+    stop_at_wants_fee_range(persister)?;
+    let _receiver: Receiver<WantsFeeRange> = receiver;
     Ok(())
 }
 
-fn stop_at_wants_outputs(persister: &ReceiverPersister) -> Result<()> {
+async fn select_contribution_input(
+    receiver: Receiver<WantsInputs>,
+    btc_chain: Arc<dyn Client + Send + Sync>,
+) -> Result<payjoin::receive::InputPair> {
+    let mut candidates = btc_chain
+        .list_unspent(None)
+        .await
+        .context("failed to list BTC wallet UTXOs")?
+        .into_iter()
+        .map(input_pair_from_unspent)
+        .collect::<Result<Vec<_>>>()?;
+    candidates.sort_by_key(|(amount, _)| *amount);
+
+    for (_, input) in candidates {
+        if receiver
+            .clone()
+            .contribute_inputs(vec![input.clone()])
+            .is_ok()
+        {
+            return Ok(input);
+        }
+    }
+
+    Err(anyhow!("no BTC wallet UTXO could be contributed"))
+}
+
+fn input_pair_from_unspent(utxo: UnspentOutput) -> Result<(u64, payjoin::receive::InputPair)> {
+    let amount = Amount::from_btc(utxo.amount).context("invalid BTC UTXO amount")?;
+    let address = Address::from_str(&utxo.address)
+        .context("invalid BTC UTXO address")?
+        .assume_checked();
+    let txout = TxOut {
+        value: amount,
+        script_pubkey: address.script_pubkey(),
+    };
+    let outpoint = OutPoint {
+        txid: Txid::from_str(&utxo.txid).context("invalid BTC UTXO txid")?,
+        vout: utxo.vout,
+    };
+    let txin = TxIn {
+        previous_output: outpoint,
+        ..Default::default()
+    };
+    let psbtin = Input {
+        witness_utxo: Some(txout.clone()),
+        ..Default::default()
+    };
+    let input = if txout.script_pubkey.is_p2wpkh() {
+        payjoin::receive::InputPair::new_p2wpkh(txout, outpoint, None)
+    } else if txout.script_pubkey.is_p2tr() {
+        payjoin::receive::InputPair::new_p2tr_keyspend(txout, outpoint, None)
+    } else {
+        payjoin::receive::InputPair::new(txin, psbtin, None)
+    }
+    .context("invalid BTC UTXO input pair")?;
+
+    Ok((amount.to_sat(), input))
+}
+
+fn stop_at_wants_fee_range(persister: &ReceiverPersister) -> Result<()> {
     info!(
         session_id = %persister.session_id,
-        "Payjoin receiver reached WantsOutputs; stopping before input contribution"
+        "Payjoin receiver reached WantsFeeRange; stopping before fee-range application"
     );
     Ok(())
 }

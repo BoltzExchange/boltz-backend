@@ -1,6 +1,6 @@
-import AsyncLock from 'async-lock';
 import { Op } from 'sequelize';
 import type { ConfigType } from '../Config';
+import InstrumentedLock from '../InstrumentedLock';
 import type Logger from '../Logger';
 import {
   bigIntMax,
@@ -31,7 +31,7 @@ import type RateProvider from './RateProvider';
 class LockupTransactionTracker extends TypedEventEmitter<{
   'zeroConf.disabled': string;
 }> {
-  private readonly lock = new AsyncLock();
+  private readonly lock = new InstrumentedLock('lockupTransactionTracker');
 
   private readonly risk = new DefaultMap<string, bigint>(() => 0n);
   private readonly maxRisk = new DefaultMap<string, bigint>(() => 0n);
@@ -79,37 +79,37 @@ class LockupTransactionTracker extends TypedEventEmitter<{
 
   public init = async () => {
     for (const symbol of this.zeroConfAcceptedMap.keys()) {
-      const transactionSwapIds = (
-        await PendingLockupTransactionRepository.getForChain(symbol)
-      ).map((tx) => tx.swapId);
-      const swaps = await Promise.all([
-        SwapRepository.getSwaps({
-          id: {
-            [Op.in]: transactionSwapIds,
-          },
-        }),
-        ChainSwapRepository.getChainSwaps({
-          id: {
-            [Op.in]: transactionSwapIds,
-          },
-        }),
-      ]);
+      await this.lock.acquire(symbol, 'init', async () => {
+        const transactionSwapIds = (
+          await PendingLockupTransactionRepository.getForChain(symbol)
+        ).map((tx) => tx.swapId);
+        const swaps = await Promise.all([
+          SwapRepository.getSwaps({
+            id: {
+              [Op.in]: transactionSwapIds,
+            },
+          }),
+          ChainSwapRepository.getChainSwaps({
+            id: {
+              [Op.in]: transactionSwapIds,
+            },
+          }),
+        ]);
 
-      await this.lock.acquire(symbol, async () => {
         for (const swap of swaps.flat()) {
           this.risk.set(
             symbol,
             this.risk.get(symbol) + this.getReceivingAmount(swap),
           );
         }
-      });
 
-      const currentRisk = this.risk.get(symbol);
-      if (currentRisk > 0n) {
-        this.logger.verbose(
-          `${transactionSwapIds.length} ${symbol} transactions still in mempool with total risk of: ${String(currentRisk)}`,
-        );
-      }
+        const currentRisk = this.risk.get(symbol);
+        if (currentRisk > 0n) {
+          this.logger.verbose(
+            `${transactionSwapIds.length} ${symbol} transactions still in mempool with total risk of: ${String(currentRisk)}`,
+          );
+        }
+      });
     }
   };
 
@@ -143,16 +143,21 @@ class LockupTransactionTracker extends TypedEventEmitter<{
       throw ErrorsSwap.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message;
     }
 
-    const isAcceptable = await this.lock.acquire(chainCurrency, async () => {
-      const risk = this.risk.get(chainCurrency) + this.getReceivingAmount(swap);
-      const isAcceptable = risk <= this.maxRisk.get(chainCurrency);
+    const isAcceptable = await this.lock.acquire(
+      chainCurrency,
+      'isAcceptable',
+      async () => {
+        const risk =
+          this.risk.get(chainCurrency) + this.getReceivingAmount(swap);
+        const isAcceptable = risk <= this.maxRisk.get(chainCurrency);
 
-      if (isAcceptable) {
-        this.risk.set(chainCurrency, risk);
-      }
+        if (isAcceptable) {
+          this.risk.set(chainCurrency, risk);
+        }
 
-      return isAcceptable;
-    });
+        return isAcceptable;
+      },
+    );
 
     if (isAcceptable) {
       await PendingLockupTransactionRepository.create(
@@ -171,7 +176,7 @@ class LockupTransactionTracker extends TypedEventEmitter<{
         return;
       }
 
-      await this.lock.acquire(chainClient.symbol, () =>
+      await this.lock.acquire(chainClient.symbol, 'checkPendingLockups', () =>
         this.checkPendingLockupsForChain(chainClient),
       );
     });

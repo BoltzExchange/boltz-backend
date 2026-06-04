@@ -1,6 +1,6 @@
 import { sha256 } from '@noble/hashes/sha2.js';
-import AsyncLock from 'async-lock';
 import { Op } from 'sequelize';
+import InstrumentedLock from '../InstrumentedLock';
 import type Logger from '../Logger';
 import { formatError, getHexBuffer } from '../Utils';
 import { SwapUpdateEvent } from '../consts/Enums';
@@ -21,7 +21,7 @@ class LightningNursery extends TypedEventEmitter<{
 }> {
   public static readonly lightningClientCallTimeout = 15_000;
 
-  private lock = new AsyncLock();
+  private lock = new InstrumentedLock('lightningNursery');
 
   private static invoiceLock = 'invoice';
 
@@ -106,19 +106,23 @@ class LightningNursery extends TypedEventEmitter<{
 
   private listenInvoices = (lightningClient: LightningClient) => {
     lightningClient.on('htlc.accepted', async (invoice: string) => {
-      await this.lock.acquire(LightningNursery.invoiceLock, async () => {
-        try {
-          await lightningClient.raceCall(
-            this.handleAcceptedInvoice(lightningClient, invoice),
-            (reject) => reject('invoice acceptance handler timeout out'),
-            LightningNursery.lightningClientCallTimeout,
-          );
-        } catch (e) {
-          this.logger.warn(
-            `Could not handle accepted invoice of ${lightningClient.serviceName()}-${lightningClient.id}: ${formatError(e)}`,
-          );
-        }
-      });
+      await this.lock.acquire(
+        LightningNursery.invoiceLock,
+        'htlcAccepted',
+        async () => {
+          try {
+            await lightningClient.raceCall(
+              this.handleAcceptedInvoice(lightningClient, invoice),
+              (reject) => reject('invoice acceptance handler timeout out'),
+              LightningNursery.lightningClientCallTimeout,
+            );
+          } catch (e) {
+            this.logger.warn(
+              `Could not handle accepted invoice of ${lightningClient.serviceName()}-${lightningClient.id}: ${formatError(e)}`,
+            );
+          }
+        },
+      );
     });
   };
 

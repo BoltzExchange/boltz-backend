@@ -1,5 +1,5 @@
-import AsyncLock from 'async-lock';
 import { createHash } from 'crypto';
+import InstrumentedLock from '../../InstrumentedLock';
 import type Logger from '../../Logger';
 import { mapConcurrent, stringify } from '../../Utils';
 import TypedEventEmitter from '../../consts/TypedEventEmitter';
@@ -59,7 +59,7 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
   private static readonly flushConcurrency = 16;
   private static readonly pendingTimeoutMs = 60 * 60 * 1_000;
 
-  private readonly lock = new AsyncLock();
+  private readonly lock = new InstrumentedLock('consolidatedEventHandler');
   private readonly requiredConfirmations: number;
   private readonly handlers: ContractEventHandler[] = [];
 
@@ -120,6 +120,7 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
     this.destroyed = true;
     this.pendingEvents.clear();
     this.handlers.forEach((handler) => handler.destroy());
+    this.lock.destroy();
   };
 
   private subscribeBlocks = async () => {
@@ -173,6 +174,7 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
       case QueueAction.Queue:
         await this.lock.acquire(
           ConsolidatedEventHandler.flushLock,
+          'handleEvent',
           async () => {
             const key = pendingEventKey(result.pending);
             if (!this.pendingEvents.has(key)) {
@@ -221,26 +223,30 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
       return;
     }
 
-    await this.lock.acquire(ConsolidatedEventHandler.flushLock, async () => {
-      if (this.destroyed) {
-        return;
-      }
+    await this.lock.acquire(
+      ConsolidatedEventHandler.flushLock,
+      'flushPendingEvents',
+      async () => {
+        if (this.destroyed) {
+          return;
+        }
 
-      if (this.pendingEvents.size === 0) {
-        return;
-      }
+        if (this.pendingEvents.size === 0) {
+          return;
+        }
 
-      const processed = await mapConcurrent(
-        Array.from(this.pendingEvents.values()),
-        (queued) => this.processPendingEvent(queued, latestBlockHeight),
-        ConsolidatedEventHandler.flushConcurrency,
-      );
-      this.pendingEvents = new Map(
-        processed
-          .filter((p): p is PendingEvent => p !== undefined)
-          .map((p) => [pendingEventKey(p), p]),
-      );
-    });
+        const processed = await mapConcurrent(
+          Array.from(this.pendingEvents.values()),
+          (queued) => this.processPendingEvent(queued, latestBlockHeight),
+          ConsolidatedEventHandler.flushConcurrency,
+        );
+        this.pendingEvents = new Map(
+          processed
+            .filter((p): p is PendingEvent => p !== undefined)
+            .map((p) => [pendingEventKey(p), p]),
+        );
+      },
+    );
   };
 
   private processPendingEvent = async (

@@ -1,5 +1,5 @@
-import AsyncLock from 'async-lock';
 import type { SwapConfig } from '../../Config';
+import InstrumentedLock from '../../InstrumentedLock';
 import type Logger from '../../Logger';
 import {
   arrayToChunks,
@@ -71,7 +71,7 @@ class DeferredClaimer extends CoopSignerBase<{
   private static readonly batchClaimLock = 'batchClaim';
   private static readonly swapsToClaimLock = 'swapsToClaim';
 
-  private readonly lock = new AsyncLock();
+  private readonly lock = new InstrumentedLock('deferredClaimer');
   private readonly swapsToClaim = new Map<
     string,
     Map<string, SwapToClaimPreimage>
@@ -146,6 +146,8 @@ class DeferredClaimer extends CoopSignerBase<{
     for (const trigger of this.sweepTriggers) {
       trigger.close();
     }
+
+    this.lock.destroy();
   };
 
   public pendingSweeps = () => {
@@ -221,9 +223,13 @@ class DeferredClaimer extends CoopSignerBase<{
   public sweepSymbol = async (symbol: string) => {
     let claimedSwaps: string[] = [];
 
-    await this.lock.acquire(DeferredClaimer.batchClaimLock, async () => {
-      claimedSwaps = await this.batchClaim(symbol);
-    });
+    await this.lock.acquire(
+      DeferredClaimer.batchClaimLock,
+      'sweepSymbol',
+      async () => {
+        claimedSwaps = await this.batchClaim(symbol);
+      },
+    );
 
     return claimedSwaps;
   };
@@ -258,19 +264,23 @@ class DeferredClaimer extends CoopSignerBase<{
       );
     }
 
-    await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
-      if (swap.type === SwapType.Submarine) {
-        this.swapsToClaim.get(chainCurrency)!.set(swap.id, {
-          preimage,
-          swap: swap as Swap,
-        });
-      } else {
-        this.chainSwapsToClaim.get(chainCurrency)!.set(swap.id, {
-          preimage,
-          swap: swap as ChainSwapInfo,
-        });
-      }
-    });
+    await this.lock.acquire(
+      DeferredClaimer.swapsToClaimLock,
+      'deferClaim',
+      async () => {
+        if (swap.type === SwapType.Submarine) {
+          this.swapsToClaim.get(chainCurrency)!.set(swap.id, {
+            preimage,
+            swap: swap as Swap,
+          });
+        } else {
+          this.chainSwapsToClaim.get(chainCurrency)!.set(swap.id, {
+            preimage,
+            swap: swap as ChainSwapInfo,
+          });
+        }
+      },
+    );
 
     if (
       (
@@ -327,73 +337,88 @@ class DeferredClaimer extends CoopSignerBase<{
     theirPubNonce: Buffer,
     theirPartialSignature: Buffer,
   ) => {
-    await this.lock.acquire(DeferredClaimer.batchClaimLock, async () => {
-      if (
-        this.signerControlRegistry.isDisabled(
-          Signer.SIGNER_DEFERRED_CLAIM_COOPERATIVE,
-        )
-      ) {
-        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
-          cooperativeSignaturesDisabledMessage,
-        );
-      }
-
-      const { toClaim, chainCurrency } = await this.getToClaimDetails(swap);
-      if (toClaim === undefined || toClaim.cooperative === undefined) {
-        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST();
-      }
-
-      await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
-        const { fee } = await this.broadcastCooperativeTransaction(
-          swap,
-          chainCurrency,
-          toClaim.cooperative!.musig,
-          toClaim.cooperative!.transaction,
-          theirPubNonce,
-          theirPartialSignature,
-        );
-
-        if (swap.type === SwapType.Submarine) {
-          this.swapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
-
-          this.emit('claim', {
-            swap: await SwapRepository.setMinerFee(toClaim.swap as Swap, fee),
-          });
-        } else {
-          this.chainSwapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
-
-          this.emit('claim', {
-            swap: await ChainSwapRepository.setClaimMinerFee(
-              toClaim.swap as ChainSwapInfo,
-              toClaim.preimage,
-              fee,
-            ),
-          });
+    await this.lock.acquire(
+      DeferredClaimer.batchClaimLock,
+      'broadcastCooperative',
+      async () => {
+        if (
+          this.signerControlRegistry.isDisabled(
+            Signer.SIGNER_DEFERRED_CLAIM_COOPERATIVE,
+          )
+        ) {
+          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+            cooperativeSignaturesDisabledMessage,
+          );
         }
-      });
-    });
+
+        const { toClaim, chainCurrency } = await this.getToClaimDetails(swap);
+        if (toClaim === undefined || toClaim.cooperative === undefined) {
+          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST();
+        }
+
+        await this.lock.acquire(
+          DeferredClaimer.swapsToClaimLock,
+          'broadcastCooperative',
+          async () => {
+            const { fee } = await this.broadcastCooperativeTransaction(
+              swap,
+              chainCurrency,
+              toClaim.cooperative!.musig,
+              toClaim.cooperative!.transaction,
+              theirPubNonce,
+              theirPartialSignature,
+            );
+
+            if (swap.type === SwapType.Submarine) {
+              this.swapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
+
+              this.emit('claim', {
+                swap: await SwapRepository.setMinerFee(
+                  toClaim.swap as Swap,
+                  fee,
+                ),
+              });
+            } else {
+              this.chainSwapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
+
+              this.emit('claim', {
+                swap: await ChainSwapRepository.setClaimMinerFee(
+                  toClaim.swap as ChainSwapInfo,
+                  toClaim.preimage,
+                  fee,
+                ),
+              });
+            }
+          },
+        );
+      },
+    );
   };
 
   private batchClaim = async (symbol: string): Promise<string[]> => {
     let swapsToClaim: (SwapToClaimPreimage | ChainSwapToClaimPreimage)[] = [];
 
-    await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
-      const swaps = this.swapsToClaim.get(symbol);
-      const chainSwaps = this.chainSwapsToClaim.get(symbol);
-      if (swaps === undefined && chainSwaps === undefined) {
-        return;
-      }
+    await this.lock.acquire(
+      DeferredClaimer.swapsToClaimLock,
+      'batchClaim',
+      async () => {
+        const swaps = this.swapsToClaim.get(symbol);
+        const chainSwaps = this.chainSwapsToClaim.get(symbol);
+        if (swaps === undefined && chainSwaps === undefined) {
+          return;
+        }
 
-      if (swaps !== undefined) {
-        swapsToClaim = swapsToClaim.concat(Array.from(swaps.values()));
-        swaps.clear();
-      }
+        if (swaps !== undefined) {
+          swapsToClaim = swapsToClaim.concat(Array.from(swaps.values()));
+          swaps.clear();
+        }
 
-      if (chainSwaps !== undefined) {
-        swapsToClaim = swapsToClaim.concat(Array.from(chainSwaps.values()));
-        chainSwaps.clear();
-      }
-    });
+        if (chainSwaps !== undefined) {
+          swapsToClaim = swapsToClaim.concat(Array.from(chainSwaps.values()));
+          chainSwaps.clear();
+        }
+      },
+    );
 
     if (swapsToClaim.length === 0) {
       this.logger.silly(
@@ -425,21 +450,28 @@ class DeferredClaimer extends CoopSignerBase<{
           error: formatError(e),
         });
 
-        await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
-          const submarineMap = this.swapsToClaim.get(symbol)!;
-          const chainMap = this.chainSwapsToClaim.get(symbol)!;
+        await this.lock.acquire(
+          DeferredClaimer.swapsToClaimLock,
+          'batchClaim',
+          async () => {
+            const submarineMap = this.swapsToClaim.get(symbol)!;
+            const chainMap = this.chainSwapsToClaim.get(symbol)!;
 
-          for (const toClaim of toClaimChunk) {
-            if (toClaim.swap.type === SwapType.Submarine) {
-              submarineMap.set(toClaim.swap.id, toClaim as SwapToClaimPreimage);
-            } else {
-              chainMap.set(
-                toClaim.swap.id,
-                toClaim as ChainSwapToClaimPreimage,
-              );
+            for (const toClaim of toClaimChunk) {
+              if (toClaim.swap.type === SwapType.Submarine) {
+                submarineMap.set(
+                  toClaim.swap.id,
+                  toClaim as SwapToClaimPreimage,
+                );
+              } else {
+                chainMap.set(
+                  toClaim.swap.id,
+                  toClaim as ChainSwapToClaimPreimage,
+                );
+              }
             }
-          }
-        });
+          },
+        );
       }
     }
 
@@ -668,24 +700,28 @@ class DeferredClaimer extends CoopSignerBase<{
       ChainSwapRepository.getChainSwapsClaimable(),
     ]);
 
-    await this.lock.acquire(DeferredClaimer.swapsToClaimLock, () => {
-      for (const swap of swapsToClaim) {
-        const { base, quote } = splitPairId(swap.pair);
-        this.swapsToClaim
-          .get(getChainCurrency(base, quote, swap.orderSide, false))!
-          .set(swap.id, {
+    await this.lock.acquire(
+      DeferredClaimer.swapsToClaimLock,
+      'batchClaimLeftovers',
+      () => {
+        for (const swap of swapsToClaim) {
+          const { base, quote } = splitPairId(swap.pair);
+          this.swapsToClaim
+            .get(getChainCurrency(base, quote, swap.orderSide, false))!
+            .set(swap.id, {
+              swap,
+              preimage: getHexBuffer(swap.preimage!),
+            });
+        }
+
+        for (const swap of chainSwapsToClaim) {
+          this.chainSwapsToClaim.get(swap.receivingData.symbol)!.set(swap.id, {
             swap,
             preimage: getHexBuffer(swap.preimage!),
           });
-      }
-
-      for (const swap of chainSwapsToClaim) {
-        this.chainSwapsToClaim.get(swap.receivingData.symbol)!.set(swap.id, {
-          swap,
-          preimage: getHexBuffer(swap.preimage!),
-        });
-      }
-    });
+        }
+      },
+    );
 
     await this.sweep();
   };
@@ -718,17 +754,21 @@ class DeferredClaimer extends CoopSignerBase<{
     }
 
     let toClaim: AnySwapWithPreimage<T> | undefined;
-    await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
-      if (swap.type === SwapType.Submarine) {
-        toClaim = this.swapsToClaim.get(chainCurrency.symbol)?.get(swap.id) as
-          | AnySwapWithPreimage<T>
-          | undefined;
-      } else {
-        toClaim = this.chainSwapsToClaim
-          .get(chainCurrency.symbol)
-          ?.get(swap.id) as AnySwapWithPreimage<T> | undefined;
-      }
-    });
+    await this.lock.acquire(
+      DeferredClaimer.swapsToClaimLock,
+      'getToClaimDetails',
+      async () => {
+        if (swap.type === SwapType.Submarine) {
+          toClaim = this.swapsToClaim
+            .get(chainCurrency.symbol)
+            ?.get(swap.id) as AnySwapWithPreimage<T> | undefined;
+        } else {
+          toClaim = this.chainSwapsToClaim
+            .get(chainCurrency.symbol)
+            ?.get(swap.id) as AnySwapWithPreimage<T> | undefined;
+        }
+      },
+    );
 
     return {
       toClaim,

@@ -1,28 +1,53 @@
 import type Logger from '../../Logger';
 import type NotificationClient from '../../notifications/NotificationClient';
-import type * as boltzrpc from '../../proto/boltzrpc';
+import * as boltzrpc from '../../proto/boltzrpc';
 import type DecodedInvoice from '../../sidecar/DecodedInvoice';
 import Hook from './Hook';
 
-type HookResult = {
+enum InvoicePaymentHookAction {
+  Continue,
+  Hold,
+}
+
+type InvoicePaymentHookHold = {
+  action: InvoicePaymentHookAction.Hold;
+};
+
+type InvoicePaymentHookContinue = {
+  action: InvoicePaymentHookAction.Continue;
   nodeId?: string;
   timePreference?: number;
 };
 
+type InvoicePaymentHookResult =
+  | InvoicePaymentHookHold
+  | InvoicePaymentHookContinue;
+
+const defaultHookResult: InvoicePaymentHookResult = {
+  action: InvoicePaymentHookAction.Continue,
+};
+
 class InvoicePaymentHook extends Hook<
-  HookResult | undefined,
+  InvoicePaymentHookResult | undefined,
   boltzrpc.InvoicePaymentHookRequest,
   boltzrpc.InvoicePaymentHookResponse
 > {
   constructor(logger: Logger, notificationClient?: NotificationClient) {
-    super(logger, 'invoice payment', {}, {}, 60_000, notificationClient);
+    super(
+      logger,
+      'invoice payment',
+      defaultHookResult,
+      defaultHookResult,
+      60_000,
+      notificationClient,
+    );
   }
 
   public hook = async (
     swapId: string,
     invoice: string,
     decoded: DecodedInvoice,
-  ): Promise<HookResult | undefined> => {
+  ): Promise<InvoicePaymentHookResult | undefined> => {
     if (!this.isConnected()) {
       return undefined;
     }
@@ -39,11 +64,16 @@ class InvoicePaymentHook extends Hook<
     return res;
   };
 
-  private logHookResult = (swapId: string, res?: HookResult) => {
+  private logHookResult = (swapId: string, res?: InvoicePaymentHookResult) => {
     if (res === undefined) {
       this.logger.debug(
         `Invoice payment hook for ${swapId} returned no response`,
       );
+      return;
+    }
+
+    if (res.action === InvoicePaymentHookAction.Hold) {
+      this.logger.debug(`Invoice payment hook for ${swapId} returned hold`);
       return;
     }
 
@@ -64,7 +94,18 @@ class InvoicePaymentHook extends Hook<
 
   protected parseGrpcAction = (
     res: boltzrpc.InvoicePaymentHookResponse,
-  ): HookResult | undefined => {
+  ): InvoicePaymentHookResult | undefined => {
+    const action = this.parseHookAction(res);
+    if (action === undefined) {
+      return undefined;
+    }
+
+    if (action === InvoicePaymentHookAction.Hold) {
+      return {
+        action,
+      };
+    }
+
     const nodeId = res.nodePubkey || undefined;
 
     if (res.timePreference !== undefined) {
@@ -77,13 +118,38 @@ class InvoicePaymentHook extends Hook<
       }
 
       return {
+        action,
         nodeId,
         timePreference,
       };
     }
 
-    return { nodeId };
+    return { action, nodeId };
+  };
+
+  private parseHookAction = (
+    res: boltzrpc.InvoicePaymentHookResponse,
+  ): InvoicePaymentHookAction | undefined => {
+    switch (res.action ?? defaultHookResult.action) {
+      case boltzrpc.InvoicePaymentHookAction.CONTINUE:
+        return InvoicePaymentHookAction.Continue;
+
+      case boltzrpc.InvoicePaymentHookAction.HOLD:
+        return InvoicePaymentHookAction.Hold;
+
+      default:
+        this.logger.warn(
+          `Invoice payment hook for ${res.id} returned invalid action ${res.action}`,
+        );
+        return undefined;
+    }
   };
 }
 
 export default InvoicePaymentHook;
+export type {
+  InvoicePaymentHookContinue,
+  InvoicePaymentHookHold,
+  InvoicePaymentHookResult,
+};
+export { InvoicePaymentHookAction };

@@ -218,15 +218,6 @@ class UtxoNursery extends TypedEventEmitter<{
       );
 
       switch (action) {
-        case Action.Hold:
-          this.logHoldingTransaction(
-            wallet.symbol,
-            swap,
-            transaction,
-            swapOutput,
-          );
-          return;
-
         case Action.Reject:
           this.emit('chainSwap.lockup.failed', {
             swap,
@@ -746,15 +737,6 @@ class UtxoNursery extends TypedEventEmitter<{
       );
 
       switch (action) {
-        case Action.Hold:
-          this.logHoldingTransaction(
-            wallet.symbol,
-            updatedSwap,
-            transaction,
-            swapOutput,
-          );
-          return;
-
         case Action.Reject:
           this.emit('swap.lockup.failed', {
             swap: updatedSwap,
@@ -866,18 +848,6 @@ class UtxoNursery extends TypedEventEmitter<{
   ) =>
     this.logger.verbose(
       `Found ${confirmed ? '' : 'un'}confirmed ${symbol} lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
-        swap.id
-      }: ${TxView.of(transaction).id}:${swapOutput.vout}`,
-    );
-
-  private logHoldingTransaction = (
-    symbol: string,
-    swap: Swap | ChainSwapInfo,
-    transaction: Transaction | LiquidTransaction,
-    swapOutput: NonNullable<ReturnType<typeof detectSwap>>,
-  ) =>
-    this.logger.warn(
-      `Holding ${symbol} lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
       }: ${TxView.of(transaction).id}:${swapOutput.vout}`,
     );

@@ -6,9 +6,11 @@ use diesel::{AsChangeset, Associations, Insertable, Queryable, Selectable};
 #[allow(non_snake_case)]
 pub struct PayjoinReceiverSession {
     pub id: i64,
+    pub swapId: Option<String>,
     pub address: String,
     pub amountSats: Option<i64>,
     pub label: Option<String>,
+    pub payjoinTxId: Option<String>,
     pub createdAt: DateTime<Utc>,
     pub completedAt: Option<DateTime<Utc>>,
 }
@@ -17,6 +19,7 @@ pub struct PayjoinReceiverSession {
 #[diesel(table_name = crate::db::schema::payjoinReceiverSessions)]
 #[allow(non_snake_case)]
 pub struct NewPayjoinReceiverSession {
+    pub swapId: Option<String>,
     pub address: String,
     pub amountSats: Option<i64>,
     pub label: Option<String>,

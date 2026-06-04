@@ -6,7 +6,10 @@ use crate::db::models::{
 };
 use crate::db::schema::{payjoinReceiverSessionEvents, payjoinReceiverSessions};
 use chrono::Utc;
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper, insert_into, update};
+use diesel::{
+    ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper, insert_into,
+    update,
+};
 use tracing::instrument;
 
 pub trait PayjoinReceiverSessionHelper {
@@ -14,6 +17,9 @@ pub trait PayjoinReceiverSessionHelper {
         &self,
         session: &NewPayjoinReceiverSession,
     ) -> QueryResponse<PayjoinReceiverSession>;
+    fn get_by_swap_id(&self, swap_id: &str) -> QueryResponse<Option<PayjoinReceiverSession>>;
+    fn get_active_by_swap_id(&self, swap_id: &str)
+    -> QueryResponse<Option<PayjoinReceiverSession>>;
     fn insert_receiver_session_event(
         &self,
         event: &NewPayjoinReceiverSessionEvent,
@@ -23,6 +29,8 @@ pub trait PayjoinReceiverSessionHelper {
         session_id: i64,
     ) -> QueryResponse<Vec<PayjoinReceiverSessionEvent>>;
     fn close_receiver_session(&self, session_id: i64) -> QueryResponse<usize>;
+    fn mark_completed(&self, session_id: i64) -> QueryResponse<usize>;
+    fn set_payjoin_transaction_id(&self, session_id: i64, tx_id: &str) -> QueryResponse<usize>;
 }
 
 #[derive(Clone, Debug)]
@@ -51,6 +59,36 @@ impl PayjoinReceiverSessionHelper for PayjoinReceiverSessionHelperDatabase {
                 .returning(PayjoinReceiverSession::as_returning())
                 .get_result(&mut self.pool.get()?)?,
         )
+    }
+
+    #[instrument(
+        name = "db::PayjoinReceiverSessionHelperDatabase::get_by_swap_id",
+        skip_all,
+        fields(swap_id = %swap_id)
+    )]
+    fn get_by_swap_id(&self, swap_id: &str) -> QueryResponse<Option<PayjoinReceiverSession>> {
+        Ok(payjoinReceiverSessions::dsl::payjoinReceiverSessions
+            .select(PayjoinReceiverSession::as_select())
+            .filter(payjoinReceiverSessions::swapId.eq(swap_id))
+            .first(&mut self.pool.get()?)
+            .optional()?)
+    }
+
+    #[instrument(
+        name = "db::PayjoinReceiverSessionHelperDatabase::get_active_by_swap_id",
+        skip_all,
+        fields(swap_id = %swap_id)
+    )]
+    fn get_active_by_swap_id(
+        &self,
+        swap_id: &str,
+    ) -> QueryResponse<Option<PayjoinReceiverSession>> {
+        Ok(payjoinReceiverSessions::dsl::payjoinReceiverSessions
+            .select(PayjoinReceiverSession::as_select())
+            .filter(payjoinReceiverSessions::swapId.eq(swap_id))
+            .filter(payjoinReceiverSessions::completedAt.is_null())
+            .first(&mut self.pool.get()?)
+            .optional()?)
     }
 
     #[instrument(
@@ -93,11 +131,34 @@ impl PayjoinReceiverSessionHelper for PayjoinReceiverSessionHelperDatabase {
         fields(session_id = %session_id)
     )]
     fn close_receiver_session(&self, session_id: i64) -> QueryResponse<usize> {
+        self.mark_completed(session_id)
+    }
+
+    #[instrument(
+        name = "db::PayjoinReceiverSessionHelperDatabase::mark_completed",
+        skip_all,
+        fields(session_id = %session_id)
+    )]
+    fn mark_completed(&self, session_id: i64) -> QueryResponse<usize> {
         Ok(update(
             payjoinReceiverSessions::dsl::payjoinReceiverSessions
                 .filter(payjoinReceiverSessions::id.eq(session_id)),
         )
         .set(payjoinReceiverSessions::completedAt.eq(Utc::now()))
+        .execute(&mut self.pool.get()?)?)
+    }
+
+    #[instrument(
+        name = "db::PayjoinReceiverSessionHelperDatabase::set_payjoin_transaction_id",
+        skip_all,
+        fields(session_id = %session_id, tx_id = %tx_id)
+    )]
+    fn set_payjoin_transaction_id(&self, session_id: i64, tx_id: &str) -> QueryResponse<usize> {
+        Ok(update(
+            payjoinReceiverSessions::dsl::payjoinReceiverSessions
+                .filter(payjoinReceiverSessions::id.eq(session_id)),
+        )
+        .set(payjoinReceiverSessions::payjoinTxId.eq(tx_id))
         .execute(&mut self.pool.get()?)?)
     }
 }

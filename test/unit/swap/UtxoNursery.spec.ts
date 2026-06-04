@@ -26,6 +26,9 @@ import {
 } from '../../../lib/consts/Enums';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ClaimTransactionRepository from '../../../lib/db/repositories/ClaimTransactionRepository';
+import PayjoinReceiverRepository, {
+  PayjoinLockupMatch,
+} from '../../../lib/db/repositories/PayjoinReceiverRepository';
 import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
@@ -243,6 +246,9 @@ describe('UtxoNursery', () => {
     SwapRepository.getSwap = mockGetSwap;
     SwapRepository.getSwapsExpirable = mockGetSwapsExpirable;
     SwapRepository.setLockupTransaction = mockSetLockupTransaction;
+    PayjoinReceiverRepository.isPayjoinConsolidationLockup = jest
+      .fn()
+      .mockResolvedValue(PayjoinLockupMatch.NoSession);
 
     ReverseSwapRepository.getReverseSwap = mockGetReverseSwap;
     ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
@@ -1357,6 +1363,164 @@ describe('UtxoNursery', () => {
         getOutputValueSpy.mockRestore();
       },
     );
+
+    test('should accept Payjoin consolidation overpayment after receiver session closed', async () => {
+      const checkSwapOutputs = nursery['checkOutputs'];
+      const transaction = parseTx(sampleTransactions.lockup);
+
+      const expectedAmount = 100214;
+      const outputValue = 200000;
+
+      mockGetSwapResult = {
+        id: 'payjoinSwap',
+        expectedAmount,
+        redeemScript: sampleRedeemScript,
+        type: SwapType.Submarine,
+      };
+
+      mockSetLockupTransaction.mockImplementationOnce(async (swap) => ({
+        ...swap,
+        expectedAmount,
+      }));
+      (
+        PayjoinReceiverRepository.isPayjoinConsolidationLockup as jest.Mock
+      ).mockResolvedValueOnce(PayjoinLockupMatch.Success);
+
+      const getOutputValueSpy = jest
+        .spyOn(Core, 'getOutputValue')
+        .mockReturnValue(outputValue);
+
+      let lockupEmitted = false;
+      let failedEmitted = false;
+
+      nursery.once('swap.lockup', ({ swap, transaction: emitted }) => {
+        expect(swap.id).toEqual(mockGetSwapResult.id);
+        expect(emitted).toEqual(transaction);
+
+        lockupEmitted = true;
+      });
+      nursery.once('swap.lockup.failed', () => {
+        failedEmitted = true;
+      });
+
+      await checkSwapOutputs(
+        btcChainClient,
+        btcWallet,
+        transaction,
+        TransactionStatus.Confirmed,
+      );
+
+      expect(lockupEmitted).toEqual(true);
+      expect(failedEmitted).toEqual(false);
+      expect(
+        PayjoinReceiverRepository.isPayjoinConsolidationLockup,
+      ).toHaveBeenCalledWith(
+        mockGetSwapResult.id,
+        transaction.id,
+        outputValue,
+        expectedAmount,
+      );
+
+      getOutputValueSpy.mockRestore();
+    });
+
+    test('should defer Payjoin consolidation overpayment while receiver session is pending', async () => {
+      const checkSwapOutputs = nursery['checkOutputs'];
+      const transaction = parseTx(sampleTransactions.lockup);
+
+      const expectedAmount = 100214;
+      const outputValue = 200000;
+
+      mockGetSwapResult = {
+        id: 'payjoinSwap',
+        expectedAmount,
+        redeemScript: sampleRedeemScript,
+        type: SwapType.Submarine,
+      };
+
+      mockSetLockupTransaction.mockImplementationOnce(async (swap) => ({
+        ...swap,
+        expectedAmount,
+      }));
+      (
+        PayjoinReceiverRepository.isPayjoinConsolidationLockup as jest.Mock
+      ).mockResolvedValueOnce(PayjoinLockupMatch.Pending);
+
+      const getOutputValueSpy = jest
+        .spyOn(Core, 'getOutputValue')
+        .mockReturnValue(outputValue);
+
+      let lockupEmitted = false;
+      let failedEmitted = false;
+
+      nursery.once('swap.lockup', () => {
+        lockupEmitted = true;
+      });
+      nursery.once('swap.lockup.failed', () => {
+        failedEmitted = true;
+      });
+
+      await checkSwapOutputs(
+        btcChainClient,
+        btcWallet,
+        transaction,
+        TransactionStatus.Confirmed,
+      );
+
+      expect(lockupEmitted).toEqual(false);
+      expect(failedEmitted).toEqual(false);
+
+      getOutputValueSpy.mockRestore();
+    });
+
+    test('should reject Payjoin-linked overpayment when transaction does not match session', async () => {
+      const checkSwapOutputs = nursery['checkOutputs'];
+      const transaction = parseTx(sampleTransactions.lockup);
+
+      const expectedAmount = 100214;
+      const outputValue = 200000;
+
+      mockGetSwapResult = {
+        id: 'payjoinSwap',
+        expectedAmount,
+        redeemScript: sampleRedeemScript,
+        type: SwapType.Submarine,
+      };
+
+      mockSetLockupTransaction.mockImplementationOnce(async (swap) => ({
+        ...swap,
+        expectedAmount,
+      }));
+      (
+        PayjoinReceiverRepository.isPayjoinConsolidationLockup as jest.Mock
+      ).mockResolvedValueOnce(PayjoinLockupMatch.TxMismatch);
+
+      const getOutputValueSpy = jest
+        .spyOn(Core, 'getOutputValue')
+        .mockReturnValue(outputValue);
+
+      let eventEmitted = false;
+
+      nursery.once('swap.lockup.failed', ({ swap, reason }) => {
+        expect(swap.id).toEqual(mockGetSwapResult.id);
+        expect(reason).toEqual(
+          Errors.OVERPAID_AMOUNT(outputValue, expectedAmount).message,
+        );
+
+        eventEmitted = true;
+      });
+
+      await checkSwapOutputs(
+        btcChainClient,
+        btcWallet,
+        transaction,
+        TransactionStatus.Confirmed,
+      );
+
+      expect(eventEmitted).toEqual(true);
+
+      getOutputValueSpy.mockRestore();
+    });
 
     test.each([
       {

@@ -23,9 +23,9 @@ use std::error::Error;
 use std::fmt;
 use std::future::Future;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 const OHTTP_RELAY: &str = "https://pj.bobspacebkk.com";
 const DIRECTORY: &str = "https://payjo.in";
@@ -50,6 +50,7 @@ impl PayjoinManager {
         address: String,
         satoshis: Option<u64>,
         label: Option<String>,
+        swap_id: Option<String>,
     ) -> Result<String> {
         let address = Address::from_str(&address)
             .context("invalid Bitcoin address")?
@@ -60,10 +61,34 @@ impl PayjoinManager {
             .map(i64::try_from)
             .transpose()
             .map_err(|_| anyhow!("satoshis value exceeds i64 range"))?;
+        let swap_id = normalize_swap_id(swap_id)?;
+        if let Some(swap_id) = &swap_id {
+            if self
+                .repo
+                .get_active_by_swap_id(swap_id)
+                .context("failed to check active payjoin receiver session for swap")?
+                .is_some()
+            {
+                return Err(anyhow!(
+                    "active payjoin receiver session already exists for swap {swap_id}"
+                ));
+            }
+            if self
+                .repo
+                .get_by_swap_id(swap_id)
+                .context("failed to check payjoin receiver session for swap")?
+                .is_some()
+            {
+                return Err(anyhow!(
+                    "payjoin receiver session already exists for swap {swap_id}"
+                ));
+            }
+        }
 
         let session = self
             .repo
             .create_receiver_session(&NewPayjoinReceiverSession {
+                swapId: swap_id,
                 address: address.to_string(),
                 amountSats: amount_sats,
                 label: label.clone(),
@@ -113,6 +138,14 @@ impl PayjoinManager {
             .ok_or_else(|| anyhow!("BTC chain client not configured"))?;
 
         Ok((chain, bitcoin_network(btc.network)))
+    }
+}
+
+fn normalize_swap_id(swap_id: Option<String>) -> Result<Option<String>> {
+    let swap_id = swap_id.map(|value| value.trim().to_string());
+    match swap_id {
+        Some(value) if value.is_empty() => Err(anyhow!("swap_id cannot be empty")),
+        other => Ok(other),
     }
 }
 
@@ -475,12 +508,24 @@ async fn monitor_payment(
         "Payjoin receiver monitor started"
     );
 
+    let detected_payjoin_txid = Arc::new(Mutex::new(None::<Txid>));
+
     loop {
         let chain = btc_chain.clone();
+        let detected_payjoin_txid = detected_payjoin_txid.clone();
         match receiver
             .check_payment(|txid| {
-                block_on(async { lookup_btc_transaction(chain.clone(), txid).await })
-                    .map_err(implementation_error)
+                let transaction =
+                    block_on(async { lookup_btc_transaction(chain.clone(), txid).await })
+                        .map_err(implementation_error)?;
+                if transaction.is_some() {
+                    let mut detected = detected_payjoin_txid.lock().map_err(|_| {
+                        implementation_error("failed to lock detected payjoin txid")
+                    })?;
+                    *detected = Some(txid);
+                }
+
+                Ok(transaction)
             })
             .save(persister)
         {
@@ -488,6 +533,23 @@ async fn monitor_payment(
                 let outcome = replay_closed_outcome(persister)?.ok_or_else(|| {
                     anyhow!("payjoin receiver monitor closed without replayable outcome")
                 })?;
+                if matches!(outcome, SessionOutcome::Success(_)) {
+                    let detected_txid = detected_payjoin_txid
+                        .lock()
+                        .map_err(|_| anyhow!("failed to lock detected payjoin txid"))?
+                        .to_owned();
+                    if let Some(txid) = detected_txid {
+                        persister
+                            .repo
+                            .set_payjoin_transaction_id(persister.session_id, &txid.to_string())
+                            .context("failed to persist payjoin transaction id")?;
+                    } else {
+                        warn!(
+                            session_id = %persister.session_id,
+                            "Payjoin receiver closed successfully without a captured payjoin txid"
+                        );
+                    }
+                }
                 log_closed_outcome(persister.session_id, &outcome);
                 return Ok(());
             }

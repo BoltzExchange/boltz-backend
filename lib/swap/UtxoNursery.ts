@@ -32,6 +32,9 @@ import type {
 } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ClaimTransactionRepository from '../db/repositories/ClaimTransactionRepository';
+import PayjoinReceiverRepository, {
+  PayjoinLockupMatch,
+} from '../db/repositories/PayjoinReceiverRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -722,15 +725,41 @@ class UtxoNursery extends TypedEventEmitter<{
           outputValue,
         )
       ) {
-        this.emit('swap.lockup.failed', {
-          swap: updatedSwap,
-          reason: Errors.OVERPAID_AMOUNT(
-            outputValue,
-            updatedSwap.expectedAmount,
-          ).message,
-        });
+        const payjoinLockupMatch = await this.checkPayjoinConsolidationLockup(
+          updatedSwap.id,
+          TxView.of(transaction).id,
+          outputValue,
+          updatedSwap.expectedAmount,
+        );
 
-        return;
+        switch (payjoinLockupMatch) {
+          case PayjoinLockupMatch.Success:
+            this.logger.info(
+              `Accepting oversized lockup transaction ${TxView.of(transaction).id} of Swap ${updatedSwap.id} as Payjoin consolidation: expected ${updatedSwap.expectedAmount}, locked ${outputValue}`,
+            );
+            break;
+
+          case PayjoinLockupMatch.Pending:
+            this.logger.info(
+              `Deferring oversized lockup transaction ${TxView.of(transaction).id} of Swap ${updatedSwap.id} while Payjoin receiver session is pending: expected ${updatedSwap.expectedAmount}, locked ${outputValue}`,
+            );
+            return;
+
+          default:
+            this.logger.warn(
+              `Rejecting oversized lockup transaction ${TxView.of(transaction).id} of Swap ${updatedSwap.id}: expected ${updatedSwap.expectedAmount}, locked ${outputValue}, Payjoin match ${payjoinLockupMatch}`,
+            );
+
+            this.emit('swap.lockup.failed', {
+              swap: updatedSwap,
+              reason: Errors.OVERPAID_AMOUNT(
+                outputValue,
+                updatedSwap.expectedAmount,
+              ).message,
+            });
+
+            return;
+        }
       }
     }
 
@@ -789,6 +818,26 @@ class UtxoNursery extends TypedEventEmitter<{
       confirmed: status === TransactionStatus.Confirmed,
       swap: updatedSwap,
     });
+  };
+
+  private checkPayjoinConsolidationLockup = async (
+    swapId: string,
+    txId: string,
+    actualAmount: number,
+    expectedAmount: number,
+  ): Promise<PayjoinLockupMatch> => {
+    const result = await PayjoinReceiverRepository.isPayjoinConsolidationLockup(
+      swapId,
+      txId,
+      actualAmount,
+      expectedAmount,
+    );
+
+    this.logger.debug(
+      `Checked Payjoin consolidation lockup for Swap ${swapId}: tx ${txId}, expected ${expectedAmount}, locked ${actualAmount}, result ${result}`,
+    );
+
+    return result;
   };
 
   /**

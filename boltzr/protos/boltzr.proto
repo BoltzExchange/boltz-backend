@@ -43,6 +43,7 @@ message GetPayjoinUriRequest {
   string address = 1;
   optional uint64 satoshis = 2;
   optional string label = 3;
+  optional string swap_id = 4;
 }
 
 message GetPayjoinUriResponse {

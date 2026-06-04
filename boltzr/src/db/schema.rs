@@ -165,9 +165,11 @@ diesel::table! {
     #[allow(non_snake_case)]
     payjoinReceiverSessions (id) {
         id -> BigInt,
+        swapId -> Nullable<Text>,
         address -> Text,
         amountSats -> Nullable<BigInt>,
         label -> Nullable<Text>,
+        payjoinTxId -> Nullable<Text>,
         createdAt -> Timestamptz,
         completedAt -> Nullable<Timestamptz>,
     }

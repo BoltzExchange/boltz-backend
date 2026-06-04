@@ -273,6 +273,27 @@ class Sidecar extends BaseClient<
 
   public getMessages = () => this.client!.getMessages({});
 
+  public getPayjoinUri = async (
+    address: string,
+    satoshis?: number,
+    label?: string,
+    swapId?: string,
+  ) => {
+    const req: sidecarrpc.GetPayjoinUriRequest = {
+      address,
+      satoshis: satoshis !== undefined ? toProtoInt(satoshis) : undefined,
+      label,
+      swapId,
+    };
+
+    return (
+      await this.unaryNodeCall<
+        sidecarrpc.GetPayjoinUriRequest,
+        sidecarrpc.GetPayjoinUriResponse
+      >('getPayjoinUri', req)
+    ).uri;
+  };
+
   public createWebHook = async (
     swapId: string,
     url: string,

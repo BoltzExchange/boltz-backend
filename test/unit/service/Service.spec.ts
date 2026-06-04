@@ -816,6 +816,7 @@ describe('Service', () => {
     rescanMempool: jest.fn(),
     checkTransaction: jest.fn().mockResolvedValue(undefined),
     createWebHook: jest.fn().mockImplementation(async () => {}),
+    getPayjoinUri: jest.fn().mockResolvedValue('bitcoin:payjoin'),
     decodeInvoiceOrOffer: jest
       .fn()
       .mockImplementation(async (invoice: string) => {
@@ -2169,9 +2170,14 @@ describe('Service', () => {
     expect(response).toEqual({
       acceptZeroConf: true,
       expectedAmount: 100002,
-      bip21:
-        'bitcoin:bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu?amount=0.00100002&label=Send%20to%20BTC%20lightning',
+      bip21: 'bitcoin:payjoin',
     });
+    expect(sidecar.getPayjoinUri).toHaveBeenCalledWith(
+      mockGetSwapResult.lockupAddress,
+      100002,
+      'Send to BTC lightning',
+      mockGetSwapResult.id,
+    );
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
@@ -2251,8 +2257,7 @@ describe('Service', () => {
     ).resolves.toEqual({
       acceptZeroConf: true,
       expectedAmount: 100002,
-      bip21:
-        'bitcoin:bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu?amount=0.00100002&label=Send%20to%20BTC%20lightning',
+      bip21: 'bitcoin:payjoin',
     });
 
     // Throw if swap with id does not exist

@@ -119,7 +119,12 @@ where
         let params = request.into_inner();
         let uri = self
             .payjoin_manager
-            .get_payjoin_uri(params.address, params.satoshis, params.label)
+            .get_payjoin_uri(
+                params.address,
+                params.satoshis,
+                params.label,
+                params.swap_id,
+            )
             .await
             .map_err(|err| Status::new(Code::Internal, err.to_string()))?;
 

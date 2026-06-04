@@ -153,7 +153,7 @@ describe('UtxoNursery', () => {
     nodeSwitch,
     {} as any,
     timeoutDeltaProvider,
-    new PaymentRequestUtils(),
+    new PaymentRequestUtils(sidecar),
     new SwapOutputType(OutputType.Compatibility),
     100_000,
     {

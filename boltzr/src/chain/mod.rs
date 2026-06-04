@@ -125,6 +125,13 @@ pub trait Client: BaseClient {
 
     async fn raw_transaction(&self, tx_id: &str) -> Result<String>;
     async fn raw_transaction_verbose(&self, tx_id: &str) -> Result<types::RawTransactionVerbose>;
+    async fn wallet_transaction_hex(&self, tx_id: &str) -> Result<String> {
+        let _ = tx_id;
+        Err(anyhow::anyhow!(
+            "wallet_transaction_hex is not supported for {}",
+            self.symbol()
+        ))
+    }
 
     async fn send_raw_transaction(&self, tx: &str) -> Result<String>;
     async fn test_mempool_accept(&self, txs: &[String]) -> Result<Vec<types::TestMempoolAccept>> {
@@ -155,6 +162,13 @@ pub trait Client: BaseClient {
         wallet: Option<&str>,
         tx: &str,
     ) -> Result<types::SignRawTransactionResponse>;
+    async fn process_psbt(&self, psbt: &str) -> Result<types::ProcessPsbtResponse> {
+        let _ = psbt;
+        Err(anyhow::anyhow!(
+            "process_psbt is not supported for {}",
+            self.symbol()
+        ))
+    }
 
     #[cfg(test)]
     async fn request_wallet(

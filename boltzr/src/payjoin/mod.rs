@@ -9,14 +9,15 @@ use crate::db::models::{NewPayjoinReceiverSession, NewPayjoinReceiverSessionEven
 use crate::wallet::Network;
 use anyhow::{Context, Result, anyhow};
 use payjoin::ImplementationError;
-use payjoin::bitcoin::consensus::encode::serialize_hex;
+use payjoin::bitcoin::Transaction;
+use payjoin::bitcoin::consensus::encode::{deserialize, serialize_hex};
 use payjoin::bitcoin::psbt::Input;
-use payjoin::bitcoin::{Address, Amount, OutPoint, TxIn, TxOut, Txid};
+use payjoin::bitcoin::{Address, Amount, OutPoint, Psbt, TxIn, TxOut, Txid};
 use payjoin::persist::{OptionalTransitionOutcome, SessionPersister};
 use payjoin::receive::v2::{
-    Initialized, MaybeInputsOwned, MaybeInputsSeen, OutputsUnknown, ReceiveSession, Receiver,
-    ReceiverBuilder, SessionEvent, UncheckedOriginalPayload, WantsFeeRange, WantsInputs,
-    WantsOutputs, replay_event_log,
+    Initialized, MaybeInputsOwned, MaybeInputsSeen, Monitor, OutputsUnknown, PayjoinProposal,
+    ProvisionalProposal, ReceiveSession, Receiver, ReceiverBuilder, SessionEvent, SessionOutcome,
+    UncheckedOriginalPayload, WantsFeeRange, WantsInputs, WantsOutputs, replay_event_log,
 };
 use std::error::Error;
 use std::fmt;
@@ -175,7 +176,17 @@ async fn try_poll_for_sender_proposal(
         ReceiveSession::WantsInputs(receiver) => {
             contribute_inputs(receiver, &persister, btc_chain).await
         }
-        ReceiveSession::WantsFeeRange(_) => stop_at_wants_fee_range(&persister),
+        ReceiveSession::WantsFeeRange(receiver) => {
+            apply_fee_range(receiver, &persister, btc_chain).await
+        }
+        ReceiveSession::ProvisionalProposal(receiver) => {
+            finalize_proposal(receiver, &persister, btc_chain).await
+        }
+        ReceiveSession::PayjoinProposal(receiver) => {
+            submit_payjoin_proposal(receiver, &persister, btc_chain).await
+        }
+        ReceiveSession::Monitor(receiver) => monitor_payment(receiver, &persister, btc_chain).await,
+        ReceiveSession::Closed(outcome) => stop_at_closed_session(&persister, &outcome),
         other => Err(anyhow!(
             "payjoin receiver session is not in a pollable state: {:?}",
             other
@@ -334,7 +345,7 @@ async fn contribute_inputs(
     persister: &ReceiverPersister,
     btc_chain: Arc<dyn Client + Send + Sync>,
 ) -> Result<()> {
-    let selected = select_contribution_input(receiver.clone(), btc_chain)
+    let selected = select_contribution_input(receiver.clone(), btc_chain.clone())
         .await
         .context("failed to select payjoin contribution input")?;
     let receiver = receiver
@@ -344,9 +355,7 @@ async fn contribute_inputs(
         .save(persister)
         .context("failed to persist payjoin input commit")?;
 
-    stop_at_wants_fee_range(persister)?;
-    let _receiver: Receiver<WantsFeeRange> = receiver;
-    Ok(())
+    apply_fee_range(receiver, persister, btc_chain).await
 }
 
 async fn select_contribution_input(
@@ -408,12 +417,186 @@ fn input_pair_from_unspent(utxo: UnspentOutput) -> Result<(u64, payjoin::receive
     Ok((amount.to_sat(), input))
 }
 
-fn stop_at_wants_fee_range(persister: &ReceiverPersister) -> Result<()> {
+async fn apply_fee_range(
+    receiver: Receiver<WantsFeeRange>,
+    persister: &ReceiverPersister,
+    btc_chain: Arc<dyn Client + Send + Sync>,
+) -> Result<()> {
+    let receiver = receiver
+        .apply_fee_range(None, None)
+        .save(persister)
+        .context("failed to persist payjoin fee-range application")?;
+
+    finalize_proposal(receiver, persister, btc_chain).await
+}
+
+async fn finalize_proposal(
+    receiver: Receiver<ProvisionalProposal>,
+    persister: &ReceiverPersister,
+    btc_chain: Arc<dyn Client + Send + Sync>,
+) -> Result<()> {
+    let chain = btc_chain.clone();
+    let receiver = receiver
+        .finalize_proposal(|psbt| sign_payjoin_psbt(psbt, chain.clone()))
+        .save(persister)
+        .context("failed to persist finalized payjoin proposal")?;
+
+    submit_payjoin_proposal(receiver, persister, btc_chain).await
+}
+
+async fn submit_payjoin_proposal(
+    receiver: Receiver<PayjoinProposal>,
+    persister: &ReceiverPersister,
+    btc_chain: Arc<dyn Client + Send + Sync>,
+) -> Result<()> {
+    let (req, context) = receiver
+        .create_post_request(OHTTP_RELAY)
+        .context("failed to create payjoin proposal post request")?;
+    let response = post_request(req).await?;
+    let body = response
+        .bytes()
+        .await
+        .context("failed to read payjoin proposal post response")?;
+    let receiver = receiver
+        .process_response(body.as_ref(), context)
+        .save(persister)
+        .context("failed to persist posted payjoin proposal")?;
+
+    monitor_payment(receiver, persister, btc_chain).await
+}
+
+async fn monitor_payment(
+    mut receiver: Receiver<Monitor>,
+    persister: &ReceiverPersister,
+    btc_chain: Arc<dyn Client + Send + Sync>,
+) -> Result<()> {
     info!(
         session_id = %persister.session_id,
-        "Payjoin receiver reached WantsFeeRange; stopping before fee-range application"
+        "Payjoin receiver monitor started"
     );
+
+    loop {
+        let chain = btc_chain.clone();
+        match receiver
+            .check_payment(|txid| {
+                block_on(async { lookup_btc_transaction(chain.clone(), txid).await })
+                    .map_err(implementation_error)
+            })
+            .save(persister)
+        {
+            Ok(OptionalTransitionOutcome::Progress(())) => {
+                let outcome = replay_closed_outcome(persister)?.ok_or_else(|| {
+                    anyhow!("payjoin receiver monitor closed without replayable outcome")
+                })?;
+                log_closed_outcome(persister.session_id, &outcome);
+                return Ok(());
+            }
+            Ok(OptionalTransitionOutcome::Stasis(current_receiver)) => {
+                receiver = current_receiver;
+                info!(
+                    session_id = %persister.session_id,
+                    "Payjoin receiver payment still pending"
+                );
+                tokio::time::sleep(Duration::from_secs(5)).await;
+            }
+            Err(err) => {
+                error!(
+                    session_id = %persister.session_id,
+                    "Payjoin receiver monitor recoverable error: {err}"
+                );
+                return Err(anyhow!("failed to check payjoin payment status: {err}"));
+            }
+        }
+    }
+}
+
+async fn lookup_btc_transaction(
+    btc_chain: Arc<dyn Client + Send + Sync>,
+    txid: Txid,
+) -> Result<Option<Transaction>> {
+    let raw_tx = match btc_chain.raw_transaction(&txid.to_string()).await {
+        Ok(raw_tx) => raw_tx,
+        Err(err) if is_transaction_not_found(&err) => {
+            match btc_chain.wallet_transaction_hex(&txid.to_string()).await {
+                Ok(raw_tx) => raw_tx,
+                Err(err) if is_transaction_not_found(&err) => return Ok(None),
+                Err(err) => return Err(err).context("failed to query Bitcoin wallet transaction"),
+            }
+        }
+        Err(err) => return Err(err).context("failed to query Bitcoin transaction"),
+    };
+    let bytes = hex::decode(raw_tx).context("failed to decode Bitcoin transaction hex")?;
+    let tx =
+        deserialize::<Transaction>(&bytes).context("failed to deserialize Bitcoin transaction")?;
+
+    Ok(Some(tx))
+}
+
+fn is_transaction_not_found(err: &anyhow::Error) -> bool {
+    let msg = err.to_string().to_ascii_lowercase();
+    msg.contains("no such mempool")
+        || msg.contains("no such transaction")
+        || msg.contains("not found")
+}
+
+fn replay_closed_outcome(persister: &ReceiverPersister) -> Result<Option<SessionOutcome>> {
+    let (session, _) =
+        replay_event_log(persister).context("failed to replay payjoin receiver closed event")?;
+
+    Ok(match session {
+        ReceiveSession::Closed(outcome) => Some(outcome),
+        _ => None,
+    })
+}
+
+fn stop_at_closed_session(persister: &ReceiverPersister, outcome: &SessionOutcome) -> Result<()> {
+    log_closed_outcome(persister.session_id, outcome);
     Ok(())
+}
+
+fn log_closed_outcome(session_id: i64, outcome: &SessionOutcome) {
+    match outcome {
+        SessionOutcome::Success(_) => {
+            info!(
+                session_id = %session_id,
+                "Payjoin receiver payjoin payment detected"
+            );
+        }
+        SessionOutcome::FallbackBroadcasted => {
+            info!(
+                session_id = %session_id,
+                "Payjoin receiver fallback/original transaction detected"
+            );
+        }
+        SessionOutcome::PayjoinProposalSent => {
+            info!(
+                session_id = %session_id,
+                "Payjoin receiver session closed; proposal sent but payment cannot be monitored"
+            );
+        }
+        SessionOutcome::Failure | SessionOutcome::Cancel => {
+            error!(
+                session_id = %session_id,
+                outcome = ?outcome,
+                "Payjoin receiver session closed with terminal error"
+            );
+        }
+    }
+    info!(
+        session_id = %session_id,
+        outcome = ?outcome,
+        "Payjoin receiver session closed/completed"
+    );
+}
+
+fn sign_payjoin_psbt(
+    psbt: &Psbt,
+    btc_chain: Arc<dyn Client + Send + Sync>,
+) -> std::result::Result<Psbt, ImplementationError> {
+    let processed = block_on(async { btc_chain.process_psbt(&psbt.to_string()).await })
+        .map_err(implementation_error)?;
+
+    Psbt::from_str(&processed.psbt).map_err(implementation_error)
 }
 
 async fn post_request(req: payjoin::Request) -> Result<reqwest::Response> {

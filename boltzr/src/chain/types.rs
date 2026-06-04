@@ -99,6 +99,11 @@ pub struct TestMempoolAccept {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct ProcessPsbtResponse {
+    pub psbt: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct SmartFeeEstimate {
     pub feerate: f64,
 }
@@ -114,6 +119,11 @@ pub struct ZmqNotification {
 pub struct RawTransactionVerbose {
     pub hex: String,
     pub confirmations: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct WalletTransaction {
+    pub hex: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

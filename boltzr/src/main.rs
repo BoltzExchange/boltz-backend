@@ -29,6 +29,7 @@ mod db;
 mod grpc;
 mod lightning;
 mod notifications;
+mod payjoin;
 mod service;
 mod swap;
 mod tracing_setup;
@@ -300,6 +301,7 @@ async fn main() {
         service.clone(),
         swap_manager.clone(),
         swap_status_update_tx.clone(),
+        Arc::new(payjoin::PayjoinManager::new(db_pool.clone())),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_status_caller,
         notification_client.clone().map(Arc::new),

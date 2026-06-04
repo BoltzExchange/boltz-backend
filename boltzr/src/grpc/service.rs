@@ -9,17 +9,19 @@ use crate::grpc::service::boltzr::{
     CheckTransactionResponse, ClaimBatchRequest, ClaimBatchResponse, CreateWebHookRequest,
     CreateWebHookResponse, DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse,
     EstimateFeeRequest, EstimateFeeResponse, Feature, GetInfoRequest, GetInfoResponse,
-    GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse, LogLevel,
-    RelevantTransaction, RelevantTransactionRequest, RescanChainsRequest, RescanChainsResponse,
-    SendMessageRequest, SendMessageResponse, SendSwapUpdateRequest, SendSwapUpdateResponse,
-    SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse,
-    SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
-    StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest, SwapUpdateResponse,
-    TransactionStatus, bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response,
+    GetMessagesRequest, GetMessagesResponse, GetPayjoinUriRequest, GetPayjoinUriResponse,
+    IsMarkedRequest, IsMarkedResponse, LogLevel, RelevantTransaction, RelevantTransactionRequest,
+    RescanChainsRequest, RescanChainsResponse, SendMessageRequest, SendMessageResponse,
+    SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
+    SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
+    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
+    SwapUpdateResponse, TransactionStatus, bolt11_invoice, bolt12_invoice,
+    decode_invoice_or_offer_response,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
 use crate::notifications::NotificationClient;
+use crate::payjoin::PayjoinManager;
 use crate::service::Service;
 use crate::swap::TxStatus;
 use crate::swap::manager::{RescanChainOptions, SwapManager};
@@ -54,6 +56,7 @@ pub struct BoltzService<M, T> {
 
     service: Arc<Service>,
     manager: Arc<M>,
+    payjoin_manager: Arc<PayjoinManager>,
 
     web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
     web_hook_status_caller: Arc<StatusCaller>,
@@ -74,11 +77,13 @@ impl<M, T> BoltzService<M, T> {
         swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
         web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
         web_hook_status_caller: Arc<StatusCaller>,
+        payjoin_manager: Arc<PayjoinManager>,
         notification_client: Option<Arc<T>>,
     ) -> Self {
         BoltzService {
             manager,
             service,
+            payjoin_manager,
             status_fetcher,
             web_hook_status_caller,
             web_hook_helper,
@@ -104,6 +109,21 @@ where
         Ok(Response::new(GetInfoResponse {
             version: crate::utils::get_version(),
         }))
+    }
+
+    #[instrument(name = "grpc::get_payjoin_uri", skip_all)]
+    async fn get_payjoin_uri(
+        &self,
+        request: Request<GetPayjoinUriRequest>,
+    ) -> Result<Response<GetPayjoinUriResponse>, Status> {
+        let params = request.into_inner();
+        let uri = self
+            .payjoin_manager
+            .get_payjoin_uri(params.address, params.satoshis, params.label)
+            .await
+            .map_err(|err| Status::new(Code::Internal, err.to_string()))?;
+
+        Ok(Response::new(GetPayjoinUriResponse { uri }))
     }
 
     #[instrument(name = "grpc::set_log_level", skip_all)]

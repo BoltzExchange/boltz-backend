@@ -1,3 +1,4 @@
+use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize, Serializer};
 use std::fmt::Display;
 use std::str::FromStr;
@@ -29,6 +30,7 @@ impl Display for Type {
 #[allow(dead_code)]
 pub enum RpcParam<'a> {
     Str(&'a str),
+    StrArray(&'a [&'a str]),
     Int(i64),
     Float(f64),
     Null,
@@ -41,6 +43,13 @@ impl Serialize for RpcParam<'_> {
     {
         match *self {
             RpcParam::Str(s) => serializer.serialize_str(s),
+            RpcParam::StrArray(values) => {
+                let mut seq = serializer.serialize_seq(Some(values.len()))?;
+                for value in values {
+                    seq.serialize_element(value)?;
+                }
+                seq.end()
+            }
             RpcParam::Int(num) => serializer.serialize_i64(num),
             RpcParam::Float(num) => serializer.serialize_f64(num),
             RpcParam::Null => serializer.serialize_none(),
@@ -76,6 +85,17 @@ pub struct NetworkInfo {
 #[derive(Debug, Clone, Deserialize)]
 pub struct BlockchainInfo {
     pub blocks: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AddressInfo {
+    #[serde(rename = "ismine")]
+    pub is_mine: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TestMempoolAccept {
+    pub allowed: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]

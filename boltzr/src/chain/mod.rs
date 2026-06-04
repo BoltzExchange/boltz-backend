@@ -127,8 +127,22 @@ pub trait Client: BaseClient {
     async fn raw_transaction_verbose(&self, tx_id: &str) -> Result<types::RawTransactionVerbose>;
 
     async fn send_raw_transaction(&self, tx: &str) -> Result<String>;
+    async fn test_mempool_accept(&self, txs: &[String]) -> Result<Vec<types::TestMempoolAccept>> {
+        let _ = txs;
+        Err(anyhow::anyhow!(
+            "test_mempool_accept is not supported for {}",
+            self.symbol()
+        ))
+    }
 
     async fn list_unspent(&self, wallet: Option<&str>) -> Result<Vec<types::UnspentOutput>>;
+    async fn address_info(&self, address: &str) -> Result<types::AddressInfo> {
+        let _ = address;
+        Err(anyhow::anyhow!(
+            "address_info is not supported for {}",
+            self.symbol()
+        ))
+    }
     async fn get_new_address(
         &self,
         wallet: Option<&str>,

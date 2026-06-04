@@ -280,7 +280,7 @@ async fn main() {
     let swap_manager = match Manager::new(
         cancellation_token.clone(),
         config.sidecar.asset_rescue,
-        currencies,
+        currencies.clone(),
         cache.clone(),
         db_pool.clone(),
         network,
@@ -301,7 +301,10 @@ async fn main() {
         service.clone(),
         swap_manager.clone(),
         swap_status_update_tx.clone(),
-        Arc::new(payjoin::PayjoinManager::new(db_pool.clone())),
+        Arc::new(payjoin::PayjoinManager::new(
+            db_pool.clone(),
+            currencies.clone(),
+        )),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_status_caller,
         notification_client.clone().map(Arc::new),

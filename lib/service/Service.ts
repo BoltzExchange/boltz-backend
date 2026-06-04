@@ -1573,6 +1573,7 @@ class Service {
         expectedAmount,
         label,
         swap.id,
+        chainCurrency === 'BTC' && lightningCurrency === 'BTC',
       ))!,
     };
   };

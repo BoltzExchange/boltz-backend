@@ -826,18 +826,12 @@ class UtxoNursery extends TypedEventEmitter<{
     actualAmount: number,
     expectedAmount: number,
   ): Promise<PayjoinLockupMatch> => {
-    const result = await PayjoinReceiverRepository.isPayjoinConsolidationLockup(
+    return PayjoinReceiverRepository.isPayjoinConsolidationLockup(
       swapId,
       txId,
       actualAmount,
       expectedAmount,
     );
-
-    this.logger.debug(
-      `Checked Payjoin consolidation lockup for Swap ${swapId}: tx ${txId}, expected ${expectedAmount}, locked ${actualAmount}, result ${result}`,
-    );
-
-    return result;
   };
 
   /**

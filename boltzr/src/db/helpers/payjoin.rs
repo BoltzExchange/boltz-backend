@@ -162,3 +162,49 @@ impl PayjoinReceiverSessionHelper for PayjoinReceiverSessionHelperDatabase {
         .execute(&mut self.pool.get()?)?)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::db::helpers::web_hook::test::get_pool;
+    use rand::distributions::{Alphanumeric, DistString};
+
+    fn random_id() -> String {
+        Alphanumeric.sample_string(&mut rand::thread_rng(), 12)
+    }
+
+    #[test]
+    fn test_create_receiver_session_with_swap_id() {
+        let helper = PayjoinReceiverSessionHelperDatabase::new(get_pool());
+        let swap_id = random_id();
+
+        let session = helper
+            .create_receiver_session(&NewPayjoinReceiverSession {
+                swapId: Some(swap_id.clone()),
+                address: "bcrt1qksk3802sudjavl8y4mdsyfzknzcdcmv7a2xvf2".to_string(),
+                amountSats: Some(50_201),
+                label: Some("pj-test".to_string()),
+            })
+            .unwrap();
+
+        assert_eq!(session.swapId, Some(swap_id.clone()));
+        assert_eq!(session.completedAt, None);
+        assert_eq!(session.payjoinTxId, None);
+
+        let by_swap_id = helper.get_by_swap_id(&swap_id).unwrap().unwrap();
+        assert_eq!(by_swap_id.id, session.id);
+        assert_eq!(by_swap_id.swapId, Some(swap_id));
+
+        helper
+            .set_payjoin_transaction_id(session.id, "txid")
+            .unwrap();
+        helper.mark_completed(session.id).unwrap();
+
+        let completed = helper
+            .get_by_swap_id(by_swap_id.swapId.as_ref().unwrap())
+            .unwrap()
+            .unwrap();
+        assert_eq!(completed.payjoinTxId, Some("txid".to_string()));
+        assert!(completed.completedAt.is_some());
+    }
+}

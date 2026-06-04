@@ -37,9 +37,19 @@ class PaymentRequestUtils {
     satoshis?: number,
     label?: string,
     swapId?: string,
+    enablePayjoin = true,
   ): Promise<string | undefined> => {
-    if (symbol === 'BTC' && swapId !== undefined) {
-      return this.sidecar.getPayjoinUri(address, satoshis, label, swapId);
+    if (enablePayjoin && symbol === 'BTC' && swapId !== undefined) {
+      try {
+        return await this.sidecar.getPayjoinUri(
+          address,
+          satoshis,
+          label,
+          swapId,
+        );
+      } catch {
+        // Fall back to a standard BIP21 when Payjoin URI generation is unavailable.
+      }
     }
 
     return this.encodeBip21WithParams(

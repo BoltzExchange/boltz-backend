@@ -25,7 +25,7 @@ use std::future::Future;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tracing::{error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 const OHTTP_RELAY: &str = "https://pj.bobspacebkk.com";
 const DIRECTORY: &str = "https://payjo.in";
@@ -555,7 +555,7 @@ async fn monitor_payment(
             }
             Ok(OptionalTransitionOutcome::Stasis(current_receiver)) => {
                 receiver = current_receiver;
-                info!(
+                debug!(
                     session_id = %persister.session_id,
                     "Payjoin receiver payment still pending"
                 );

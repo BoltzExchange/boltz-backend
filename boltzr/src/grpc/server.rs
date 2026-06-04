@@ -297,6 +297,10 @@ mod server_test {
             Arc::new(crate::service::Service::new_mocked_prometheus(false)),
             Arc::new(make_mock_manager()),
             status_tx,
+            Arc::new(crate::payjoin::PayjoinManager::new(
+                crate::db::helpers::web_hook::test::get_pool(),
+                Arc::new(std::collections::HashMap::new()),
+            )),
             Box::new(make_mock_hook_helper()),
             crate::webhook::status_caller::test::new_caller(token.clone()),
             None,
@@ -422,6 +426,10 @@ mod server_test {
             Arc::new(crate::service::Service::new_mocked_prometheus(false)),
             Arc::new(make_mock_manager()),
             status_tx,
+            Arc::new(crate::payjoin::PayjoinManager::new(
+                crate::db::helpers::web_hook::test::get_pool(),
+                Arc::new(std::collections::HashMap::new()),
+            )),
             Box::new(make_mock_hook_helper()),
             crate::webhook::status_caller::test::new_caller(token.clone()),
             None,

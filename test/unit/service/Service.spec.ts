@@ -812,11 +812,13 @@ describe('Service', () => {
     ],
   ]);
 
+  const payjoinBip21 =
+    'bitcoin:bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu?amount=0.00100002&label=Send%20to%20BTC%20lightning&pj=https%3A%2F%2Fpayjo.in%2Fabc';
   const sidecar = {
     rescanMempool: jest.fn(),
     checkTransaction: jest.fn().mockResolvedValue(undefined),
     createWebHook: jest.fn().mockImplementation(async () => {}),
-    getPayjoinUri: jest.fn().mockResolvedValue('bitcoin:payjoin'),
+    getPayjoinUri: jest.fn().mockResolvedValue(payjoinBip21),
     decodeInvoiceOrOffer: jest
       .fn()
       .mockImplementation(async (invoice: string) => {
@@ -2170,8 +2172,9 @@ describe('Service', () => {
     expect(response).toEqual({
       acceptZeroConf: true,
       expectedAmount: 100002,
-      bip21: 'bitcoin:payjoin',
+      bip21: payjoinBip21,
     });
+    expect(response.bip21).toContain('pj=');
     expect(sidecar.getPayjoinUri).toHaveBeenCalledWith(
       mockGetSwapResult.lockupAddress,
       100002,
@@ -2257,7 +2260,7 @@ describe('Service', () => {
     ).resolves.toEqual({
       acceptZeroConf: true,
       expectedAmount: 100002,
-      bip21: 'bitcoin:payjoin',
+      bip21: payjoinBip21,
     });
 
     // Throw if swap with id does not exist
@@ -2276,6 +2279,34 @@ describe('Service', () => {
     await expect(service.setInvoice(mockGetSwapResult.id, '')).rejects.toEqual(
       Errors.SWAP_HAS_INVOICE_ALREADY(mockGetSwapResult.id),
     );
+  });
+
+  test('should fall back to normal BIP21 when Payjoin URI generation fails', async () => {
+    mockGetSwapResult = {
+      id: 'invoiceId',
+      pair: 'BTC/BTC',
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Taproot,
+      lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
+    };
+
+    const invoiceAmount = 100_000;
+    const invoice = createInvoice(
+      undefined,
+      undefined,
+      undefined,
+      invoiceAmount,
+    );
+    sidecar.getPayjoinUri.mockRejectedValueOnce(new Error('sidecar down'));
+
+    await expect(
+      service.setInvoice(mockGetSwapResult.id, invoice),
+    ).resolves.toEqual({
+      acceptZeroConf: true,
+      expectedAmount: 100002,
+      bip21:
+        'bitcoin:bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu?amount=0.00100002&label=Send%20to%20BTC%20lightning',
+    });
   });
 
   test('should set invoice with extraFees', async () => {

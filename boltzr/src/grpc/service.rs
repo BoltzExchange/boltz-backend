@@ -1199,6 +1199,10 @@ mod test {
                 Arc::new(crate::webhook::status_caller::test::new_caller(
                     token.clone(),
                 )),
+                Arc::new(crate::payjoin::PayjoinManager::new(
+                    crate::db::helpers::web_hook::test::get_pool(),
+                    Arc::new(HashMap::new()),
+                )),
                 None,
             ),
         )

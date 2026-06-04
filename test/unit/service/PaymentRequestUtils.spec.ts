@@ -59,7 +59,7 @@ describe('PaymentRequestUtils', () => {
     );
   });
 
-  test('should encode BTC Payjoin BIP21 when swap id is provided', async () => {
+  test('should encode BTC Payjoin BIP21 when enabled for a swap', async () => {
     const symbol = 'BTC';
     const address = 'bcrt1qxmhp6s7j2n6ffkymnkrtxnxyf40l37h2g3pwlk';
     const satoshis = 1123123;
@@ -67,13 +67,54 @@ describe('PaymentRequestUtils', () => {
     const swapId = 'swap-id';
 
     await expect(
-      pru.encodeBip21(symbol, address, satoshis, label, swapId),
+      pru.encodeBip21(symbol, address, satoshis, label, swapId, true),
     ).resolves.toEqual('bitcoin:payjoin');
     expect(sidecar.getPayjoinUri).toHaveBeenCalledWith(
       address,
       satoshis,
       label,
       swapId,
+    );
+  });
+
+  test('should not encode Payjoin BIP21 when Payjoin is disabled', async () => {
+    const symbol = 'BTC';
+    const address = 'bcrt1qxmhp6s7j2n6ffkymnkrtxnxyf40l37h2g3pwlk';
+    const satoshis = 1123123;
+    const label = 'Some payment info';
+    const enablePayjoin = false;
+
+    await expect(
+      pru.encodeBip21(symbol, address, satoshis, label, 'swap-id', enablePayjoin),
+    ).resolves.toEqual(
+      `bitcoin:${address}?amount=${satoshisToCoins(
+        satoshis,
+      )}&label=${label.replace(/ /g, '%20')}`,
+    );
+  });
+
+  test('should fall back to normal BTC BIP21 when Payjoin generation fails', async () => {
+    const symbol = 'BTC';
+    const address = 'bcrt1qxmhp6s7j2n6ffkymnkrtxnxyf40l37h2g3pwlk';
+    const satoshis = 1123123;
+    const label = 'Some payment info';
+    const failingSidecar = {
+      getPayjoinUri: jest.fn().mockRejectedValue(new Error('unavailable')),
+    } as any;
+
+    await expect(
+      new PaymentRequestUtils(failingSidecar).encodeBip21(
+        symbol,
+        address,
+        satoshis,
+        label,
+        'swap-id',
+        true,
+      ),
+    ).resolves.toEqual(
+      `bitcoin:${address}?amount=${satoshisToCoins(
+        satoshis,
+      )}&label=${label.replace(/ /g, '%20')}`,
     );
   });
 

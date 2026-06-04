@@ -15,7 +15,9 @@ import {
   getLightningClients,
 } from '../wallet/WalletManager';
 import Errors from './Errors';
-import InvoicePaymentHook from './hooks/InvoicePaymentHook';
+import InvoicePaymentHook, {
+  InvoicePaymentHookAction,
+} from './hooks/InvoicePaymentHook';
 
 type NodeAmountThreshold = {
   submarine: number;
@@ -50,6 +52,25 @@ type ReverseSwapNodeResolution =
         | ReverseSwapNodeResolutionStatus.Disconnected;
       reason: string;
     };
+
+enum InvoicePaymentDecision {
+  Continue = 'continue',
+  Hold = 'hold',
+}
+
+type InvoicePaymentHookHold = {
+  action: InvoicePaymentDecision.Hold;
+};
+
+type InvoicePaymentHookContinue = {
+  action: InvoicePaymentDecision.Continue;
+  client?: LightningClient;
+  timePreference?: number;
+};
+
+type InvoicePaymentHookResult =
+  | InvoicePaymentHookHold
+  | InvoicePaymentHookContinue;
 
 class NodeSwitch {
   public readonly clnAmountThreshold: {
@@ -318,16 +339,22 @@ class NodeSwitch {
     currency: Currency,
     swap: { id: string; invoice: string },
     decoded: DecodedInvoice,
-  ): Promise<
-    { client?: LightningClient; timePreference?: number } | undefined
-  > => {
+  ): Promise<InvoicePaymentHookResult | undefined> => {
     const res = await this.paymentHook.hook(swap.id, swap.invoice, decoded);
     if (!res) return undefined;
+
+    if (res.action === InvoicePaymentHookAction.Hold) {
+      return { action: InvoicePaymentDecision.Hold };
+    }
 
     if (res.nodeId !== undefined) {
       const requestedClient = getLightningClientById(currency, res.nodeId);
       if (requestedClient && requestedClient.isConnected()) {
-        return { client: requestedClient, timePreference: res.timePreference };
+        return {
+          action: InvoicePaymentDecision.Continue,
+          client: requestedClient,
+          timePreference: res.timePreference,
+        };
       }
 
       this.logger.warn(
@@ -336,7 +363,10 @@ class NodeSwitch {
     }
 
     if (res.timePreference !== undefined) {
-      return { timePreference: res.timePreference };
+      return {
+        action: InvoicePaymentDecision.Continue,
+        timePreference: res.timePreference,
+      };
     }
 
     return undefined;
@@ -522,4 +552,10 @@ class NodeSwitch {
 }
 
 export default NodeSwitch;
-export { NodeSwitchConfig };
+export type {
+  InvoicePaymentHookContinue,
+  InvoicePaymentHookHold,
+  InvoicePaymentHookResult,
+  NodeSwitchConfig,
+};
+export { InvoicePaymentDecision };

@@ -222,6 +222,57 @@ describe('SwapNursery', () => {
     mockGetChainSwapResult = null;
   });
 
+  test('should retry settling swaps with pending invoices', async () => {
+    jest.useFakeTimers();
+
+    const pendingInvoiceSwap = {
+      id: 'pending-invoice-swap',
+      type: SwapType.Submarine,
+      pair: 'BTC/BTC',
+      orderSide: OrderSide.BUY,
+    } as any;
+    (SwapRepository.getSwaps as jest.Mock).mockResolvedValueOnce([
+      pendingInvoiceSwap,
+    ]);
+
+    const retryNursery = new SwapNursery(
+      mockLogger,
+      {} as any,
+      mockNotifications,
+      {} as any,
+      {} as any,
+      {} as any,
+      mockWalletManager,
+      {} as any,
+      1,
+      mockClaimer,
+      mockChainSwapSigner,
+      {} as any,
+      {} as any,
+    );
+    retryNursery.currencies = new Map([['BTC', mockCurrency]]);
+
+    const attemptSettleSwap = jest
+      .spyOn(retryNursery, 'attemptSettleSwap')
+      .mockResolvedValue(undefined);
+
+    await retryNursery.init([mockCurrency]);
+    await jest.advanceTimersByTimeAsync(1_000);
+
+    expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
+      status: {
+        [Op.in]: [SwapUpdateEvent.InvoicePending, SwapUpdateEvent.InvoicePaid],
+      },
+    });
+    expect(attemptSettleSwap).toHaveBeenCalledWith(
+      mockCurrency,
+      pendingInvoiceSwap,
+    );
+
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
   describe('signer lockup guards', () => {
     const createGuardedNursery = async (signer: Signer) => {
       const signerControlRegistry = SignerControlRegistry.getInstance();

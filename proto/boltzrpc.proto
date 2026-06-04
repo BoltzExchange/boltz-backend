@@ -488,6 +488,11 @@ message InvoiceCreationHookRequest {
   optional string referral = 3;
 }
 
+enum InvoicePaymentHookAction {
+  CONTINUE = 0;
+  HOLD = 1;
+}
+
 message InvoicePaymentHookResponse {
   string id = 1;
 
@@ -497,6 +502,8 @@ message InvoicePaymentHookResponse {
   // Only applies to LND
   // -1 to optimize for fees, 1 to optimize for reliability; value between for a mix
   optional double time_preference = 3;
+
+  InvoicePaymentHookAction action = 4;
 }
 
 message InvoicePaymentHookRequest {

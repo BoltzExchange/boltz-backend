@@ -36,6 +36,11 @@ import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import LightningNursery from './LightningNursery';
 import type NodeSwitch from './NodeSwitch';
+import type {
+  InvoicePaymentHookContinue,
+  InvoicePaymentHookHold,
+} from './NodeSwitch';
+import { InvoicePaymentDecision } from './NodeSwitch';
 import type SwapNursery from './SwapNursery';
 
 type SwapNurseryEvents = {
@@ -92,6 +97,10 @@ type SwapNurseryEvents = {
   'invoice.settled': ReverseSwap;
 };
 
+type PreferredNode = InvoicePaymentHookHold | (InvoicePaymentHookContinue & {
+  client: LightningClient;
+});
+
 class PaymentHandler {
   private static readonly resetMissionControlInterval = 10 * 60 * 1000;
   private static readonly errCltvTooSmall = 'CLTV limit too small';
@@ -147,6 +156,10 @@ class PaymentHandler {
       swap,
       decoded,
     );
+    if (preferredNode.action === InvoicePaymentDecision.Hold) {
+      this.logger.debug(`Invoice payment of Swap ${swap.id} held by hook`);
+      return undefined;
+    }
 
     const { node, paymentHash, payments } =
       await this.pendingPaymentTracker.getRelevantNode(
@@ -381,15 +394,20 @@ class PaymentHandler {
     lightningCurrency: Currency,
     swap: Swap,
     decoded: DecodedInvoice,
-  ): Promise<{ client: LightningClient; timePreference?: number }> => {
+  ): Promise<PreferredNode> => {
     const hookNode = await this.nodeSwitch.invoicePaymentHook(
       lightningCurrency,
       { id: swap.id, invoice: swap.invoice! },
       decoded,
     );
 
+    if (hookNode?.action === InvoicePaymentDecision.Hold) {
+      return { action: InvoicePaymentDecision.Hold };
+    }
+
     if (hookNode?.client) {
       return {
+        action: InvoicePaymentDecision.Continue,
         client: hookNode.client,
         timePreference: hookNode.timePreference,
       };
@@ -402,6 +420,7 @@ class PaymentHandler {
     );
 
     return {
+      action: InvoicePaymentDecision.Continue,
       client: fallbackClient,
       timePreference: hookNode?.timePreference,
     };

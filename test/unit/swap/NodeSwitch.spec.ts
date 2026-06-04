@@ -15,9 +15,11 @@ import type DecodedInvoice from '../../../lib/sidecar/DecodedInvoice';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch, {
+  InvoicePaymentDecision,
   ReverseSwapNodeResolutionStatus,
 } from '../../../lib/swap/NodeSwitch';
 import type InvoicePaymentHook from '../../../lib/swap/hooks/InvoicePaymentHook';
+import { InvoicePaymentHookAction } from '../../../lib/swap/hooks/InvoicePaymentHook';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 
 describe('NodeSwitch', () => {
@@ -250,15 +252,16 @@ describe('NodeSwitch', () => {
 
   describe('invoicePaymentHook', () => {
     test.each`
-      hookResult                                       | testCurrency       | expected                                      | description
-      ${{ nodeId: lndClient.id }}                      | ${currency}        | ${{ client: lndClient }}                      | ${'LND by nodeId'}
-      ${{ nodeId: lndClient.id, timePreference: 0.5 }} | ${currency}        | ${{ client: lndClient, timePreference: 0.5 }} | ${'LND by nodeId with time preference'}
-      ${{ nodeId: clnClient.id }}                      | ${currency}        | ${{ client: clnClient }}                      | ${'CLN by nodeId'}
-      ${undefined}                                     | ${currency}        | ${undefined}                                  | ${'undefined when hook returns undefined'}
-      ${{ nodeId: lndClient.id }}                      | ${clnOnlyCurrency} | ${undefined}                                  | ${'undefined when hook returns LND but LND client is missing'}
-      ${{ nodeId: clnClient.id }}                      | ${lndOnlyCurrency} | ${undefined}                                  | ${'undefined when hook returns CLN but CLN client is missing'}
-      ${{ timePreference: -1 }}                        | ${currency}        | ${{ timePreference: -1 }}                     | ${'time preference only without client'}
-      ${{ nodeId: lndClient.id, timePreference: 0.5 }} | ${clnOnlyCurrency} | ${{ timePreference: 0.5 }}                    | ${'time preference only when requested client missing'}
+      hookResult                                       | testCurrency       | expected                                                                                      | description
+      ${{ nodeId: lndClient.id }}                      | ${currency}        | ${{ action: InvoicePaymentDecision.Continue, client: lndClient }}                              | ${'LND by nodeId'}
+      ${{ nodeId: lndClient.id, timePreference: 0.5 }} | ${currency}        | ${{ action: InvoicePaymentDecision.Continue, client: lndClient, timePreference: 0.5 }}         | ${'LND by nodeId with time preference'}
+      ${{ nodeId: clnClient.id }}                      | ${currency}        | ${{ action: InvoicePaymentDecision.Continue, client: clnClient }}                              | ${'CLN by nodeId'}
+      ${undefined}                                     | ${currency}        | ${undefined}                                                                                  | ${'undefined when hook returns undefined'}
+      ${{ action: InvoicePaymentHookAction.Hold }}      | ${currency}        | ${{ action: InvoicePaymentDecision.Hold }}                                                     | ${'hold when hook holds'}
+      ${{ nodeId: lndClient.id }}                      | ${clnOnlyCurrency} | ${undefined}                                                                                  | ${'undefined when hook returns LND but LND client is missing'}
+      ${{ nodeId: clnClient.id }}                      | ${lndOnlyCurrency} | ${undefined}                                                                                  | ${'undefined when hook returns CLN but CLN client is missing'}
+      ${{ timePreference: -1 }}                        | ${currency}        | ${{ action: InvoicePaymentDecision.Continue, timePreference: -1 }}                             | ${'time preference only without client'}
+      ${{ nodeId: lndClient.id, timePreference: 0.5 }} | ${clnOnlyCurrency} | ${{ action: InvoicePaymentDecision.Continue, timePreference: 0.5 }}                            | ${'time preference only when requested client missing'}
     `(
       'should return $description',
       async ({ hookResult, testCurrency, expected }) => {

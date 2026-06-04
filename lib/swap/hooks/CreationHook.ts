@@ -8,7 +8,6 @@ import Hook from './Hook';
 const enum Action {
   Accept,
   Reject,
-  Hold,
 }
 
 type RequestParamsBase = {
@@ -106,13 +105,7 @@ class CreationHook extends Hook<
   protected parseGrpcAction = (res: boltzrpc.SwapCreationResponse): Action =>
     parseGrpcAction(this.logger, this.name, res.id, res.action);
 
-  private handleAction = (action: Action) => {
-    if (action === Action.Hold) {
-      this.logger.warn('Hold not implemented for swap creation hook');
-    }
-
-    return action !== Action.Reject;
-  };
+  private handleAction = (action: Action) => action !== Action.Reject;
 }
 
 const parseGrpcAction = (
@@ -127,8 +120,6 @@ const parseGrpcAction = (
     case boltzrpc.Action.REJECT:
       logger.warn(`Hook ${name} rejected for ${id}`);
       return Action.Reject;
-    case boltzrpc.Action.HOLD:
-      return Action.Hold;
     default:
       throw new Error(`unknown action: ${action}`);
   }

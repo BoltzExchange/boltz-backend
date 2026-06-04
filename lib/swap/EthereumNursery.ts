@@ -273,12 +273,6 @@ class EthereumNursery extends TypedEventEmitter<{
       );
 
       switch (action) {
-        case Action.Hold:
-          this.logger.warn(
-            `Holding lockup in ${this.ethereumManager.networkDetails.name} EtherSwap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
-          );
-          return;
-
         case Action.Reject:
           this.emit('lockup.failed', {
             swap,
@@ -428,12 +422,6 @@ class EthereumNursery extends TypedEventEmitter<{
       );
 
       switch (action) {
-        case Action.Hold:
-          this.logger.debug(
-            `Holding lockup in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
-          );
-          return;
-
         case Action.Reject:
           this.emit('lockup.failed', {
             swap,

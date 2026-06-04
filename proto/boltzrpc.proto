@@ -425,7 +425,6 @@ message CalculateTransactionFeeResponse {
 enum Action {
   ACCEPT = 0;
   REJECT = 1;
-  HOLD = 2;
 }
 
 message SwapCreationResponse {

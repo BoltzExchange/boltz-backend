@@ -1,4 +1,4 @@
-import AsyncLock from 'async-lock';
+import InstrumentedLock from '../InstrumentedLock';
 import type Logger from '../Logger';
 import { formatError } from '../Utils';
 import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
@@ -22,7 +22,7 @@ class RefundWatcher extends TypedEventEmitter<{
   private static readonly defaultRequiredConfirmations = 1;
   private static readonly pendingTransactionsLock = 'pendingTransactions';
 
-  private readonly lock = new AsyncLock();
+  private readonly lock = new InstrumentedLock('refundWatcher');
   private currencies!: Map<string, Currency>;
 
   constructor(
@@ -45,19 +45,23 @@ class RefundWatcher extends TypedEventEmitter<{
   };
 
   private checkPendingTransactions = async () => {
-    await this.lock.acquire(RefundWatcher.pendingTransactionsLock, async () => {
-      const txs = await RefundTransactionRepository.getPendingTransactions();
+    await this.lock.acquire(
+      RefundWatcher.pendingTransactionsLock,
+      'checkPendingTransactions',
+      async () => {
+        const txs = await RefundTransactionRepository.getPendingTransactions();
 
-      for (const { tx, swap } of txs) {
-        try {
-          await this.checkRefund(tx, swap);
-        } catch (error) {
-          this.logger.error(
-            `Error checking refund transaction of ${swapTypeToPrettyString(swap.type)} ${swap.id}: ${formatError(error)}`,
-          );
+        for (const { tx, swap } of txs) {
+          try {
+            await this.checkRefund(tx, swap);
+          } catch (error) {
+            this.logger.error(
+              `Error checking refund transaction of ${swapTypeToPrettyString(swap.type)} ${swap.id}: ${formatError(error)}`,
+            );
+          }
         }
-      }
-    });
+      },
+    );
   };
 
   private checkRefund = async (

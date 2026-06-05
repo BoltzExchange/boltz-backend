@@ -15,7 +15,7 @@ class TransactionHook extends Hook<
     super(
       logger,
       'transaction',
-      Action.Hold,
+      Action.Accept,
       Action.Accept,
       60_000,
       notificationClient,

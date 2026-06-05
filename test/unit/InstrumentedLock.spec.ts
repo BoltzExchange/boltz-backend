@@ -1,4 +1,6 @@
+import { SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import InstrumentedLock from '../../lib/InstrumentedLock';
+import Tracing from '../../lib/Tracing';
 
 const deferred = () => {
   let resolve!: () => void;
@@ -124,5 +126,188 @@ describe('InstrumentedLock', () => {
     );
     expect(entry?.rejections ?? 0).toEqual(0);
     expect(entry?.pending ?? 0).toEqual(0);
+  });
+
+  test('should release the lock after the callback throws', async () => {
+    const lock = newLock('test');
+
+    await expect(
+      lock.acquire('key', 'op', async () => {
+        throw new Error('boom');
+      }),
+    ).rejects.toThrow('boom');
+
+    // The lock must not be wedged: the next acquirer can still run
+    await expect(
+      lock.acquire('key', 'op', async () => 'next'),
+    ).resolves.toEqual('next');
+    expect(lock.isBusy('key')).toEqual(false);
+  });
+
+  test('should run tasks for different keys concurrently', async () => {
+    const lock = newLock('test');
+    const blocker = deferred();
+    const order: string[] = [];
+
+    const a = lock.acquire('keyA', 'op', async () => {
+      order.push('a-start');
+      await blocker.promise;
+      order.push('a-end');
+    });
+    const b = lock.acquire('keyB', 'op', async () => {
+      order.push('b');
+    });
+
+    // "keyB" finishes while "keyA" is still held: different keys don't serialize
+    await b;
+    expect(order).toEqual(['a-start', 'b']);
+
+    blocker.resolve();
+    await a;
+  });
+
+  test('should remove the lock from the snapshot when destroyed', async () => {
+    const lock = newLock('willBeDestroyed');
+    const holder = deferred();
+    const held = lock.acquire('key', 'op', () => holder.promise);
+
+    expect(
+      InstrumentedLock.snapshot().some((e) => e.name === 'willBeDestroyed'),
+    ).toEqual(true);
+
+    lock.destroy();
+    expect(
+      InstrumentedLock.snapshot().some((e) => e.name === 'willBeDestroyed'),
+    ).toEqual(false);
+
+    holder.resolve();
+    await held;
+  });
+
+  describe('tracing', () => {
+    let spans: {
+      setAttribute: jest.Mock;
+      setStatus: jest.Mock;
+      end: jest.Mock;
+    }[];
+    let startSpan: jest.Mock;
+    let originalTracer: typeof Tracing.tracer;
+
+    beforeEach(() => {
+      spans = [];
+      startSpan = jest.fn(() => {
+        const span = {
+          setAttribute: jest.fn(),
+          setStatus: jest.fn(),
+          end: jest.fn(),
+        };
+        spans.push(span);
+        return span;
+      });
+
+      originalTracer = Tracing.tracer;
+      Tracing.tracer = { startSpan } as unknown as typeof Tracing.tracer;
+    });
+
+    afterEach(() => {
+      Tracing.tracer = originalTracer;
+    });
+
+    test('should start a span with the lock attributes and end it', async () => {
+      const lock = newLock('myLock');
+
+      await expect(
+        lock.acquire('myKey', 'myOp', async () => 'done'),
+      ).resolves.toEqual('done');
+
+      expect(startSpan).toHaveBeenCalledWith('lock myLock myOp', {
+        kind: SpanKind.INTERNAL,
+        attributes: {
+          'lock.name': 'myLock',
+          'lock.key': 'myKey',
+          'lock.op': 'myOp',
+        },
+      });
+
+      const span = spans[0];
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        'lock.wait_ms',
+        expect.any(Number),
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        'lock.held_ms',
+        expect.any(Number),
+      );
+      expect(span.setStatus).not.toHaveBeenCalled();
+      expect(span.end).toHaveBeenCalledTimes(1);
+    });
+
+    test('should mark the span as errored when the callback throws', async () => {
+      const lock = newLock('myLock');
+
+      await expect(
+        lock.acquire('myKey', 'myOp', async () => {
+          throw new Error('boom');
+        }),
+      ).rejects.toThrow('boom');
+
+      const span = spans[0];
+      expect(span.setStatus).toHaveBeenCalledWith({
+        code: SpanStatusCode.ERROR,
+        message: expect.stringContaining('boom'),
+      });
+      expect(span.end).toHaveBeenCalledTimes(1);
+    });
+
+    test('should mark the span as errored on queue overflow', async () => {
+      const lock = newLock('myLock', { maxPending: 1 });
+      const holder = deferred();
+
+      const held = lock.acquire('myKey', 'holder', () => holder.promise);
+      const waiter = lock.acquire('myKey', 'waiter', async () => {});
+
+      await expect(
+        lock.acquire('myKey', 'overflowed', async () => {}),
+      ).rejects.toThrow(/overflow/);
+
+      // Spans are created in call order: holder, waiter, then the rejected task
+      const overflowSpan = spans[2];
+      expect(overflowSpan.setStatus).toHaveBeenCalledWith({
+        code: SpanStatusCode.ERROR,
+        message: expect.stringContaining('overflow'),
+      });
+      expect(overflowSpan.end).toHaveBeenCalledTimes(1);
+
+      holder.resolve();
+      await Promise.all([held, waiter]);
+    });
+
+    test('should accept a synchronous callback', async () => {
+      const lock = newLock('myLock');
+
+      await expect(
+        lock.acquire('myKey', 'myOp', () => 'syncDone'),
+      ).resolves.toEqual('syncDone');
+
+      expect(startSpan).toHaveBeenCalledWith('lock myLock myOp', {
+        kind: SpanKind.INTERNAL,
+        attributes: {
+          'lock.name': 'myLock',
+          'lock.key': 'myKey',
+          'lock.op': 'myOp',
+        },
+      });
+
+      const span = spans[0];
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        'lock.wait_ms',
+        expect.any(Number),
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        'lock.held_ms',
+        expect.any(Number),
+      );
+      expect(span.end).toHaveBeenCalledTimes(1);
+    });
   });
 });

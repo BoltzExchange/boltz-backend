@@ -662,94 +662,101 @@ class SwapManager {
       throw Errors.HOOK_REJECTED();
     }
 
-    await this.nursery.lock.acquire(SwapNursery.swapLock, async () => {
-      // Fetch the swap
-      const updatedSwap = (await SwapRepository.getSwap({ id: swap.id }))!;
+    await this.nursery.lock.acquire(
+      SwapNursery.swapLock,
+      'setSwapInvoice',
+      async () => {
+        // Fetch the swap
+        const updatedSwap = (await SwapRepository.getSwap({ id: swap.id }))!;
 
-      if (updatedSwap.createdRefundSignature) {
-        throw Errors.SWAP_ALREADY_REFUNDED(updatedSwap.id);
-      }
-      swap = updatedSwap;
-
-      const expectedAmount =
-        Math.floor(invoiceAmount * rate) +
-        fees.baseFee +
-        fees.percentageFee +
-        (fees.extraFee || 0);
-
-      if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
-        const maxInvoiceAmount = SwapManager.calculateInvoiceAmount(
-          swap.orderSide,
-          rate,
-          swap.onchainAmount,
-          fees.baseFee,
-          fees.percentageFeeRate,
-        );
-
-        // that error was originally thrown in the `Service` class, so we keep backwards-compat
-        // by not changing the error code
-        throw ServiceErrors.INVALID_INVOICE_AMOUNT(
-          Math.max(maxInvoiceAmount, 0),
-        );
-      }
-
-      const chainCurrency = getChainCurrency(
-        base,
-        quote,
-        swap.orderSide,
-        false,
-      );
-
-      const acceptZeroConf = this.rateProvider.acceptZeroConf(
-        chainCurrency,
-        expectedAmount,
-      );
-
-      const minutesUntilExpiry =
-        (decodedInvoice.expiryTimestamp - getUnixTime()) / 60;
-
-      // When we do not accept 0-conf, we make sure there is enough time for a lockup transaction to confirm
-      if (!acceptZeroConf) {
-        if (
-          (TimeoutDeltaProvider.blockTimes.get(chainCurrency) || 0) * 2 >
-          minutesUntilExpiry
-        ) {
-          throw ServiceErrors.INVOICE_EXPIRY_TOO_SHORT();
+        if (updatedSwap.createdRefundSignature) {
+          throw Errors.SWAP_ALREADY_REFUNDED(updatedSwap.id);
         }
-      }
+        swap = updatedSwap;
 
-      const statusBeforeUpdate = swap.status;
+        const expectedAmount =
+          Math.floor(invoiceAmount * rate) +
+          fees.baseFee +
+          fees.percentageFee +
+          (fees.extraFee || 0);
 
-      await SwapRepository.setInvoice(
-        swap,
-        invoice,
-        invoiceAmount,
-        expectedAmount,
-        fees.percentageFee,
-        acceptZeroConf,
-      );
+        if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
+          const maxInvoiceAmount = SwapManager.calculateInvoiceAmount(
+            swap.orderSide,
+            rate,
+            swap.onchainAmount,
+            fees.baseFee,
+            fees.percentageFeeRate,
+          );
 
-      // Not the most elegant way to emit this event, but the only option
-      // to emit it before trying to claim the swap
-      emitSwapInvoiceSet(updatedSwap.id);
-
-      // If the onchain coins were sent already and the lockup transaction is confirmed
-      // the swap should be settled directly
-      if (
-        updatedSwap.lockupTransactionId &&
-        statusBeforeUpdate === SwapUpdateEvent.TransactionConfirmed &&
-        swap.expectedAmount === swap.onchainAmount &&
-        updatedSwap.expectedAmount === updatedSwap.onchainAmount
-      ) {
-        try {
-          await this.nursery.attemptSettleSwap(receivingCurrency, updatedSwap);
-        } catch (error) {
-          this.logger.warn(
-            `Could not settle Swap ${swap.id}: ${formatError(error)}`,
+          // that error was originally thrown in the `Service` class, so we keep backwards-compat
+          // by not changing the error code
+          throw ServiceErrors.INVALID_INVOICE_AMOUNT(
+            Math.max(maxInvoiceAmount, 0),
           );
         }
-      }
-    });
+
+        const chainCurrency = getChainCurrency(
+          base,
+          quote,
+          swap.orderSide,
+          false,
+        );
+
+        const acceptZeroConf = this.rateProvider.acceptZeroConf(
+          chainCurrency,
+          expectedAmount,
+        );
+
+        const minutesUntilExpiry =
+          (decodedInvoice.expiryTimestamp - getUnixTime()) / 60;
+
+        // When we do not accept 0-conf, we make sure there is enough time for a lockup transaction to confirm
+        if (!acceptZeroConf) {
+          if (
+            (TimeoutDeltaProvider.blockTimes.get(chainCurrency) || 0) * 2 >
+            minutesUntilExpiry
+          ) {
+            throw ServiceErrors.INVOICE_EXPIRY_TOO_SHORT();
+          }
+        }
+
+        const statusBeforeUpdate = swap.status;
+
+        await SwapRepository.setInvoice(
+          swap,
+          invoice,
+          invoiceAmount,
+          expectedAmount,
+          fees.percentageFee,
+          acceptZeroConf,
+        );
+
+        // Not the most elegant way to emit this event, but the only option
+        // to emit it before trying to claim the swap
+        emitSwapInvoiceSet(updatedSwap.id);
+
+        // If the onchain coins were sent already and the lockup transaction is confirmed
+        // the swap should be settled directly
+        if (
+          updatedSwap.lockupTransactionId &&
+          statusBeforeUpdate === SwapUpdateEvent.TransactionConfirmed &&
+          swap.expectedAmount === swap.onchainAmount &&
+          updatedSwap.expectedAmount === updatedSwap.onchainAmount
+        ) {
+          try {
+            await this.nursery.attemptSettleSwap(
+              receivingCurrency,
+              updatedSwap,
+            );
+          } catch (error) {
+            this.logger.warn(
+              `Could not settle Swap ${swap.id}: ${formatError(error)}`,
+            );
+          }
+        }
+      },
+    );
 
     return {
       acceptZeroConf: swap.acceptZeroConf!,

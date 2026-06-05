@@ -1,4 +1,7 @@
+import Tracing from './Tracing';
+import { SpanKind, SpanStatusCode, context, trace } from '@opentelemetry/api';
 import AsyncLock from 'async-lock';
+import { formatError } from './Utils';
 
 type HeldEntry = {
   op: string;
@@ -46,9 +49,20 @@ class InstrumentedLock {
   public acquire = async <T>(
     key: string,
     op: string,
-    cb: () => Promise<T>,
+    cb: () => Promise<T> | T,
   ): Promise<T> => {
+    const span = Tracing.tracer.startSpan(`lock ${this.name} ${op}`, {
+      kind: SpanKind.INTERNAL,
+      attributes: {
+        'lock.name': this.name,
+        'lock.key': key,
+        'lock.op': op,
+      },
+    });
+    const ctx = trace.setSpan(context.active(), span);
+
     this.changePending(key, 1);
+    const enqueuedAt = Date.now();
 
     let entered = false;
 
@@ -56,26 +70,38 @@ class InstrumentedLock {
       return await this.lock.acquire(key, async () => {
         entered = true;
         this.changePending(key, -1);
-        this.held.set(key, { op, since: Date.now() });
+
+        const acquiredAt = Date.now();
+        span.setAttribute('lock.wait_ms', acquiredAt - enqueuedAt);
+        this.held.set(key, { op, since: acquiredAt });
 
         try {
-          return await cb();
+          return await context.with(ctx, cb);
         } finally {
+          span.setAttribute('lock.held_ms', Date.now() - acquiredAt);
           this.held.delete(key);
         }
       });
     } catch (error) {
+      let thrown = error;
+
       if (!entered) {
         // The task never started, so its pending slot was never cleared
         this.changePending(key, -1);
 
         if (InstrumentedLock.isOverflowError(error)) {
           this.rejections.set(key, (this.rejections.get(key) ?? 0) + 1);
-          throw new Error(this.formatOverflowError(key, op));
+          thrown = new Error(this.formatOverflowError(key, op));
         }
       }
 
-      throw error;
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: formatError(thrown),
+      });
+      throw thrown;
+    } finally {
+      span.end();
     }
   };
 
@@ -86,7 +112,14 @@ class InstrumentedLock {
   };
 
   private changePending = (key: string, delta: number): void => {
-    this.pending.set(key, Math.max(0, (this.pending.get(key) ?? 0) + delta));
+    const next = Math.max(0, (this.pending.get(key) ?? 0) + delta);
+
+    // Delete idle keys so locks with dynamic keys do not grow the map unbounded
+    if (next === 0) {
+      this.pending.delete(key);
+    } else {
+      this.pending.set(key, next);
+    }
   };
 
   private formatOverflowError = (key: string, op: string): string => {

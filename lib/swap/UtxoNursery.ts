@@ -1,5 +1,4 @@
 import type { Transaction } from '@scure/btc-signer';
-import AsyncLock from 'async-lock';
 import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
@@ -9,6 +8,7 @@ import {
   parseTransaction,
   tweakMusig,
 } from '../Core';
+import InstrumentedLock from '../InstrumentedLock';
 import type Logger from '../Logger';
 import { TxView } from '../TxView';
 import {
@@ -101,7 +101,7 @@ class UtxoNursery extends TypedEventEmitter<{
   private static payjoinLockupRetryDelay = 2_000;
   private static payjoinLockupMaxRetries = 10;
 
-  private lock = new AsyncLock();
+  private lock = new InstrumentedLock('utxoNursery');
   private pendingPayjoinLockupRetries = new Map<string, NodeJS.Timeout>();
   private pendingPayjoinLockupRetryAttempts = new Map<string, number>();
 
@@ -225,15 +225,6 @@ class UtxoNursery extends TypedEventEmitter<{
       );
 
       switch (action) {
-        case Action.Hold:
-          this.logHoldingTransaction(
-            wallet.symbol,
-            swap,
-            transaction,
-            swapOutput,
-          );
-          return;
-
         case Action.Reject:
           this.emit('chainSwap.lockup.failed', {
             swap,
@@ -342,12 +333,16 @@ class UtxoNursery extends TypedEventEmitter<{
       );
     };
 
-    await this.lock.acquire(UtxoNursery.lockupLock, async () => {
-      for (const out of TxView.of(transaction).outputs) {
-        const encoded = wallet.encodeAddress(out.script);
-        await Promise.all([checkSwap(encoded), checkChainSwap(encoded)]);
-      }
-    });
+    await this.lock.acquire(
+      UtxoNursery.lockupLock,
+      'checkOutputs',
+      async () => {
+        for (const out of TxView.of(transaction).outputs) {
+          const encoded = wallet.encodeAddress(out.script);
+          await Promise.all([checkSwap(encoded), checkChainSwap(encoded)]);
+        }
+      },
+    );
   };
 
   private checkSwapClaims = async (
@@ -561,8 +556,10 @@ class UtxoNursery extends TypedEventEmitter<{
       }
     };
 
-    await this.lock.acquire(UtxoNursery.swapLockupConfirmationLock, () =>
-      Promise.all([checkReverse(), checkChain()]),
+    await this.lock.acquire(
+      UtxoNursery.swapLockupConfirmationLock,
+      'checkServerLockupMempool',
+      () => Promise.all([checkReverse(), checkChain()]),
     );
   };
 
@@ -794,15 +791,6 @@ class UtxoNursery extends TypedEventEmitter<{
       );
 
       switch (action) {
-        case Action.Hold:
-          this.logHoldingTransaction(
-            wallet.symbol,
-            updatedSwap,
-            transaction,
-            swapOutput,
-          );
-          return;
-
         case Action.Reject:
           this.emit('swap.lockup.failed', {
             swap: updatedSwap,
@@ -991,18 +979,6 @@ class UtxoNursery extends TypedEventEmitter<{
   ) =>
     this.logger.verbose(
       `Found ${confirmed ? '' : 'un'}confirmed ${symbol} lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
-        swap.id
-      }: ${TxView.of(transaction).id}:${swapOutput.vout}`,
-    );
-
-  private logHoldingTransaction = (
-    symbol: string,
-    swap: Swap | ChainSwapInfo,
-    transaction: Transaction | LiquidTransaction,
-    swapOutput: NonNullable<ReturnType<typeof detectSwap>>,
-  ) =>
-    this.logger.warn(
-      `Holding ${symbol} lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
       }: ${TxView.of(transaction).id}:${swapOutput.vout}`,
     );

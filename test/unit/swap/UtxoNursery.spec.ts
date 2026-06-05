@@ -750,57 +750,6 @@ describe('UtxoNursery', () => {
     await failPromise;
   });
 
-  test('should hold transactions when action is Hold', async () => {
-    const checkSwapOutputs = nursery['checkOutputs'];
-
-    const transaction = parseTx(sampleTransactions.lockup);
-    transaction.updateInput(0, { sequence: 0xffffffff }, true);
-    transaction.updateInput(1, { sequence: 0xffffffff }, true);
-
-    mockGetSwapResult = {
-      id: 'hold',
-      acceptZeroConf: true,
-      redeemScript: sampleRedeemScript,
-      type: SwapType.Submarine,
-    };
-
-    mockGetRawTransactionVerboseResult = () => ({
-      confirmations: 1,
-    });
-
-    transactionHook.hook = jest.fn().mockReturnValue(Action.Hold);
-
-    const logHoldingSpy = jest.spyOn(nursery as any, 'logHoldingTransaction');
-
-    await checkSwapOutputs(
-      btcChainClient,
-      btcWallet,
-      transaction,
-      TransactionStatus.ZeroConfSafe,
-    );
-
-    expect(transactionHook.hook).toHaveBeenCalledTimes(1);
-    expect(transactionHook.hook).toHaveBeenCalledWith(
-      mockGetSwapResult.id,
-      btcWallet.symbol,
-      transaction.id,
-      Buffer.from(transaction.toBytes(true, true)),
-      false,
-      SwapType.Submarine,
-      0,
-    );
-    expect(logHoldingSpy).toHaveBeenCalledTimes(1);
-    expect(logHoldingSpy).toHaveBeenCalledWith(
-      btcWallet.symbol,
-      mockGetSwapResult,
-      transaction,
-      expect.anything(),
-    );
-
-    logHoldingSpy.mockRestore();
-    transactionHook.hook = jest.fn().mockReturnValue(true);
-  });
-
   test('should handle claimed Reverse Swaps', async () => {
     RefundTransactionRepository.getTransaction = jest
       .fn()

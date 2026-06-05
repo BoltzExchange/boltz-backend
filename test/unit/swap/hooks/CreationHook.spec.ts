@@ -79,10 +79,6 @@ describe('CreationHook', () => {
 
   describe('swapCreationHook', () => {
     test('should resolve accept action if stream is not connected', async () => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      hook['defaultAction'] = Action.Hold;
-
       expect(hook['stream']).toBeUndefined();
 
       await expect(
@@ -211,17 +207,8 @@ describe('CreationHook', () => {
   });
 
   describe('handleAction', () => {
-    beforeEach(() => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      hook['logger'] = {
-        warn: jest.fn(),
-      } as any;
-    });
-
     test.each([
       { action: Action.Accept, expected: true },
-      { action: Action.Hold, expected: true },
       { action: Action.Reject, expected: false },
     ])(
       'should return $expected when action is $action',
@@ -229,14 +216,6 @@ describe('CreationHook', () => {
         const result = hook['handleAction'](action);
 
         expect(result).toEqual(expected);
-
-        if (action === Action.Hold) {
-          expect(hook['logger'].warn).toHaveBeenCalledWith(
-            'Hold not implemented for swap creation hook',
-          );
-        } else {
-          expect(hook['logger'].warn).not.toHaveBeenCalled();
-        }
       },
     );
   });

@@ -15,7 +15,11 @@ import {
   getLightningClients,
 } from '../wallet/WalletManager';
 import Errors from './Errors';
-import InvoicePaymentHook from './hooks/InvoicePaymentHook';
+import InvoicePaymentHook, {
+  InvoicePaymentHookAction,
+  type InvoicePaymentHookContinue,
+  type InvoicePaymentHookHold,
+} from './hooks/InvoicePaymentHook';
 
 type NodeAmountThreshold = {
   submarine: number;
@@ -50,6 +54,12 @@ type ReverseSwapNodeResolution =
         | ReverseSwapNodeResolutionStatus.Disconnected;
       reason: string;
     };
+
+type InvoicePaymentPreference =
+  | InvoicePaymentHookHold
+  | (Omit<InvoicePaymentHookContinue, 'nodeId'> & {
+      client?: LightningClient;
+    });
 
 class NodeSwitch {
   public readonly clnAmountThreshold: {
@@ -318,16 +328,22 @@ class NodeSwitch {
     currency: Currency,
     swap: { id: string; invoice: string },
     decoded: DecodedInvoice,
-  ): Promise<
-    { client?: LightningClient; timePreference?: number } | undefined
-  > => {
+  ): Promise<InvoicePaymentPreference | undefined> => {
     const res = await this.paymentHook.hook(swap.id, swap.invoice, decoded);
     if (!res) return undefined;
+
+    if (res.action === InvoicePaymentHookAction.Hold) {
+      return { action: InvoicePaymentHookAction.Hold };
+    }
 
     if (res.nodeId !== undefined) {
       const requestedClient = getLightningClientById(currency, res.nodeId);
       if (requestedClient && requestedClient.isConnected()) {
-        return { client: requestedClient, timePreference: res.timePreference };
+        return {
+          action: InvoicePaymentHookAction.Continue,
+          client: requestedClient,
+          timePreference: res.timePreference,
+        };
       }
 
       this.logger.warn(
@@ -336,7 +352,10 @@ class NodeSwitch {
     }
 
     if (res.timePreference !== undefined) {
-      return { timePreference: res.timePreference };
+      return {
+        action: InvoicePaymentHookAction.Continue,
+        timePreference: res.timePreference,
+      };
     }
 
     return undefined;
@@ -522,4 +541,4 @@ class NodeSwitch {
 }
 
 export default NodeSwitch;
-export { NodeSwitchConfig };
+export type { InvoicePaymentPreference, NodeSwitchConfig };

@@ -14,11 +14,12 @@ import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import PaymentHandler from '../../../lib/swap/PaymentHandler';
+import { InvoicePaymentHookAction } from '../../../lib/swap/hooks/InvoicePaymentHook';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import { raceCall } from '../../Utils';
 
 jest.mock('../../../lib/swap/NodeSwitch', () => {
-  return jest.fn().mockImplementation(() => {
+  const nodeSwitch = jest.fn().mockImplementation(() => {
     return {
       getSwapNode: jest
         .fn()
@@ -28,6 +29,8 @@ jest.mock('../../../lib/swap/NodeSwitch', () => {
       invoicePaymentHook: jest.fn(),
     };
   });
+
+  return nodeSwitch;
 });
 
 const MockedNodeSwitch = <jest.Mock<NodeSwitch>>(<any>NodeSwitch);
@@ -327,11 +330,12 @@ describe('PaymentHandler', () => {
   });
 
   test.each`
-    hookNodeReturn                                   | getSwapNodeReturn       | expected                                                 | getSwapNodeCalled
-    ${{ client: 'hookClient' }}                      | ${{ node: 'swapNode' }} | ${{ client: 'hookClient' }}                              | ${false}
-    ${{ client: 'hookClient', timePreference: 0.5 }} | ${{ node: 'swapNode' }} | ${{ client: 'hookClient', timePreference: 0.5 }}         | ${false}
-    ${{ timePreference: 0.5 }}                       | ${{ node: 'swapNode' }} | ${{ client: { node: 'swapNode' }, timePreference: 0.5 }} | ${true}
-    ${undefined}                                     | ${{ node: 'swapNode' }} | ${{ client: { node: 'swapNode' } }}                      | ${true}
+    hookNodeReturn                                                                              | getSwapNodeReturn       | expected                                                                                            | getSwapNodeCalled
+    ${{ action: InvoicePaymentHookAction.Continue, client: 'hookClient' }}                      | ${{ node: 'swapNode' }} | ${{ action: InvoicePaymentHookAction.Continue, client: 'hookClient' }}                              | ${false}
+    ${{ action: InvoicePaymentHookAction.Continue, client: 'hookClient', timePreference: 0.5 }} | ${{ node: 'swapNode' }} | ${{ action: InvoicePaymentHookAction.Continue, client: 'hookClient', timePreference: 0.5 }}         | ${false}
+    ${{ action: InvoicePaymentHookAction.Hold }}                                                | ${{ node: 'swapNode' }} | ${{ action: InvoicePaymentHookAction.Hold }}                                                        | ${false}
+    ${{ action: InvoicePaymentHookAction.Continue, timePreference: 0.5 }}                       | ${{ node: 'swapNode' }} | ${{ action: InvoicePaymentHookAction.Continue, client: { node: 'swapNode' }, timePreference: 0.5 }} | ${true}
+    ${undefined}                                                                                | ${{ node: 'swapNode' }} | ${{ action: InvoicePaymentHookAction.Continue, client: { node: 'swapNode' } }}                      | ${true}
   `(
     'should get preferred node (hook: $hookNodeReturn, swap: $getSwapNodeReturn)',
     async ({
@@ -376,6 +380,25 @@ describe('PaymentHandler', () => {
       }
     },
   );
+
+  test('should not pay invoice when invoice payment hook holds', async () => {
+    (nodeSwitch.invoicePaymentHook as jest.Mock).mockResolvedValueOnce({
+      action: InvoicePaymentHookAction.Hold,
+    });
+
+    const result = await handler.payInvoice(swap, undefined);
+
+    expect(result).toBeUndefined();
+    expect(nodeSwitch.invoicePaymentHook).toHaveBeenCalledTimes(1);
+    expect(
+      handler['pendingPaymentTracker'].getRelevantNode,
+    ).not.toHaveBeenCalled();
+    expect(
+      handler['selfPaymentClient'].handleSelfPayment,
+    ).not.toHaveBeenCalled();
+    expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
+    expect(swap.update).not.toHaveBeenCalled();
+  });
 
   describe('SelfPaymentClient', () => {
     beforeEach(() => {

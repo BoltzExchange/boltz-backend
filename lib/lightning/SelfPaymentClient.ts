@@ -1,5 +1,5 @@
-import AsyncLock from 'async-lock';
 import BaseClient, { SelfPaymentNodeId } from '../BaseClient';
+import InstrumentedLock from '../InstrumentedLock';
 import type Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
 import {
@@ -52,7 +52,7 @@ class SelfPaymentClient
   private static readonly selfPaymentLock = 'self-payment';
   private static readonly notImplementedError = new Error('not implemented');
 
-  private readonly lock = new AsyncLock();
+  private readonly lock = new InstrumentedLock('selfPaymentClient');
 
   public readonly id = SelfPaymentNodeId;
   public type: NodeType = NodeType.SelfPayment;
@@ -88,6 +88,7 @@ class SelfPaymentClient
 
     return await this.lock.acquire(
       SelfPaymentClient.selfPaymentLock,
+      'handleSelfPayment',
       async () => {
         const reverseSwap = await this.getReverseSwap(swap.preimageHash);
         if (reverseSwap === null || reverseSwap === undefined) {

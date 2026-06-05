@@ -1,5 +1,4 @@
 import { SpanKind, SpanStatusCode, context, trace } from '@opentelemetry/api';
-import AsyncLock from 'async-lock';
 import type {
   Provider,
   Signer,
@@ -8,6 +7,7 @@ import type {
   TypedDataField,
 } from 'ethers';
 import { AbstractSigner, getBigInt } from 'ethers';
+import InstrumentedLock from '../../InstrumentedLock';
 import Tracing from '../../Tracing';
 import { formatError } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
@@ -16,13 +16,25 @@ import { bumpGasLimit } from './EthereumUtils';
 class SequentialSigner extends AbstractSigner {
   private static readonly txLock = 'txLock';
 
-  private readonly lock = new AsyncLock();
+  // One lock per symbol, shared across connect() clones so they serialize
+  // together and never register duplicate InstrumentedLock instances
+  private static readonly locks = new Map<string, InstrumentedLock>();
+
+  private readonly lock: InstrumentedLock;
 
   constructor(
     private readonly symbol: string,
     private signer: AbstractSigner,
   ) {
     super(signer.provider);
+
+    const lockName = `sequentialSigner-${symbol}`;
+    let lock = SequentialSigner.locks.get(lockName);
+    if (lock === undefined) {
+      lock = new InstrumentedLock(lockName);
+      SequentialSigner.locks.set(lockName, lock);
+    }
+    this.lock = lock;
   }
 
   public getAddress = (): Promise<string> => this.signer.getAddress();
@@ -67,22 +79,26 @@ class SequentialSigner extends AbstractSigner {
   ): Promise<string> => this.signer.signTypedData(domain, types, value);
 
   private signTransactionInternal = async (tx: TransactionRequest) => {
-    return await this.lock.acquire(SequentialSigner.txLock, async () => {
-      if (tx.value !== undefined && tx.value !== null) {
-        const [ourBalance, pendingTxsValue] = await Promise.all([
-          this.signer.provider!.getBalance(await this.getAddress()),
-          PendingEthereumTransactionRepository.getTotalSent(this.symbol),
-        ]);
+    return await this.lock.acquire(
+      SequentialSigner.txLock,
+      'signTransaction',
+      async () => {
+        if (tx.value !== undefined && tx.value !== null) {
+          const [ourBalance, pendingTxsValue] = await Promise.all([
+            this.signer.provider!.getBalance(await this.getAddress()),
+            PendingEthereumTransactionRepository.getTotalSent(this.symbol),
+          ]);
 
-        if (ourBalance - pendingTxsValue < BigInt(tx.value)) {
-          throw new Error('insufficient balance');
+          if (ourBalance - pendingTxsValue < BigInt(tx.value)) {
+            throw new Error('insufficient balance');
+          }
         }
-      }
 
-      return await this.signer.signTransaction(
-        await this.addGasLimitBuffer(tx),
-      );
-    });
+        return await this.signer.signTransaction(
+          await this.addGasLimitBuffer(tx),
+        );
+      },
+    );
   };
 
   private addGasLimitBuffer = async (

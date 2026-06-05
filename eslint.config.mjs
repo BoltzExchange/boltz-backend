@@ -57,4 +57,23 @@ export default [
       quotes: ['error', 'single', { avoidEscape: true }],
     },
   },
+
+  {
+    files: ['lib/**/*.ts'],
+    ignores: ['lib/InstrumentedLock.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'async-lock',
+              message:
+                'Import InstrumentedLock instead of using async-lock directly.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];

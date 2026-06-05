@@ -1,5 +1,4 @@
 import { secp256k1 } from '@noble/curves/secp256k1.js';
-import AsyncLock from 'async-lock';
 import bolt11 from 'bolt11';
 import { OutputType } from 'boltz-core';
 import { Networks as LiquidNetworks } from 'boltz-core/liquid';
@@ -11,6 +10,7 @@ import {
   outputScriptFromAddress,
 } from '../../../lib/AddressUtils';
 import { setup } from '../../../lib/Core';
+import InstrumentedLock from '../../../lib/InstrumentedLock';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString, getUnixTime } from '../../../lib/Utils';
 import ArkClient from '../../../lib/chain/ArkClient';
@@ -368,7 +368,7 @@ jest.mock('../../../lib/service/InvoiceExpiryHelper', () => {
 
 jest.mock('../../../lib/swap/SwapNursery', () => {
   return jest.fn().mockImplementation(() => ({
-    lock: new AsyncLock(),
+    lock: new InstrumentedLock('swapNursery'),
     init: jest.fn().mockImplementation(async () => {}),
   }));
 });

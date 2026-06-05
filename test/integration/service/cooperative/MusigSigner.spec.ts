@@ -2,7 +2,6 @@ import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { Transaction } from '@scure/btc-signer';
-import AsyncLock from 'async-lock';
 import bolt11 from 'bolt11';
 import {
   Musig,
@@ -21,6 +20,7 @@ import {
   outputScriptFromAddress,
 } from '../../../../lib/AddressUtils';
 import { hashForWitnessV1, setup, tweakMusig } from '../../../../lib/Core';
+import InstrumentedLock from '../../../../lib/InstrumentedLock';
 import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
 import {
@@ -87,7 +87,7 @@ describe('MusigSigner', () => {
   } as WalletManager;
 
   const nursery = {
-    lock: new AsyncLock(),
+    lock: new InstrumentedLock('swapNursery'),
     settleReverseSwapInvoice: jest.fn(),
   } as any as SwapNursery;
 

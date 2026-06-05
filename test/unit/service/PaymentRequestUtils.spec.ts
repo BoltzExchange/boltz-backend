@@ -85,7 +85,14 @@ describe('PaymentRequestUtils', () => {
     const enablePayjoin = false;
 
     await expect(
-      pru.encodeBip21(symbol, address, satoshis, label, 'swap-id', enablePayjoin),
+      pru.encodeBip21(
+        symbol,
+        address,
+        satoshis,
+        label,
+        'swap-id',
+        enablePayjoin,
+      ),
     ).resolves.toEqual(
       `bitcoin:${address}?amount=${satoshisToCoins(
         satoshis,

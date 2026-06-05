@@ -450,7 +450,7 @@ class GrpcService {
             (m) => m.hasSymbol(tx.chain),
           );
           if (manager !== undefined) {
-            const received = await manager.getClaimedAmount(tx.hex);
+            const received = await manager.getReceivedAmount(tx.hex);
             if (received !== undefined) {
               txGrpc.amountReceived = received.amount.toString();
 

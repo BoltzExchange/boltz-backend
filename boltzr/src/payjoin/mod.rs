@@ -439,9 +439,9 @@ fn input_pair_from_unspent(utxo: UnspentOutput) -> Result<(u64, payjoin::receive
         ..Default::default()
     };
     let input = if txout.script_pubkey.is_p2wpkh() {
-        payjoin::receive::InputPair::new_p2wpkh(txout, outpoint, None)
+        payjoin::receive::InputPair::new_p2wpkh(txout, outpoint)
     } else if txout.script_pubkey.is_p2tr() {
-        payjoin::receive::InputPair::new_p2tr_keyspend(txout, outpoint, None)
+        payjoin::receive::InputPair::new_p2tr_keyspend(txout, outpoint)
     } else {
         payjoin::receive::InputPair::new(txin, psbtin, None)
     }
@@ -636,7 +636,7 @@ fn log_closed_outcome(session_id: i64, outcome: &SessionOutcome) {
                 "Payjoin receiver session closed; proposal sent but payment cannot be monitored"
             );
         }
-        SessionOutcome::Failure | SessionOutcome::Cancel => {
+        SessionOutcome::Aborted => {
             error!(
                 session_id = %session_id,
                 outcome = ?outcome,
@@ -662,10 +662,15 @@ fn sign_payjoin_psbt(
 }
 
 async fn post_request(req: payjoin::Request) -> Result<reqwest::Response> {
-    Ok(reqwest::Client::new()
+    let http = reqwest::Client::builder()
+        .http1_only()
+        .build()
+        .context("failed to build payjoin HTTP client")?;
+
+    Ok(http
         .post(req.url)
-        .body(req.body)
         .header("Content-Type", req.content_type)
+        .body(req.body)
         .send()
         .await
         .context("failed to send payjoin HTTP request")?

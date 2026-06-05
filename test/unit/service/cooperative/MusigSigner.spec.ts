@@ -74,7 +74,7 @@ describe('MusigSigner', () => {
     const createSigner = () => {
       const nursery = {
         lock: {
-          acquire: jest.fn(async (_lock, callback) => callback()),
+          acquire: jest.fn(async (_lock, _op, callback) => callback()),
         },
         settleReverseSwapInvoice: jest.fn().mockResolvedValue(undefined),
       } as any as SwapNursery;

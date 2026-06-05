@@ -1,5 +1,4 @@
 import type { Transaction } from '@scure/btc-signer';
-import AsyncLock from 'async-lock';
 import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
@@ -9,6 +8,7 @@ import {
   parseTransaction,
   tweakMusig,
 } from '../Core';
+import InstrumentedLock from '../InstrumentedLock';
 import type Logger from '../Logger';
 import { TxView } from '../TxView';
 import {
@@ -96,7 +96,7 @@ class UtxoNursery extends TypedEventEmitter<{
   private static lockupLock = 'lockupLock';
   private static swapLockupConfirmationLock = 'swapLockupConfirmation';
 
-  private lock = new AsyncLock();
+  private lock = new InstrumentedLock('utxoNursery');
 
   constructor(
     private readonly logger: Logger,
@@ -326,12 +326,16 @@ class UtxoNursery extends TypedEventEmitter<{
       );
     };
 
-    await this.lock.acquire(UtxoNursery.lockupLock, async () => {
-      for (const out of TxView.of(transaction).outputs) {
-        const encoded = wallet.encodeAddress(out.script);
-        await Promise.all([checkSwap(encoded), checkChainSwap(encoded)]);
-      }
-    });
+    await this.lock.acquire(
+      UtxoNursery.lockupLock,
+      'checkOutputs',
+      async () => {
+        for (const out of TxView.of(transaction).outputs) {
+          const encoded = wallet.encodeAddress(out.script);
+          await Promise.all([checkSwap(encoded), checkChainSwap(encoded)]);
+        }
+      },
+    );
   };
 
   private checkSwapClaims = async (
@@ -545,8 +549,10 @@ class UtxoNursery extends TypedEventEmitter<{
       }
     };
 
-    await this.lock.acquire(UtxoNursery.swapLockupConfirmationLock, () =>
-      Promise.all([checkReverse(), checkChain()]),
+    await this.lock.acquire(
+      UtxoNursery.swapLockupConfirmationLock,
+      'checkServerLockupMempool',
+      () => Promise.all([checkReverse(), checkChain()]),
     );
   };
 

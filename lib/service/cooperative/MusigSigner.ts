@@ -1,5 +1,5 @@
-import AsyncLock from 'async-lock';
 import { SwapTreeSerializer } from 'boltz-core';
+import InstrumentedLock from '../../InstrumentedLock';
 import type Logger from '../../Logger';
 import {
   getChainCurrency,
@@ -58,7 +58,7 @@ class MusigSigner {
   private static readonly reverseSwapClaimSignatureLock =
     'reverseSwapClaimSignature';
 
-  private readonly lock = new AsyncLock();
+  private readonly lock = new InstrumentedLock('musigSigner');
   private readonly signerControlRegistry = SignerControlRegistry.getInstance();
   private readonly allowedRefunds = new Set<string>();
 
@@ -213,6 +213,7 @@ class MusigSigner {
   ): Promise<PartialSignature | undefined> => {
     return this.lock.acquire(
       MusigSigner.reverseSwapClaimSignatureLock,
+      'signReverseSwapClaim',
       async () => {
         const swap = await ReverseSwapRepository.getReverseSwap({ id: swapId });
         if (!swap) {
@@ -258,6 +259,7 @@ class MusigSigner {
 
         return this.nursery.lock.acquire(
           SwapNursery.reverseSwapLock,
+          'signReverseSwapClaim',
           async () => {
             if (swap.status !== SwapUpdateEvent.InvoiceSettled) {
               await this.nursery.settleReverseSwapInvoice(swap, preimage);

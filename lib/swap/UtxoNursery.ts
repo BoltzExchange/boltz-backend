@@ -98,8 +98,12 @@ class UtxoNursery extends TypedEventEmitter<{
 }> {
   private static lockupLock = 'lockupLock';
   private static swapLockupConfirmationLock = 'swapLockupConfirmation';
+  private static payjoinLockupRetryDelay = 2_000;
+  private static payjoinLockupMaxRetries = 10;
 
   private lock = new AsyncLock();
+  private pendingPayjoinLockupRetries = new Map<string, NodeJS.Timeout>();
+  private pendingPayjoinLockupRetryAttempts = new Map<string, number>();
 
   constructor(
     private readonly logger: Logger,
@@ -735,7 +739,11 @@ class UtxoNursery extends TypedEventEmitter<{
         switch (payjoinLockupMatch) {
           case PayjoinLockupMatch.Success:
             this.logger.info(
-              `Accepting oversized lockup transaction ${TxView.of(transaction).id} of Swap ${updatedSwap.id} as Payjoin consolidation: expected ${updatedSwap.expectedAmount}, locked ${outputValue}`,
+              `Accepting ${status === TransactionStatus.Confirmed ? 'confirmed' : 'unconfirmed'} oversized lockup transaction ${TxView.of(transaction).id} of Swap ${updatedSwap.id} as Payjoin consolidation: expected ${updatedSwap.expectedAmount}, locked ${outputValue}`,
+            );
+            this.clearPendingPayjoinLockupRetry(
+              updatedSwap.id,
+              TxView.of(transaction).id,
             );
             break;
 
@@ -743,11 +751,22 @@ class UtxoNursery extends TypedEventEmitter<{
             this.logger.info(
               `Deferring oversized lockup transaction ${TxView.of(transaction).id} of Swap ${updatedSwap.id} while Payjoin receiver session is pending: expected ${updatedSwap.expectedAmount}, locked ${outputValue}`,
             );
+            this.schedulePayjoinLockupRetry(
+              wallet.symbol,
+              updatedSwap.id,
+              TxView.of(transaction).id,
+              outputValue,
+              updatedSwap.expectedAmount,
+            );
             return;
 
           default:
             this.logger.warn(
               `Rejecting oversized lockup transaction ${TxView.of(transaction).id} of Swap ${updatedSwap.id}: expected ${updatedSwap.expectedAmount}, locked ${outputValue}, Payjoin match ${payjoinLockupMatch}`,
+            );
+            this.clearPendingPayjoinLockupRetry(
+              updatedSwap.id,
+              TxView.of(transaction).id,
             );
 
             this.emit('swap.lockup.failed', {
@@ -833,6 +852,69 @@ class UtxoNursery extends TypedEventEmitter<{
       expectedAmount,
     );
   };
+
+  private schedulePayjoinLockupRetry = (
+    symbol: string,
+    swapId: string,
+    txId: string,
+    actualAmount: number,
+    expectedAmount: number,
+  ) => {
+    const key = this.payjoinLockupRetryKey(swapId, txId);
+    if (this.pendingPayjoinLockupRetries.has(key)) {
+      return;
+    }
+
+    const attempts = (this.pendingPayjoinLockupRetryAttempts.get(key) ?? 0) + 1;
+    if (attempts > UtxoNursery.payjoinLockupMaxRetries) {
+      this.logger.warn(
+        `Stopping retries for deferred Payjoin lockup transaction ${txId} of Swap ${swapId}: expected ${expectedAmount}, locked ${actualAmount}`,
+      );
+      return;
+    }
+
+    this.pendingPayjoinLockupRetryAttempts.set(key, attempts);
+    this.logger.info(
+      `Scheduled retry ${attempts}/${UtxoNursery.payjoinLockupMaxRetries} for deferred Payjoin lockup transaction ${txId} of Swap ${swapId}: expected ${expectedAmount}, locked ${actualAmount}`,
+    );
+
+    const timeout = setTimeout(async () => {
+      this.pendingPayjoinLockupRetries.delete(key);
+
+      try {
+        this.logger.info(
+          `Rechecking deferred Payjoin lockup transaction ${txId} of Swap ${swapId}`,
+        );
+        await this.sidecar.checkTransaction(symbol, txId);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to recheck deferred Payjoin lockup transaction ${txId} of Swap ${swapId}: ${error}`,
+        );
+        this.schedulePayjoinLockupRetry(
+          symbol,
+          swapId,
+          txId,
+          actualAmount,
+          expectedAmount,
+        );
+      }
+    }, UtxoNursery.payjoinLockupRetryDelay);
+
+    this.pendingPayjoinLockupRetries.set(key, timeout);
+  };
+
+  private clearPendingPayjoinLockupRetry = (swapId: string, txId: string) => {
+    const key = this.payjoinLockupRetryKey(swapId, txId);
+    const timeout = this.pendingPayjoinLockupRetries.get(key);
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+      this.pendingPayjoinLockupRetries.delete(key);
+    }
+    this.pendingPayjoinLockupRetryAttempts.delete(key);
+  };
+
+  private payjoinLockupRetryKey = (swapId: string, txId: string) =>
+    `${swapId}:${txId}`;
 
   /**
    * Detects whether the transaction signals RBF explicitly or inherently

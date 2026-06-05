@@ -90,6 +90,7 @@ const mockOnSidecar = jest
         break;
     }
   });
+const mockCheckTransaction = jest.fn().mockResolvedValue(undefined);
 
 const sampleRedeemScript = getHexBuffer(
   'a9146575342754627fcff96fe4d186e497d88e52ebd78763210263f5775d4e5688f51f4c2fa03f75d1eee1deff2b1bc6e266dedb16c00aba160c6703d8791cb17521033b6a33a6e88da8bb44737b844b48626e5061aff2a5573167ad841d7187aac97168ac',
@@ -221,6 +222,7 @@ describe('UtxoNursery', () => {
 
   const mockSidecar = {
     on: mockOnSidecar,
+    checkTransaction: mockCheckTransaction,
   } as any;
 
   const nursery = new UtxoNursery(
@@ -241,6 +243,7 @@ describe('UtxoNursery', () => {
   beforeEach(() => {
     mockGetReverseSwapsResult = [];
 
+    jest.useRealTimers();
     jest.clearAllMocks();
 
     SwapRepository.getSwap = mockGetSwap;
@@ -1424,14 +1427,15 @@ describe('UtxoNursery', () => {
       getOutputValueSpy.mockRestore();
     });
 
-    test('should defer Payjoin consolidation overpayment while receiver session is pending', async () => {
-      const checkSwapOutputs = nursery['checkOutputs'];
+    test('should defer Payjoin consolidation overpayment while receiver session is pending and schedule a retry', async () => {
+      jest.useFakeTimers();
+      const checkSwapTransaction = nursery['checkSwapTransaction'];
       const transaction = parseTx(sampleTransactions.lockup);
 
       const expectedAmount = 100214;
       const outputValue = 200000;
 
-      mockGetSwapResult = {
+      const swap = {
         id: 'payjoinSwap',
         expectedAmount,
         redeemScript: sampleRedeemScript,
@@ -1460,17 +1464,104 @@ describe('UtxoNursery', () => {
         failedEmitted = true;
       });
 
-      await checkSwapOutputs(
+      await checkSwapTransaction(
+        swap as any,
         btcChainClient,
         btcWallet,
         transaction,
-        TransactionStatus.Confirmed,
+        TransactionStatus.ZeroConfSafe,
+      );
+
+      expect(lockupEmitted).toEqual(false);
+      expect(failedEmitted).toEqual(false);
+      expect(mockCheckTransaction).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(2_000);
+
+      expect(mockCheckTransaction).toHaveBeenCalledTimes(1);
+      expect(mockCheckTransaction).toHaveBeenCalledWith(
+        btcWallet.symbol,
+        transaction.id,
+      );
+
+      getOutputValueSpy.mockRestore();
+    });
+
+    test('should accept unconfirmed Payjoin consolidation overpayment after receiver session closes', async () => {
+      jest.useFakeTimers();
+      const checkSwapTransaction = nursery['checkSwapTransaction'];
+      const transaction = parseTx(sampleTransactions.lockup);
+
+      const expectedAmount = 100214;
+      const outputValue = 200000;
+
+      const swap = {
+        id: 'payjoinSwap',
+        expectedAmount,
+        redeemScript: sampleRedeemScript,
+        type: SwapType.Submarine,
+        acceptZeroConf: true,
+      };
+
+      mockSetLockupTransaction.mockImplementation(async (swap) => ({
+        ...swap,
+        expectedAmount,
+      }));
+      (PayjoinReceiverRepository.isPayjoinConsolidationLockup as jest.Mock)
+        .mockResolvedValueOnce(PayjoinLockupMatch.Pending)
+        .mockResolvedValueOnce(PayjoinLockupMatch.Success);
+
+      const getOutputValueSpy = jest
+        .spyOn(Core, 'getOutputValue')
+        .mockReturnValue(outputValue);
+      const acceptsZeroConfSpy = jest
+        .spyOn(nursery as any, 'acceptsZeroConf')
+        .mockResolvedValue(undefined);
+
+      let lockupEmitted = false;
+      let failedEmitted = false;
+
+      nursery.once('swap.lockup', ({ swap, transaction: emitted }) => {
+        expect(swap.id).toEqual('payjoinSwap');
+        expect(emitted).toEqual(transaction);
+
+        lockupEmitted = true;
+      });
+      nursery.once('swap.lockup.failed', () => {
+        failedEmitted = true;
+      });
+
+      await checkSwapTransaction(
+        swap as any,
+        btcChainClient,
+        btcWallet,
+        transaction,
+        TransactionStatus.ZeroConfSafe,
       );
 
       expect(lockupEmitted).toEqual(false);
       expect(failedEmitted).toEqual(false);
 
+      await jest.advanceTimersByTimeAsync(2_000);
+
+      expect(mockCheckTransaction).toHaveBeenCalledWith(
+        btcWallet.symbol,
+        transaction.id,
+      );
+
+      await checkSwapTransaction(
+        swap as any,
+        btcChainClient,
+        btcWallet,
+        transaction,
+        TransactionStatus.ZeroConfSafe,
+      );
+
+      expect(lockupEmitted).toEqual(true);
+      expect(failedEmitted).toEqual(false);
+
       getOutputValueSpy.mockRestore();
+      acceptsZeroConfSpy.mockRestore();
     });
 
     test('should reject Payjoin-linked overpayment when transaction does not match session', async () => {

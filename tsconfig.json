@@ -14,7 +14,8 @@
     "incremental": true,
     "declaration": true,
     "lib": [
-      "ES2020"
+      "ES2020",
+      "ES2024.String"
     ],
     "types": [
       "node",

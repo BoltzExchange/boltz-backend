@@ -37,7 +37,7 @@ NODE_VERSION = BuildArgument(
 
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
-    value="1.26.2-trixie",
+    value="1.26.4-trixie",
 )
 
 BITCOIN_VERSION = "31.0"
@@ -45,9 +45,9 @@ LITECOIN_VERSION = "0.21.4"
 ELEMENTS_VERSION = "23.3.3"
 GETH_VERSION = "1.17.2"
 
-C_LIGHTNING_VERSION = "26.06"
+C_LIGHTNING_VERSION = "26.06.1"
 ECLAIR_VERSION = "0.14.0"
-LND_VERSION = "0.20.1-beta"
+LND_VERSION = "0.21.0-beta"
 
 BITCOIN_BUILD_ARG = BuildArgument(
     name="BITCOIN_VERSION",

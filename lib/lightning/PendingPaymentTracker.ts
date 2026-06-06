@@ -154,7 +154,6 @@ class PendingPaymentTracker {
     paymentHash: string,
     payments: LightningPayment[],
     cltvLimit?: number,
-    outgoingChannelId?: string,
     timePreference?: number,
   ): Promise<PaymentResponse | undefined> => {
     for (const status of [
@@ -204,7 +203,6 @@ class PendingPaymentTracker {
       lightningClient,
       paymentHash,
       cltvLimit,
-      outgoingChannelId,
       timePreference,
     );
   };
@@ -249,7 +247,6 @@ class PendingPaymentTracker {
     lightningClient: LightningClient,
     preimageHash: string,
     cltvLimit?: number,
-    outgoingChannelId?: string,
     timePreference?: number,
   ) => {
     await LightningPaymentRepository.create({
@@ -267,7 +264,6 @@ class PendingPaymentTracker {
       paymentPromise = lightningClient.sendPayment(
         swap.invoice!,
         cltvLimit,
-        outgoingChannelId,
         referral?.maxRoutingFeeRatio(swap.pair),
         timePreference,
       );

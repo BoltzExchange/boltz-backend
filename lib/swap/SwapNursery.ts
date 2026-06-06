@@ -826,7 +826,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           await this.attemptSettleSwap(
             this.currencies.get(swap.receivingData.symbol)!,
             swap,
-            undefined,
             preimage,
           );
           await this.chainSwapSigner.removeFromClaimable(swap.id);
@@ -970,13 +969,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   public attemptSettleSwap = async (
     currency: Currency,
     swap: Swap | ChainSwapInfo,
-    outgoingChannelId?: string,
     preimage?: Buffer,
   ): Promise<void> => {
     let payRes: PaidSwapInvoice | undefined;
 
     if (swap.type === SwapType.Submarine) {
-      payRes = await this.payInvoice(swap as Swap, outgoingChannelId);
+      payRes = await this.payInvoice(swap as Swap);
     } else {
       payRes = { preimage: preimage! };
     }
@@ -1452,7 +1450,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             await this.attemptSettleSwap(
               this.currencies.get(chainSwap.receivingData.symbol)!,
               chainSwap,
-              undefined,
               preimage,
             );
           }
@@ -1781,12 +1778,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
   private payInvoice = async (
     swap: Swap,
-    outgoingChannelId?: string,
   ): Promise<PaidSwapInvoice | undefined> => {
-    const preimage = await this.paymentHandler.payInvoice(
-      swap,
-      outgoingChannelId,
-    );
+    const preimage = await this.paymentHandler.payInvoice(swap);
 
     if (preimage === undefined) {
       return undefined;

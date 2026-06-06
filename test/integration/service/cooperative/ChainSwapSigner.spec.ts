@@ -885,7 +885,6 @@ describe('ChainSwapSigner', () => {
       expect(attemptSettle).toHaveBeenCalledWith(
         undefined,
         chainSwapInfo,
-        undefined,
         preimage,
       );
     });

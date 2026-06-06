@@ -401,13 +401,11 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
    *
    * @param invoice an invoice for a payment within the Lightning Network
    * @param cltvDelta CLTV delta limit for the payment
-   * @param outgoingChannelId channel through which the invoice should be paid
    * @param maxPaymentFeeRatio max payment fee ratio to override the default of the client
    */
   public sendPayment = async (
     invoice: string,
     cltvDelta?: number,
-    outgoingChannelId?: string,
     maxPaymentFeeRatio?: number,
     timePreference?: number,
   ): Promise<PaymentResponse> => {
@@ -423,9 +421,6 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
         ),
         paymentRequest: invoice,
         cltvLimit: cltvDelta ?? 0,
-        outgoingChanId: outgoingChannelId
-          ? toOptionalProtoInt(Number.parseInt(outgoingChannelId, 10))
-          : undefined,
       });
 
       const stream = this.router!.sendPaymentV2(request, this.meta);

@@ -148,7 +148,6 @@ interface LightningClient extends BalancerFetcher, BaseClient<EventTypes> {
   sendPayment(
     invoice: string,
     cltvDelta?: number,
-    outgoingChannelId?: string,
     maxPaymentFeeRatio?: number,
     timePreference?: number,
   ): Promise<PaymentResponse>;

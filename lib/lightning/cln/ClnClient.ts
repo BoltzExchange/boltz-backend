@@ -549,11 +549,9 @@ class ClnClient
     return routes;
   };
 
-  // TODO: support for setting outgoing channel id
   public sendPayment = async (
     invoice: string,
     cltvDelta?: number,
-    _?: string,
     maxPaymentFeeRatio?: number,
   ): Promise<PaymentResponse> => {
     try {

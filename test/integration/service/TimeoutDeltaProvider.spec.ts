@@ -153,7 +153,7 @@ describe('TimeoutDeltaProvider', () => {
         OrderSide.SELL,
         SwapType.Submarine,
         SwapVersion.Legacy,
-        await createInvoice(18),
+        await createInvoice(24),
       ),
     ).resolves.toEqual([
       timeoutDelta.swapMinimal / TimeoutDeltaProvider.blockTimes.get(base)!,

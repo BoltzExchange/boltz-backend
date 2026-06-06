@@ -111,17 +111,8 @@ describe('PaymentHandler', () => {
       sendPayment: jest
         .fn()
         .mockImplementation(
-          (
-            _: LightningClient,
-            invoice: string,
-            cltvLimit?: number,
-            outgoingChannelId?: string,
-          ) => {
-            return btcLndClient.sendPayment(
-              invoice,
-              cltvLimit,
-              outgoingChannelId,
-            );
+          (_: LightningClient, invoice: string, cltvLimit?: number) => {
+            return btcLndClient.sendPayment(invoice, cltvLimit);
           },
         ),
       getRelevantNode: jest
@@ -168,9 +159,7 @@ describe('PaymentHandler', () => {
       status: Payment_PaymentStatus.IN_FLIGHT,
     };
 
-    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
-      undefined,
-    );
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
 
     expect(mockedEmit).not.toHaveBeenCalled();
     expect(btcLndClient.trackPayment).toHaveBeenCalledTimes(1);
@@ -184,9 +173,7 @@ describe('PaymentHandler', () => {
       Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
     ]);
 
-    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
-      undefined,
-    );
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
 
     expect(
       handler['selfPaymentClient'].handleSelfPayment,
@@ -211,9 +198,7 @@ describe('PaymentHandler', () => {
     ]);
     relevantPayments = [{} as any];
 
-    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
-      undefined,
-    );
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
 
     expect(
       handler['selfPaymentClient'].handleSelfPayment,
@@ -240,9 +225,7 @@ describe('PaymentHandler', () => {
       status: Payment_PaymentStatus.FAILED,
     };
 
-    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
-      undefined,
-    );
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
 
     expect(mockedEmit).not.toHaveBeenCalled();
     expect(btcLndClient.resetMissionControl).not.toHaveBeenCalled();
@@ -263,9 +246,7 @@ describe('PaymentHandler', () => {
     expect(btcLndClient.resetMissionControl).not.toHaveBeenCalled();
     expect(btcLndClient.trackPayment).not.toHaveBeenCalled();
 
-    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
-      undefined,
-    );
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
     expect(swap.update).toHaveBeenCalledTimes(1);
     expect(swap.update).toHaveBeenCalledWith({
       failureReason: 'invoice could not be paid',
@@ -284,9 +265,7 @@ describe('PaymentHandler', () => {
     expect(btcLndClient.resetMissionControl).not.toHaveBeenCalled();
     expect(btcLndClient.trackPayment).not.toHaveBeenCalled();
 
-    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
-      undefined,
-    );
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
     expect(swap.update).toHaveBeenCalledTimes(1);
     expect(swap.update).toHaveBeenCalledWith({
       failureReason: 'invoice could not be paid',
@@ -301,9 +280,7 @@ describe('PaymentHandler', () => {
       status: Payment_PaymentStatus.FAILED,
     };
 
-    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
-      undefined,
-    );
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
 
     expect(btcLndClient.resetMissionControl).toHaveBeenCalledTimes(1);
     expect(handler['lastResetMissionControl']).not.toBeUndefined();
@@ -312,9 +289,7 @@ describe('PaymentHandler', () => {
     // Reset MC not called
     const lastCallBefore = handler['lastResetMissionControl'];
 
-    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
-      undefined,
-    );
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
     expect(btcLndClient.resetMissionControl).toHaveBeenCalledTimes(1);
     expect(handler['lastResetMissionControl']).toEqual(lastCallBefore);
 
@@ -322,9 +297,7 @@ describe('PaymentHandler', () => {
     jest.useFakeTimers();
     jest.advanceTimersByTime(PaymentHandler['resetMissionControlInterval'] + 1);
 
-    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
-      undefined,
-    );
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
     expect(btcLndClient.resetMissionControl).toHaveBeenCalledTimes(2);
     expect(handler['lastResetMissionControl']! - Date.now()).toBeLessThan(1000);
   });
@@ -386,7 +359,7 @@ describe('PaymentHandler', () => {
       action: InvoicePaymentHookAction.Hold,
     });
 
-    const result = await handler.payInvoice(swap, undefined);
+    const result = await handler.payInvoice(swap);
 
     expect(result).toBeUndefined();
     expect(nodeSwitch.invoicePaymentHook).toHaveBeenCalledTimes(1);
@@ -426,7 +399,7 @@ describe('PaymentHandler', () => {
       const settleInvoiceSpy = jest.spyOn(handler as any, 'settleInvoice');
       settleInvoiceSpy.mockResolvedValue(mockPaymentResponse.preimage);
 
-      const result = await handler.payInvoice(swap, undefined);
+      const result = await handler.payInvoice(swap);
 
       expect(result).toEqual(mockPaymentResponse.preimage);
       expect(
@@ -450,7 +423,7 @@ describe('PaymentHandler', () => {
 
       const settleInvoiceSpy = jest.spyOn(handler as any, 'settleInvoice');
 
-      const result = await handler.payInvoice(swap, undefined);
+      const result = await handler.payInvoice(swap);
 
       expect(result).toBeUndefined();
       expect(
@@ -468,7 +441,7 @@ describe('PaymentHandler', () => {
           result: undefined,
         });
 
-      const result = await handler.payInvoice(swap, undefined);
+      const result = await handler.payInvoice(swap);
 
       expect(
         handler['selfPaymentClient'].handleSelfPayment,
@@ -491,7 +464,7 @@ describe('PaymentHandler', () => {
       const abandonSwapSpy = jest.spyOn(handler as any, 'abandonSwap');
       abandonSwapSpy.mockResolvedValue(undefined);
 
-      const result = await handler.payInvoice(swap, undefined);
+      const result = await handler.payInvoice(swap);
 
       expect(result).toBeUndefined();
       expect(

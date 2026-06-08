@@ -3,6 +3,7 @@ import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { encode } from 'querystring';
 import { satoshisToCoins } from '../DenominationConverter';
 import ElementsClient from '../chain/ElementsClient';
+import type Sidecar from '../sidecar/Sidecar';
 import type { Currency } from '../wallet/WalletManager';
 
 class PaymentRequestUtils {
@@ -14,7 +15,10 @@ class PaymentRequestUtils {
 
   private readonly lbtcAssetHash?: string;
 
-  constructor(liquid?: Currency) {
+  constructor(
+    private readonly sidecar: Sidecar,
+    liquid?: Currency,
+  ) {
     if (liquid) {
       this.lbtcAssetHash = (liquid.network as LiquidNetwork)!.assetHash;
 
@@ -27,12 +31,27 @@ class PaymentRequestUtils {
   /**
    * Encode a BIP21 payment request
    */
-  public encodeBip21 = (
+  public encodeBip21 = async (
     symbol: string,
     address: string,
     satoshis?: number,
     label?: string,
-  ): string | undefined => {
+    swapId?: string,
+    enablePayjoin = true,
+  ): Promise<string | undefined> => {
+    if (enablePayjoin && symbol === 'BTC' && swapId !== undefined) {
+      try {
+        return await this.sidecar.getPayjoinUri(
+          address,
+          satoshis,
+          label,
+          swapId,
+        );
+      } catch {
+        // Fall back to a standard BIP21 when Payjoin URI generation is unavailable.
+      }
+    }
+
     return this.encodeBip21WithParams(
       symbol,
       address,

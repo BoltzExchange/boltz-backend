@@ -8,6 +8,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_check_invoice_update BEFORE
-UPDATE ON swaps FOR EACH ROW
+CREATE TRIGGER trigger_check_invoice_update
+BEFORE UPDATE ON swaps FOR EACH ROW
 EXECUTE FUNCTION check_invoice_update ();

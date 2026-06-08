@@ -5,6 +5,7 @@ use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::grpc::tls::load_certificates;
 use crate::notifications::NotificationClient;
+use crate::payjoin::PayjoinManager;
 use crate::service::Service;
 use crate::swap::manager::SwapManager;
 use crate::tracing_setup::ReloadHandler;
@@ -54,6 +55,7 @@ pub struct Server<M, W, N> {
 
     service: Arc<Service>,
     manager: Arc<M>,
+    payjoin_manager: Arc<PayjoinManager>,
 
     web_hook_helper: Box<W>,
     web_hook_status_caller: StatusCaller,
@@ -81,6 +83,7 @@ where
         service: Arc<Service>,
         manager: Arc<M>,
         swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+        payjoin_manager: Arc<PayjoinManager>,
         web_hook_helper: Box<W>,
         web_hook_status_caller: StatusCaller,
         notification_client: Option<Arc<N>>,
@@ -89,6 +92,7 @@ where
             config,
             service,
             manager,
+            payjoin_manager,
             web_hook_helper,
             cancellation_token,
             log_reload_handler,
@@ -121,6 +125,7 @@ where
             self.swap_status_update_tx.clone(),
             Arc::new(self.web_hook_helper.clone()),
             Arc::new(self.web_hook_status_caller.clone()),
+            self.payjoin_manager.clone(),
             self.notification_client.clone(),
         );
 
@@ -292,6 +297,10 @@ mod server_test {
             Arc::new(crate::service::Service::new_mocked_prometheus(false)),
             Arc::new(make_mock_manager()),
             status_tx,
+            Arc::new(crate::payjoin::PayjoinManager::new(
+                crate::db::helpers::web_hook::test::get_pool(),
+                Arc::new(std::collections::HashMap::new()),
+            )),
             Box::new(make_mock_hook_helper()),
             crate::webhook::status_caller::test::new_caller(token.clone()),
             None,
@@ -417,6 +426,10 @@ mod server_test {
             Arc::new(crate::service::Service::new_mocked_prometheus(false)),
             Arc::new(make_mock_manager()),
             status_tx,
+            Arc::new(crate::payjoin::PayjoinManager::new(
+                crate::db::helpers::web_hook::test::get_pool(),
+                Arc::new(std::collections::HashMap::new()),
+            )),
             Box::new(make_mock_hook_helper()),
             crate::webhook::status_caller::test::new_caller(token.clone()),
             None,

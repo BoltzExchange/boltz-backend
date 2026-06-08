@@ -8,6 +8,6 @@ CREATE TABLE offers (
 
 CREATE INDEX offers_offer_idx ON offers (offer);
 
-CREATE TRIGGER update_offers_modified_time BEFORE
-UPDATE ON offers FOR EACH ROW
+CREATE TRIGGER update_offers_modified_time
+BEFORE UPDATE ON offers FOR EACH ROW
 EXECUTE FUNCTION update_modified_column ();

@@ -25,7 +25,9 @@ describe('ReverseRoutingHints', () => {
 
   const reverseMinerFees = 123;
 
-  const paymentRequestUtils = new PaymentRequestUtils();
+  const paymentRequestUtils = new PaymentRequestUtils({
+    getPayjoinUri: jest.fn(),
+  } as any);
   const hints = new ReverseRoutingHints(
     {
       wallets: new Map<string, any>([

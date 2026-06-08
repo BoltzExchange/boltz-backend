@@ -48,11 +48,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_check_preimage_on_swaps BEFORE INSERT ON swaps FOR EACH ROW
+CREATE TRIGGER trigger_check_preimage_on_swaps
+BEFORE INSERT ON swaps FOR EACH ROW
 EXECUTE FUNCTION check_submarine_swap_preimage_uniqueness ();
 
-CREATE TRIGGER trigger_check_preimage_on_reverse_swaps BEFORE INSERT ON "reverseSwaps" FOR EACH ROW
+CREATE TRIGGER trigger_check_preimage_on_reverse_swaps
+BEFORE INSERT ON "reverseSwaps" FOR EACH ROW
 EXECUTE FUNCTION check_reverse_chain_swap_preimage_uniqueness ();
 
-CREATE TRIGGER trigger_check_preimage_on_chain_swaps BEFORE INSERT ON "chainSwaps" FOR EACH ROW
+CREATE TRIGGER trigger_check_preimage_on_chain_swaps
+BEFORE INSERT ON "chainSwaps" FOR EACH ROW
 EXECUTE FUNCTION check_reverse_chain_swap_preimage_uniqueness ();

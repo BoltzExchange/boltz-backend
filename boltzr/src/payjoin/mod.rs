@@ -34,7 +34,7 @@ const OHTTP_RELAYS: [&str; 5] = [
     "https://pj.bobspacebkk.com",
     "https://payjoin.achow101.com",
     "https://lets.payjo.in",
-    "https://pj.sms4sats.com"
+    "https://pj.sms4sats.com",
 ];
 const DIRECTORY: &str = "https://payjo.in";
 

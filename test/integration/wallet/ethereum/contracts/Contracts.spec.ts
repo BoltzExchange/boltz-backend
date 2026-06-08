@@ -1,3 +1,4 @@
+import { Contract } from 'ethers';
 import Logger from '../../../../../lib/Logger';
 import Errors from '../../../../../lib/wallet/Errors';
 import type ConsolidatedEventHandler from '../../../../../lib/wallet/ethereum/ConsolidatedEventHandler';
@@ -6,6 +7,8 @@ import type InjectedProvider from '../../../../../lib/wallet/ethereum/InjectedPr
 import Contracts, {
   Feature,
 } from '../../../../../lib/wallet/ethereum/contracts/Contracts';
+import ERC20SwapABIv5 from '../../../../../lib/wallet/ethereum/contracts/abis/v5/ERC20Swap.json';
+import EtherSwapABIv5 from '../../../../../lib/wallet/ethereum/contracts/abis/v5/EtherSwap.json';
 import type { EthereumSetup } from '../../EthereumTools';
 import { getContracts, getSigner } from '../../EthereumTools';
 
@@ -271,6 +274,201 @@ describe('Contracts', () => {
             preimage,
             amount,
             token: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+          },
+        ]);
+      });
+    });
+  });
+
+  describe('decodeRefundData', () => {
+    // Self-contained instance to not rely on leftovers of the tests above
+    let contracts: Contracts;
+
+    beforeAll(async () => {
+      const etherSwapAddress = await setupContracts.etherSwap.getAddress();
+      const erc20SwapAddress = await setupContracts.erc20Swap.getAddress();
+
+      contracts = new Contracts(Logger.disabledLogger, networks.Rootstock, {
+        etherSwap: etherSwapAddress,
+        erc20Swap: erc20SwapAddress,
+      });
+      contracts.etherSwap = new Contract(
+        etherSwapAddress,
+        EtherSwapABIv5,
+      ) as any;
+      contracts.erc20Swap = new Contract(
+        erc20SwapAddress,
+        ERC20SwapABIv5,
+      ) as any;
+    });
+
+    const preimageHash =
+      '0xb83f443c31e99ef7180edcc2f9f7454b25572e57da054be58421f77aabf08ee7';
+    const amount = 99886710000000000n;
+    const claimAddress = '0x4ca129c71da487afd603bb123b12398a3c5a2300';
+    const refundAddress = '0x1bdf482f5da32ef51c20d9a94960385c5be9aab7';
+    const token = '0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0';
+    const tokenChecksum = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
+    const timelock = 7297597n;
+    const v = 27;
+    const r =
+      '0x145457dbe09264e9f8f086341f19870ea16ca89de36657f7fa0e4d917a73fca6';
+    const s =
+      '0x6208ece6a5947b05e4baefbc97388be4baf20380c6873f57c8ecf8f5eb220fdb';
+
+    test.each`
+      data
+      ${''}
+      ${'0x'}
+      ${'0x00'}
+      ${'0x0899146b2f6dfd78f850ab2311240af43c4081966737e81225d5d2add7586e5f1fbd07940000000000000000000000001bdf482f5da32ef51c20d9a94960385c5be9aab700000000000000000000000000000000000000000000000000000000006f2a09'}
+    `('should return empty array for unknown data: $data', ({ data }) => {
+      expect(contracts.decodeRefundData(true, data)).toEqual([]);
+      expect(contracts.decodeRefundData(false, data)).toEqual([]);
+    });
+
+    test('should return empty array for claim data', () => {
+      const data = contracts.etherSwap.interface.encodeFunctionData(
+        'claim(bytes32,uint256,address,uint256)',
+        [preimageHash, amount, refundAddress, timelock],
+      );
+      expect(contracts.decodeRefundData(true, data)).toEqual([]);
+    });
+
+    describe('EtherSwap', () => {
+      test('should decode Ether refunds', () => {
+        const data = contracts.etherSwap.interface.encodeFunctionData(
+          'refund(bytes32,uint256,address,uint256)',
+          [preimageHash, amount, claimAddress, timelock],
+        );
+
+        expect(contracts.decodeRefundData(true, data)).toEqual([
+          {
+            preimageHash,
+            amount,
+          },
+        ]);
+      });
+
+      test('should decode Ether refunds for address', () => {
+        const data = contracts.etherSwap.interface.encodeFunctionData(
+          'refund(bytes32,uint256,address,address,uint256)',
+          [preimageHash, amount, claimAddress, refundAddress, timelock],
+        );
+
+        expect(contracts.decodeRefundData(true, data)).toEqual([
+          {
+            preimageHash,
+            amount,
+          },
+        ]);
+      });
+
+      test('should decode Ether cooperative refunds', () => {
+        const data = contracts.etherSwap.interface.encodeFunctionData(
+          'refundCooperative(bytes32,uint256,address,uint256,uint8,bytes32,bytes32)',
+          [preimageHash, amount, claimAddress, timelock, v, r, s],
+        );
+
+        expect(contracts.decodeRefundData(true, data)).toEqual([
+          {
+            preimageHash,
+            amount,
+          },
+        ]);
+      });
+
+      test('should decode Ether cooperative refunds for address', () => {
+        const data = contracts.etherSwap.interface.encodeFunctionData(
+          'refundCooperative(bytes32,uint256,address,address,uint256,uint8,bytes32,bytes32)',
+          [
+            preimageHash,
+            amount,
+            claimAddress,
+            refundAddress,
+            timelock,
+            v,
+            r,
+            s,
+          ],
+        );
+
+        expect(contracts.decodeRefundData(true, data)).toEqual([
+          {
+            preimageHash,
+            amount,
+          },
+        ]);
+      });
+    });
+
+    describe('ERC20Swap', () => {
+      test('should decode ERC20 refunds', () => {
+        const data = contracts.erc20Swap.interface.encodeFunctionData(
+          'refund(bytes32,uint256,address,address,uint256)',
+          [preimageHash, amount, token, claimAddress, timelock],
+        );
+
+        expect(contracts.decodeRefundData(false, data)).toEqual([
+          {
+            preimageHash,
+            amount,
+            token: tokenChecksum,
+          },
+        ]);
+      });
+
+      test('should decode ERC20 refunds for address', () => {
+        const data = contracts.erc20Swap.interface.encodeFunctionData(
+          'refund(bytes32,uint256,address,address,address,uint256)',
+          [preimageHash, amount, token, claimAddress, refundAddress, timelock],
+        );
+
+        expect(contracts.decodeRefundData(false, data)).toEqual([
+          {
+            preimageHash,
+            amount,
+            token: tokenChecksum,
+          },
+        ]);
+      });
+
+      test('should decode ERC20 cooperative refunds', () => {
+        const data = contracts.erc20Swap.interface.encodeFunctionData(
+          'refundCooperative(bytes32,uint256,address,address,uint256,uint8,bytes32,bytes32)',
+          [preimageHash, amount, token, claimAddress, timelock, v, r, s],
+        );
+
+        expect(contracts.decodeRefundData(false, data)).toEqual([
+          {
+            preimageHash,
+            amount,
+            token: tokenChecksum,
+          },
+        ]);
+      });
+
+      test('should decode ERC20 cooperative refunds for address', () => {
+        const data = contracts.erc20Swap.interface.encodeFunctionData(
+          'refundCooperative(bytes32,uint256,address,address,address,uint256,uint8,bytes32,bytes32)',
+          [
+            preimageHash,
+            amount,
+            token,
+            claimAddress,
+            refundAddress,
+            timelock,
+            v,
+            r,
+            s,
+          ],
+        );
+
+        expect(contracts.decodeRefundData(false, data)).toEqual([
+          {
+            preimageHash,
+            amount,
+            token: tokenChecksum,
           },
         ]);
       });

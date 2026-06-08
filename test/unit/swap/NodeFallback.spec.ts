@@ -405,6 +405,38 @@ describe('NodeFallback', () => {
     ).rejects.toEqual(Errors.NO_AVAILABLE_LIGHTNING_CLIENT());
   });
 
+  test('should reject invalid memos before contacting any node', async () => {
+    const candidate = {
+      nodeId: lndNodeId,
+      nodeType: NodeType.LND,
+      lightningClient: {
+        raceCall,
+        serviceName: () => 'LND',
+        addHoldInvoice: jest.fn().mockResolvedValue('lnbc1'),
+      },
+    };
+    reverseSwapCandidates = [candidate];
+
+    await expect(
+      fallback.getReverseSwapInvoice(
+        'someId',
+        undefined,
+        undefined,
+        currency,
+        1,
+        crypto.randomBytes(32),
+        undefined,
+        undefined,
+        'evil\u0000memo',
+      ),
+    ).rejects.toEqual(
+      Errors.INVALID_INVOICE_MEMO('contains blocked characters'),
+    );
+
+    expect(nodeSwitch.getReverseSwapCandidates).not.toHaveBeenCalled();
+    expect(candidate.lightningClient.addHoldInvoice).not.toHaveBeenCalled();
+  });
+
   describe('checkInvoiceMemo', () => {
     test.each`
       input
@@ -453,17 +485,66 @@ describe('NodeFallback', () => {
       ${'ö'}
       ${'Ü'}
       ${'€'}
-    `('should throw on non-ASCII characters: $input', ({ input }) => {
+      ${'日本語のメモ'}
+      ${'🚀'}
+      ${'café ₿ 0.1 — danke schön'}
+      ${'zero\u200Bwidth\u200Djoiner'}
+    `('should allow non-ASCII characters: $input', ({ input }) => {
+      fallback['checkInvoiceMemo'](input);
+    });
+
+    test.each`
+      name                          | input
+      ${'501 chars'}                | ${'1'.repeat(501)}
+      ${'639 ASCII chars'}          | ${'a'.repeat(639)}
+      ${'213 3-byte chars (639 B)'} | ${'₿'.repeat(213)}
+      ${'159 4-byte chars (636 B)'} | ${'🚀'.repeat(159)}
+    `('should allow memos up to 639 bytes: $name', ({ input }) => {
+      fallback['checkInvoiceMemo'](input);
+    });
+
+    test.each`
+      name                          | input
+      ${'640 ASCII chars'}          | ${'a'.repeat(640)}
+      ${'214 3-byte chars (642 B)'} | ${'₿'.repeat(214)}
+      ${'160 4-byte chars (640 B)'} | ${'🚀'.repeat(160)}
+    `('should throw on memos longer than 639 bytes: $name', ({ input }) => {
       expect(() => fallback['checkInvoiceMemo'](input)).toThrow(
-        Errors.INVALID_INVOICE_MEMO().message,
+        Errors.INVALID_INVOICE_MEMO('exceeds maximum length of 639 bytes')
+          .message,
       );
     });
 
-    test('should limit length', () => {
-      const msg = '1'.repeat(501);
-      expect(msg).toHaveLength(501);
-      expect(() => fallback['checkInvoiceMemo'](msg)).toThrow(
-        Errors.INVALID_INVOICE_MEMO().message,
+    test.each`
+      name                  | input
+      ${'high surrogate'}   | ${'\ud800'}
+      ${'low surrogate'}    | ${'\udfff'}
+      ${'embedded'}         | ${'a\ud800b'}
+      ${'from JSON escape'} | ${JSON.parse('"\\ud800"')}
+    `('should throw on lone surrogates: $name', ({ input }) => {
+      expect(() => fallback['checkInvoiceMemo'](input)).toThrow(
+        Errors.INVALID_INVOICE_MEMO('not a well-formed string').message,
+      );
+    });
+
+    test.each`
+      name                    | input
+      ${'NUL'}                | ${'\u0000'}
+      ${'SOH'}                | ${'\u0001'}
+      ${'tab'}                | ${'\t'}
+      ${'DEL'}                | ${'\u007f'}
+      ${'C1 NEL'}             | ${'\u0085'}
+      ${'C1 APC'}             | ${'\u009f'}
+      ${'RTL override'}       | ${'abc\u202edef'}
+      ${'LTR embedding'}      | ${'\u202a'}
+      ${'RTL isolate'}        | ${'\u2067'}
+      ${'pop directional'}    | ${'\u2069'}
+      ${'Arabic letter mark'} | ${'\u061c'}
+      ${'LTR mark'}           | ${'\u200e'}
+      ${'RTL mark'}           | ${'\u200f'}
+    `('should throw on blocked characters: $name', ({ input }) => {
+      expect(() => fallback['checkInvoiceMemo'](input)).toThrow(
+        Errors.INVALID_INVOICE_MEMO('contains blocked characters').message,
       );
     });
   });

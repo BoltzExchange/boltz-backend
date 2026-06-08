@@ -957,7 +957,7 @@ class SwapRouter extends RouterBase {
      *           description: If the claim covenant should be added to the Taproot tree. Only possible when "address" is set
      *         description:
      *           type: string
-     *           description: Description of the created invoice and magic routing hint. Only ASCII and a maximum length of 100 characters is allowed
+     *           description: Description of the created invoice and magic routing hint. Any well-formed UTF-8 string of up to 639 bytes is allowed, except for control characters (other than newlines) and Unicode bidirectional control characters
      *         descriptionHash:
      *           type: string
      *           description: Description hash for the invoice. Takes precedence over "description" if both are specified

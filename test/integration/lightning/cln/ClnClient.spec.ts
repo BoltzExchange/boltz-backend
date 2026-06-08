@@ -92,6 +92,32 @@ describe('ClnClient', () => {
       );
     });
 
+    test('should round-trip memos with non-ASCII characters', async () => {
+      const memo = 'café 🚀 ナンセンス 1杯 ₿';
+      const invoice = await clnClient.addHoldInvoice(
+        1,
+        randomBytes(32),
+        undefined,
+        undefined,
+        memo,
+      );
+      const dec = await sidecar.decodeInvoiceOrOffer(invoice);
+      expect(dec.description).toEqual(memo);
+    });
+
+    test('should create invoices with memos of the maximal length of 639 bytes', async () => {
+      const memo = '₿'.repeat(213);
+      const invoice = await clnClient.addHoldInvoice(
+        1,
+        randomBytes(32),
+        undefined,
+        undefined,
+        memo,
+      );
+      const dec = await sidecar.decodeInvoiceOrOffer(invoice);
+      expect(dec.description).toEqual(memo);
+    });
+
     test('should prefer description hash over memo', async () => {
       const descriptionHash = randomBytes(32);
       const invoice = await clnClient.addHoldInvoice(

@@ -47,6 +47,7 @@ pub struct ChainSwapData {
     pub symbol: String,
     pub keyIndex: Option<i32>,
     pub theirPublicKey: Option<String>,
+    pub claimAddress: Option<String>,
     pub swapTree: Option<String>,
     pub timeoutBlockHeight: i32,
     pub lockupAddress: String,

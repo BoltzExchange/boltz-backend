@@ -13,10 +13,12 @@ pub mod quoter;
 pub mod refund;
 pub mod refund_signer;
 pub mod serde_utils;
+pub mod signature;
 pub mod utils;
 
 pub use manager::Manager;
 pub use quoter::{Call, Data as QuoterData, QuoteAggregator, QuoterType};
+pub use signature::recover_signer;
 
 pub const MIN_CONTRACT_VERSION: u8 = 3;
 pub const MAX_CONTRACT_VERSION: u8 = 6;

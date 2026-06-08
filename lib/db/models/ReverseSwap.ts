@@ -1,5 +1,5 @@
 import type { Sequelize } from 'sequelize';
-import { DataTypes, Model } from 'sequelize';
+import { DataTypes, Model, Op } from 'sequelize';
 import {
   getChainCurrency,
   getLightningCurrency,
@@ -203,6 +203,16 @@ class ReverseSwap extends Model implements ReverseSwapType {
           {
             unique: false,
             fields: ['transactionId'],
+          },
+          {
+            name: 'reverseSwaps_claimAddress',
+            unique: false,
+            fields: ['claimAddress'],
+            where: {
+              claimAddress: {
+                [Op.ne]: null,
+              },
+            },
           },
         ],
       },

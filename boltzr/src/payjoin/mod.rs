@@ -19,6 +19,7 @@ use payjoin::receive::v2::{
     ProvisionalProposal, ReceiveSession, Receiver, ReceiverBuilder, SessionEvent, SessionOutcome,
     UncheckedOriginalPayload, WantsFeeRange, WantsInputs, WantsOutputs, replay_event_log,
 };
+use std::env;
 use std::error::Error;
 use std::fmt;
 use std::future::Future;
@@ -27,7 +28,14 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tracing::{debug, error, info, instrument, warn};
 
-const OHTTP_RELAY: &str = "https://pj.bobspacebkk.com";
+const OHTTP_RELAY: &str = "https://pj.benalleng.com";
+const OHTTP_RELAYS: [&str; 5] = [
+    OHTTP_RELAY,
+    "https://pj.bobspacebkk.com",
+    "https://payjoin.achow101.com",
+    "https://lets.payjo.in",
+    "https://pj.sms4sats.com"
+];
 const DIRECTORY: &str = "https://payjo.in";
 
 #[derive(Clone)]
@@ -99,10 +107,11 @@ impl PayjoinManager {
             session_id: session.id,
         };
 
-        let ohttp_keys = payjoin::io::fetch_ohttp_keys(OHTTP_RELAY, DIRECTORY)
+        let directory = payjoin_directory();
+        let ohttp_keys = fetch_ohttp_keys(&directory)
             .await
             .context("failed to fetch payjoin OHTTP keys")?;
-        let mut builder = ReceiverBuilder::new(address.clone(), DIRECTORY, ohttp_keys)
+        let mut builder = ReceiverBuilder::new(address.clone(), directory.as_str(), ohttp_keys)
             .context("failed to build payjoin receiver")?;
         if let Some(amount) = amount {
             builder = builder.with_amount(amount);
@@ -235,8 +244,9 @@ async fn poll_initialized_receiver(
     network: payjoin::bitcoin::Network,
 ) -> Result<()> {
     loop {
+        let ohttp_relay = payjoin_ohttp_relay();
         let (req, context) = receiver
-            .create_poll_request(OHTTP_RELAY)
+            .create_poll_request(ohttp_relay.as_str())
             .context("failed to create payjoin receiver poll request")?;
         let response = post_request(req).await?;
         let body = response
@@ -482,8 +492,9 @@ async fn submit_payjoin_proposal(
     persister: &ReceiverPersister,
     btc_chain: Arc<dyn Client + Send + Sync>,
 ) -> Result<()> {
+    let ohttp_relay = payjoin_ohttp_relay();
     let (req, context) = receiver
-        .create_post_request(OHTTP_RELAY)
+        .create_post_request(ohttp_relay.as_str())
         .context("failed to create payjoin proposal post request")?;
     let response = post_request(req).await?;
     let body = response
@@ -598,6 +609,7 @@ fn is_transaction_not_found(err: &anyhow::Error) -> bool {
     let msg = err.to_string().to_ascii_lowercase();
     msg.contains("no such mempool")
         || msg.contains("no such transaction")
+        || msg.contains("non-wallet transaction")
         || msg.contains("not found")
 }
 
@@ -659,6 +671,55 @@ fn sign_payjoin_psbt(
         .map_err(implementation_error)?;
 
     Psbt::from_str(&processed.psbt).map_err(implementation_error)
+}
+
+fn payjoin_directory() -> String {
+    env::var("BOLTZ_PAYJOIN_DIRECTORY").unwrap_or_else(|_| DIRECTORY.to_string())
+}
+
+fn payjoin_ohttp_relays() -> Vec<String> {
+    env::var("BOLTZ_PAYJOIN_OHTTP_RELAYS")
+        .map(|relays| {
+            relays
+                .split(',')
+                .map(str::trim)
+                .filter(|relay| !relay.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .ok()
+        .filter(|relays| !relays.is_empty())
+        .unwrap_or_else(|| OHTTP_RELAYS.iter().map(|relay| relay.to_string()).collect())
+}
+
+fn payjoin_ohttp_relay() -> String {
+    payjoin_ohttp_relays()
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| OHTTP_RELAY.to_string())
+}
+
+async fn fetch_ohttp_keys(directory: &str) -> Result<payjoin::OhttpKeys> {
+    let mut errors = Vec::new();
+
+    for relay in payjoin_ohttp_relays() {
+        match payjoin::io::fetch_ohttp_keys(relay.as_str(), directory).await {
+            Ok(keys) => return Ok(keys),
+            Err(error) => {
+                warn!(
+                    relay = relay.as_str(),
+                    error = %error,
+                    "Failed to fetch Payjoin OHTTP keys from relay"
+                );
+                errors.push(format!("{relay}: {error}"));
+            }
+        }
+    }
+
+    Err(anyhow!(
+        "all configured Payjoin OHTTP relays failed: {}",
+        errors.join("; ")
+    ))
 }
 
 async fn post_request(req: payjoin::Request) -> Result<reqwest::Response> {

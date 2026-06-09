@@ -48,9 +48,6 @@ class ReconnectingWebSocket
     if (this.ws?.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket is not connected');
     }
-    this.logger.debug(
-      `${this.symbol} WebSocket ${this.name} send: ${this.formatFrame(payload)}`,
-    );
     this.ws.send(payload);
   };
 
@@ -99,9 +96,6 @@ class ReconnectingWebSocket
       };
 
       this.ws.onmessage = (event) => {
-        this.logger.debug(
-          `${this.symbol} WebSocket ${this.name} recv: ${this.formatFrame(event.data)}`,
-        );
         if (this.onmessage) {
           this.onmessage(event);
         }
@@ -155,37 +149,6 @@ class ReconnectingWebSocket
       this.connect();
     }, ReconnectingWebSocket.reconnectDelay);
   };
-
-  private formatFrame = (payload: unknown): string => {
-    const data = this.frameToString(payload);
-    const bytes = Buffer.byteLength(data);
-
-    return `${this.truncate(data)}; bytes=${bytes}`;
-  };
-
-  private frameToString = (payload: unknown): string => {
-    if (typeof payload === 'string') {
-      return payload;
-    }
-    if (Buffer.isBuffer(payload)) {
-      return payload.toString();
-    }
-    if (payload instanceof ArrayBuffer) {
-      return Buffer.from(payload).toString();
-    }
-    if (ArrayBuffer.isView(payload)) {
-      return Buffer.from(
-        payload.buffer,
-        payload.byteOffset,
-        payload.byteLength,
-      ).toString();
-    }
-
-    return String(payload);
-  };
-
-  private truncate = (value: string) =>
-    value.length > 1_000 ? `${value.slice(0, 1_000)}...` : value;
 }
 
 class WebSocketProvider extends EthersWebSocketProvider {
@@ -195,7 +158,12 @@ class WebSocketProvider extends EthersWebSocketProvider {
   private registeredOnceListeners = new Map<ProviderEvent, Set<Listener>>();
   private onceWrappedListeners = new Map<Listener, Listener>();
 
-  constructor(logger: Logger, symbol: string, name: string, endpoint: string) {
+  constructor(
+    private readonly logger: Logger,
+    private readonly symbol: string,
+    private readonly name: string,
+    endpoint: string,
+  ) {
     const ws = new ReconnectingWebSocket(endpoint, logger, symbol, name);
 
     super(ws, undefined, {
@@ -216,6 +184,9 @@ class WebSocketProvider extends EthersWebSocketProvider {
     this.registeredListeners.get(event)!.add(listener);
 
     await super.on(event, listener);
+    this.logger.debug(
+      `${this.symbol} WebSocket ${this.name} registered listener for ${this.formatProviderEvent(event)} (${this.countRegisteredListeners(this.registeredListeners)} persistent, ${this.countRegisteredListeners(this.registeredOnceListeners)} once)`,
+    );
     return this;
   }
 
@@ -236,6 +207,9 @@ class WebSocketProvider extends EthersWebSocketProvider {
     this.onceWrappedListeners.set(listener, wrappedListener);
 
     await super.once(event, wrappedListener);
+    this.logger.debug(
+      `${this.symbol} WebSocket ${this.name} registered once listener for ${this.formatProviderEvent(event)} (${this.countRegisteredListeners(this.registeredListeners)} persistent, ${this.countRegisteredListeners(this.registeredOnceListeners)} once)`,
+    );
     return this;
   }
 
@@ -303,6 +277,17 @@ class WebSocketProvider extends EthersWebSocketProvider {
   }
 
   private reregisterListeners = async (): Promise<void> => {
+    const persistentListeners = this.countRegisteredListeners(
+      this.registeredListeners,
+    );
+    const onceListeners = this.countRegisteredListeners(
+      this.registeredOnceListeners,
+    );
+
+    this.logger.debug(
+      `${this.symbol} WebSocket ${this.name} re-registering ${persistentListeners} persistent listener(s) and ${onceListeners} once listener(s) after reconnect`,
+    );
+
     await super.removeAllListeners();
 
     for (const [event, listenerSet] of this.registeredListeners) {
@@ -325,6 +310,31 @@ class WebSocketProvider extends EthersWebSocketProvider {
     }
 
     this.resume();
+    this.logger.debug(
+      `${this.symbol} WebSocket ${this.name} re-registered ${persistentListeners} persistent listener(s) and ${onceListeners} once listener(s) after reconnect`,
+    );
+  };
+
+  private countRegisteredListeners = (
+    listeners: Map<ProviderEvent, Set<Listener>>,
+  ) =>
+    Array.from(listeners.values()).reduce(
+      (sum, listenerSet) => sum + listenerSet.size,
+      0,
+    );
+
+  private formatProviderEvent = (event: ProviderEvent): string => {
+    if (typeof event === 'string') {
+      return event;
+    }
+
+    try {
+      return JSON.stringify(event, (_, value) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      );
+    } catch {
+      return String(event);
+    }
   };
 }
 

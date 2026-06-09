@@ -61,11 +61,11 @@ describe('ContractEventHandler missed event checks', () => {
     await Promise.all([firstCheck, secondCheck, thirdCheck]);
 
     expect(rescan).toHaveBeenCalledTimes(2);
-    expect(rescan).toHaveBeenNthCalledWith(1, 100, 101);
-    expect(rescan).toHaveBeenNthCalledWith(2, 101, 105);
+    expect(rescan).toHaveBeenNthCalledWith(1, 100, 101, 'rescan');
+    expect(rescan).toHaveBeenNthCalledWith(2, 101, 105, 'rescan');
     expect(mockLogger.debug).toHaveBeenNthCalledWith(
       2,
-      'Checking for missed events of Arbitrum contracts v6 from block 101',
+      'Checking for missed events of Arbitrum contracts v6 from block 101 to 105',
     );
 
     handler.destroy();

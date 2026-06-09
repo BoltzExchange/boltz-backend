@@ -32,6 +32,7 @@ import SwapRepository from '../db/repositories/SwapRepository';
 import type Wallet from '../wallet/Wallet';
 import type WalletManager from '../wallet/WalletManager';
 import type EthereumManager from '../wallet/ethereum/EthereumManager';
+import type { ContractEventSource } from '../wallet/ethereum/contracts/ContractEventHandler';
 import type ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import Errors from './Errors';
 import EthereumTransactionConfirmationTracker from './EthereumConfirmationTracker';
@@ -160,6 +161,7 @@ class EthereumNursery extends TypedEventEmitter<{
     transaction: Transaction | TransactionResponse,
     etherSwapValues: EtherSwapValues,
     options?: UserLockupTransactionOptions,
+    source?: ContractEventSource,
   ) => {
     if (
       this.getSwapReceivingCurrency(swap) !==
@@ -169,7 +171,7 @@ class EthereumNursery extends TypedEventEmitter<{
     }
 
     this.logger.debug(
-      `Found lockup in ${this.ethereumManager.networkDetails.name} EtherSwap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
+      `Found lockup in ${this.ethereumManager.networkDetails.name} EtherSwap contract${this.formatEventSource(source)} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
     );
 
     const lockupAmount = Number(etherSwapValues.amount / etherDecimals);
@@ -294,6 +296,7 @@ class EthereumNursery extends TypedEventEmitter<{
     transaction: Transaction | TransactionResponse,
     erc20SwapValues: ERC20SwapValues,
     options?: UserLockupTransactionOptions,
+    source?: ContractEventSource,
   ) => {
     const wallet = this.walletManager.wallets.get(
       this.getSwapReceivingCurrency(swap),
@@ -305,7 +308,7 @@ class EthereumNursery extends TypedEventEmitter<{
     const erc20Wallet = wallet.walletProvider as ERC20WalletProvider;
 
     this.logger.debug(
-      `Found lockup in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
+      `Found lockup in ${this.ethereumManager.networkDetails.name} ERC20Swap contract${this.formatEventSource(source)} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
     );
 
     const lockupAmount = erc20Wallet.normalizeTokenAmount(
@@ -441,7 +444,7 @@ class EthereumNursery extends TypedEventEmitter<{
   private listenEtherSwap = () => {
     this.ethereumManager.contractEventHandler.on(
       'eth.lockup',
-      async ({ transaction, etherSwapValues }) => {
+      async ({ source, transaction, etherSwapValues }) => {
         const swaps = await Promise.all([
           SwapRepository.getSwap({
             preimageHash: getHexString(etherSwapValues.preimageHash),
@@ -459,14 +462,20 @@ class EthereumNursery extends TypedEventEmitter<{
         ]);
 
         for (const swap of swaps.filter((s) => s !== null)) {
-          await this.checkEtherSwapLockup(swap!, transaction, etherSwapValues);
+          await this.checkEtherSwapLockup(
+            swap!,
+            transaction,
+            etherSwapValues,
+            undefined,
+            source,
+          );
         }
       },
     );
 
     this.ethereumManager.contractEventHandler.on(
       'eth.claim',
-      async ({ transactionHash, preimageHash, preimage }) => {
+      async ({ source, transactionHash, preimageHash, preimage }) => {
         const swaps = await Promise.all([
           ReverseSwapRepository.getReverseSwap({
             preimageHash: getHexString(preimageHash),
@@ -490,7 +499,7 @@ class EthereumNursery extends TypedEventEmitter<{
           }
 
           this.logger.debug(
-            `Found claim in ${this.ethereumManager.networkDetails.name} EtherSwap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionHash}`,
+            `Found claim in ${this.ethereumManager.networkDetails.name} EtherSwap contract${this.formatEventSource(source)} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionHash}`,
           );
 
           this.emit('claim', {
@@ -513,7 +522,7 @@ class EthereumNursery extends TypedEventEmitter<{
   private listenERC20Swap = () => {
     this.ethereumManager.contractEventHandler.on(
       'erc20.lockup',
-      async ({ transaction, erc20SwapValues }) => {
+      async ({ source, transaction, erc20SwapValues }) => {
         const swaps = await Promise.all([
           SwapRepository.getSwap({
             preimageHash: getHexString(erc20SwapValues.preimageHash),
@@ -531,14 +540,20 @@ class EthereumNursery extends TypedEventEmitter<{
         ]);
 
         for (const swap of swaps.filter((s) => s !== null)) {
-          await this.checkErc20SwapLockup(swap!, transaction, erc20SwapValues);
+          await this.checkErc20SwapLockup(
+            swap!,
+            transaction,
+            erc20SwapValues,
+            undefined,
+            source,
+          );
         }
       },
     );
 
     this.ethereumManager.contractEventHandler.on(
       'erc20.claim',
-      async ({ transactionHash, preimageHash, preimage }) => {
+      async ({ source, transactionHash, preimageHash, preimage }) => {
         const swaps: (ReverseSwap | ChainSwapInfo | null)[] = await Promise.all(
           [
             ReverseSwapRepository.getReverseSwap({
@@ -564,7 +579,7 @@ class EthereumNursery extends TypedEventEmitter<{
           }
 
           this.logger.debug(
-            `Found claim in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionHash}`,
+            `Found claim in ${this.ethereumManager.networkDetails.name} ERC20Swap contract${this.formatEventSource(source)} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionHash}`,
           );
 
           this.emit('claim', {
@@ -739,6 +754,9 @@ class EthereumNursery extends TypedEventEmitter<{
       ? sendingWallet.symbol === this.ethereumManager.networkDetails.symbol
       : sendingWallet.type === CurrencyType.ERC20;
   };
+
+  private formatEventSource = (source?: ContractEventSource) =>
+    source === undefined ? '' : ` via ${source}`;
 
   /**
    * Returns a wallet in case there is one with the symbol, and it is an Ethereum one

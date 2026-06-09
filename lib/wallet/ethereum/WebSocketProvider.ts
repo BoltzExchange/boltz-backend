@@ -73,13 +73,20 @@ class ReconnectingWebSocket
     const isReconnecting = this.reconnectAttempts > 0;
 
     try {
+      this.logger.debug(
+        `${this.symbol} WebSocket ${this.name} opening connection${isReconnecting ? ` after ${this.reconnectAttempts} reconnect attempt(s)` : ''}`,
+      );
       this.ws = new WebSocket(this.endpoint);
 
       this.ws.onopen = (event) => {
+        const reconnectAttempts = this.reconnectAttempts;
         this.reconnectAttempts = 0;
         this.logger.info(`${this.symbol} WebSocket ${this.name} connected`);
 
         if (isReconnecting) {
+          this.logger.debug(
+            `${this.symbol} WebSocket ${this.name} reconnected after ${reconnectAttempts} attempt(s)`,
+          );
           this.emit('reconnected', undefined);
         }
 
@@ -151,7 +158,12 @@ class WebSocketProvider extends EthersWebSocketProvider {
   private registeredOnceListeners = new Map<ProviderEvent, Set<Listener>>();
   private onceWrappedListeners = new Map<Listener, Listener>();
 
-  constructor(logger: Logger, symbol: string, name: string, endpoint: string) {
+  constructor(
+    private readonly logger: Logger,
+    private readonly symbol: string,
+    private readonly name: string,
+    endpoint: string,
+  ) {
     const ws = new ReconnectingWebSocket(endpoint, logger, symbol, name);
 
     super(ws, undefined, {
@@ -172,6 +184,9 @@ class WebSocketProvider extends EthersWebSocketProvider {
     this.registeredListeners.get(event)!.add(listener);
 
     await super.on(event, listener);
+    this.logger.debug(
+      `${this.symbol} WebSocket ${this.name} registered listener for ${this.formatProviderEvent(event)} (${this.countRegisteredListeners(this.registeredListeners)} persistent, ${this.countRegisteredListeners(this.registeredOnceListeners)} once)`,
+    );
     return this;
   }
 
@@ -192,6 +207,9 @@ class WebSocketProvider extends EthersWebSocketProvider {
     this.onceWrappedListeners.set(listener, wrappedListener);
 
     await super.once(event, wrappedListener);
+    this.logger.debug(
+      `${this.symbol} WebSocket ${this.name} registered once listener for ${this.formatProviderEvent(event)} (${this.countRegisteredListeners(this.registeredListeners)} persistent, ${this.countRegisteredListeners(this.registeredOnceListeners)} once)`,
+    );
     return this;
   }
 
@@ -259,6 +277,17 @@ class WebSocketProvider extends EthersWebSocketProvider {
   }
 
   private reregisterListeners = async (): Promise<void> => {
+    const persistentListeners = this.countRegisteredListeners(
+      this.registeredListeners,
+    );
+    const onceListeners = this.countRegisteredListeners(
+      this.registeredOnceListeners,
+    );
+
+    this.logger.debug(
+      `${this.symbol} WebSocket ${this.name} re-registering ${persistentListeners} persistent listener(s) and ${onceListeners} once listener(s) after reconnect`,
+    );
+
     await super.removeAllListeners();
 
     for (const [event, listenerSet] of this.registeredListeners) {
@@ -281,6 +310,31 @@ class WebSocketProvider extends EthersWebSocketProvider {
     }
 
     this.resume();
+    this.logger.debug(
+      `${this.symbol} WebSocket ${this.name} re-registered ${persistentListeners} persistent listener(s) and ${onceListeners} once listener(s) after reconnect`,
+    );
+  };
+
+  private countRegisteredListeners = (
+    listeners: Map<ProviderEvent, Set<Listener>>,
+  ) =>
+    Array.from(listeners.values()).reduce(
+      (sum, listenerSet) => sum + listenerSet.size,
+      0,
+    );
+
+  private formatProviderEvent = (event: ProviderEvent): string => {
+    if (typeof event === 'string') {
+      return event;
+    }
+
+    try {
+      return JSON.stringify(event, (_, value) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      );
+    } catch {
+      return String(event);
+    }
   };
 }
 

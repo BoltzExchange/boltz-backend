@@ -48,6 +48,9 @@ class ReconnectingWebSocket
     if (this.ws?.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket is not connected');
     }
+    this.logger.debug(
+      `${this.symbol} WebSocket ${this.name} send: ${this.formatFrame(payload)}`,
+    );
     this.ws.send(payload);
   };
 
@@ -73,6 +76,9 @@ class ReconnectingWebSocket
     const isReconnecting = this.reconnectAttempts > 0;
 
     try {
+      this.logger.debug(
+        `${this.symbol} WebSocket ${this.name} opening connection${isReconnecting ? ` after ${this.reconnectAttempts} reconnect attempt(s)` : ''}`,
+      );
       this.ws = new WebSocket(this.endpoint);
 
       this.ws.onopen = (event) => {
@@ -93,6 +99,9 @@ class ReconnectingWebSocket
       };
 
       this.ws.onmessage = (event) => {
+        this.logger.debug(
+          `${this.symbol} WebSocket ${this.name} recv: ${this.formatFrame(event.data)}`,
+        );
         if (this.onmessage) {
           this.onmessage(event);
         }
@@ -146,6 +155,37 @@ class ReconnectingWebSocket
       this.connect();
     }, ReconnectingWebSocket.reconnectDelay);
   };
+
+  private formatFrame = (payload: unknown): string => {
+    const data = this.frameToString(payload);
+    const bytes = Buffer.byteLength(data);
+
+    return `${this.truncate(data)}; bytes=${bytes}`;
+  };
+
+  private frameToString = (payload: unknown): string => {
+    if (typeof payload === 'string') {
+      return payload;
+    }
+    if (Buffer.isBuffer(payload)) {
+      return payload.toString();
+    }
+    if (payload instanceof ArrayBuffer) {
+      return Buffer.from(payload).toString();
+    }
+    if (ArrayBuffer.isView(payload)) {
+      return Buffer.from(
+        payload.buffer,
+        payload.byteOffset,
+        payload.byteLength,
+      ).toString();
+    }
+
+    return String(payload);
+  };
+
+  private truncate = (value: string) =>
+    value.length > 1_000 ? `${value.slice(0, 1_000)}...` : value;
 }
 
 class WebSocketProvider extends EthersWebSocketProvider {

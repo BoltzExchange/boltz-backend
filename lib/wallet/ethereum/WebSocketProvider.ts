@@ -195,12 +195,7 @@ class WebSocketProvider extends EthersWebSocketProvider {
   private registeredOnceListeners = new Map<ProviderEvent, Set<Listener>>();
   private onceWrappedListeners = new Map<Listener, Listener>();
 
-  constructor(
-    private readonly logger: Logger,
-    private readonly symbol: string,
-    private readonly name: string,
-    endpoint: string,
-  ) {
+  constructor(logger: Logger, symbol: string, name: string, endpoint: string) {
     const ws = new ReconnectingWebSocket(endpoint, logger, symbol, name);
 
     super(ws, undefined, {

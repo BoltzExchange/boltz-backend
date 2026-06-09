@@ -17,11 +17,13 @@ import { formatERC20SwapValues, formatEtherSwapValues } from './ContractUtils';
 type Events = {
   // EtherSwap contract events
   'eth.lockup': {
+    source?: ContractEventSource;
     version: bigint;
     transaction: Transaction | TransactionResponse;
     etherSwapValues: EtherSwapValues;
   };
   'eth.claim': {
+    source?: ContractEventSource;
     version: bigint;
     transactionHash: string;
     preimageHash: Buffer;
@@ -30,11 +32,13 @@ type Events = {
 
   // ERC20Swap contract events
   'erc20.lockup': {
+    source?: ContractEventSource;
     version: bigint;
     transaction: Transaction | TransactionResponse;
     erc20SwapValues: ERC20SwapValues;
   };
   'erc20.claim': {
+    source?: ContractEventSource;
     version: bigint;
     transactionHash: string;
     preimageHash: Buffer;
@@ -42,9 +46,12 @@ type Events = {
   };
 };
 
+type ContractEventSource = 'live' | 'manual' | 'rescan';
+type ContractName = 'ERC20Swap' | 'EtherSwap';
+type ContractEventName = 'Claim' | 'Lockup';
+
 class ContractEventHandler extends TypedEventEmitter<Events> {
-  // Check for missed events every 5 minutes
-  private static readonly missedEventsCheckInterval = 1_000 * 60 * 5;
+  private static readonly missedEventsCheckInterval = 1_000 * 60;
 
   private version!: bigint;
 
@@ -107,22 +114,56 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
   public rescan = async (
     startHeight: number,
     endHeight?: number,
+    source: ContractEventSource = 'rescan',
   ): Promise<void> => {
-    const [etherLockups, etherClaims] = await Promise.all([
-      this.etherSwap.queryFilter(
-        this.etherSwap.filters.Lockup(),
-        startHeight,
-        endHeight,
-      ),
-      this.etherSwap.queryFilter(
-        this.etherSwap.filters.Claim(),
-        startHeight,
-        endHeight,
-      ),
-    ]);
+    const [etherLockups, etherClaims, erc20Lockups, erc20Claims] =
+      await Promise.all([
+        this.etherSwap.queryFilter(
+          this.etherSwap.filters.Lockup(),
+          startHeight,
+          endHeight,
+        ),
+        this.etherSwap.queryFilter(
+          this.etherSwap.filters.Claim(),
+          startHeight,
+          endHeight,
+        ),
+        this.erc20Swap.queryFilter(
+          this.erc20Swap.filters.Lockup(),
+          startHeight,
+          endHeight,
+        ),
+        this.erc20Swap.queryFilter(
+          this.erc20Swap.filters.Claim(),
+          startHeight,
+          endHeight,
+        ),
+      ]);
+
+    const totalEvents =
+      etherLockups.length +
+      etherClaims.length +
+      erc20Lockups.length +
+      erc20Claims.length;
+
+    if (totalEvents > 0) {
+      this.logger.debug(
+        `${this.networkDetails.name} contracts v${this.version} found ${totalEvents} event(s) via ${source} from block ${startHeight} to ${endHeight ?? 'latest'}: eth.lockup=${etherLockups.length}, eth.claim=${etherClaims.length}, erc20.lockup=${erc20Lockups.length}, erc20.claim=${erc20Claims.length}`,
+      );
+    }
 
     for (const event of etherLockups) {
+      this.logContractEvent(
+        source,
+        'EtherSwap',
+        'Lockup',
+        event.transactionHash,
+        event.blockNumber,
+        event.index,
+        parseBuffer(event.topics[1]),
+      );
       this.emit('eth.lockup', {
+        source,
         version: this.version,
         transaction: await event.getTransaction(),
         etherSwapValues: formatEtherSwapValues(event.args!),
@@ -130,29 +171,37 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     }
 
     for (const event of etherClaims) {
+      const preimageHash = parseBuffer(event.topics[1]);
+      this.logContractEvent(
+        source,
+        'EtherSwap',
+        'Claim',
+        event.transactionHash,
+        event.blockNumber,
+        event.index,
+        preimageHash,
+      );
       this.emit('eth.claim', {
+        source,
         version: this.version,
         transactionHash: event.transactionHash,
-        preimageHash: parseBuffer(event.topics[1]),
+        preimageHash,
         preimage: parseBuffer(event.args!.preimage),
       });
     }
 
-    const [erc20Lockups, erc20Claims] = await Promise.all([
-      this.erc20Swap.queryFilter(
-        this.erc20Swap.filters.Lockup(),
-        startHeight,
-        endHeight,
-      ),
-      this.erc20Swap.queryFilter(
-        this.erc20Swap.filters.Claim(),
-        startHeight,
-        endHeight,
-      ),
-    ]);
-
     for (const event of erc20Lockups) {
+      this.logContractEvent(
+        source,
+        'ERC20Swap',
+        'Lockup',
+        event.transactionHash,
+        event.blockNumber,
+        event.index,
+        parseBuffer(event.topics[1]),
+      );
       this.emit('erc20.lockup', {
+        source,
         version: this.version,
         transaction: await event.getTransaction(),
         erc20SwapValues: formatERC20SwapValues(event.args!),
@@ -160,10 +209,21 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     }
 
     for (const event of erc20Claims) {
+      const preimageHash = parseBuffer(event.topics[1]);
+      this.logContractEvent(
+        source,
+        'ERC20Swap',
+        'Claim',
+        event.transactionHash,
+        event.blockNumber,
+        event.index,
+        preimageHash,
+      );
       this.emit('erc20.claim', {
+        source,
         version: this.version,
         transactionHash: event.transactionHash,
-        preimageHash: parseBuffer(event.topics[1]),
+        preimageHash,
         preimage: parseBuffer(event.args!.preimage),
       });
     }
@@ -177,7 +237,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 
     // Rescan from the block before to the one after the transaction
     // Just easier than trying to filter events from the tx itself
-    await this.rescan(tx.blockNumber - 1, tx.blockNumber + 1);
+    await this.rescan(tx.blockNumber - 1, tx.blockNumber + 1, 'manual');
   };
 
   public checkMissedEvents = async () => {
@@ -192,15 +252,16 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
         this.missedEventsCheckPending = false;
 
         const startHeight = this.rescanLastHeight;
-        this.logger.debug(
-          `Checking for missed events of ${this.networkDetails.name} contracts v${this.version} from block ${startHeight}`,
-        );
-
         const currentHeight = Math.max(
           await this.provider.getBlockNumber(),
           startHeight,
         );
-        await this.rescan(startHeight, currentHeight);
+
+        this.logger.debug(
+          `Checking for missed events of ${this.networkDetails.name} contracts v${this.version} from block ${startHeight} to ${currentHeight}`,
+        );
+
+        await this.rescan(startHeight, currentHeight, 'rescan');
         this.rescanLastHeight = currentHeight;
       }
     })().finally(() => {
@@ -209,6 +270,22 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 
     return this.missedEventsCheckPromise;
   };
+
+  private logContractEvent = (
+    source: ContractEventSource,
+    contract: ContractName,
+    eventName: ContractEventName,
+    transactionHash: string,
+    blockNumber: number,
+    logIndex: number,
+    preimageHash: Buffer,
+  ) => {
+    this.logger.debug(
+      `${this.networkDetails.name} contracts v${this.version} ${contract} ${eventName} event via ${source}: tx=${transactionHash}, block=${blockNumber}, logIndex=${logIndex}, preimageHash=${ContractEventHandler.formatHex(preimageHash)}`,
+    );
+  };
+
+  private static formatHex = (value: Buffer) => `0x${value.toString('hex')}`;
 
   private subscribeContractEvents = async () => {
     await this.etherSwap.on(
@@ -221,7 +298,17 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
         timelock: bigint,
         event: ContractEventPayload,
       ) => {
+        this.logContractEvent(
+          'live',
+          'EtherSwap',
+          'Lockup',
+          event.log.transactionHash,
+          event.log.blockNumber,
+          event.log.index,
+          parseBuffer(preimageHash),
+        );
         this.emit('eth.lockup', {
+          source: 'live',
           version: this.version,
           transaction: await event.log.getTransaction(),
           etherSwapValues: {
@@ -238,7 +325,17 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     await this.etherSwap.on(
       'Claim' as any,
       (preimageHash: string, preimage: string, event: ContractEventPayload) => {
+        this.logContractEvent(
+          'live',
+          'EtherSwap',
+          'Claim',
+          event.log.transactionHash,
+          event.log.blockNumber,
+          event.log.index,
+          parseBuffer(preimageHash),
+        );
         this.emit('eth.claim', {
+          source: 'live',
           version: this.version,
           transactionHash: event.log.transactionHash,
           preimageHash: parseBuffer(preimageHash),
@@ -258,7 +355,17 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
         timelock: bigint,
         event: ContractEventPayload,
       ) => {
+        this.logContractEvent(
+          'live',
+          'ERC20Swap',
+          'Lockup',
+          event.log.transactionHash,
+          event.log.blockNumber,
+          event.log.index,
+          parseBuffer(preimageHash),
+        );
         this.emit('erc20.lockup', {
+          source: 'live',
           version: this.version,
           transaction: await event.log.getTransaction(),
           erc20SwapValues: {
@@ -276,7 +383,17 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     await this.erc20Swap.on(
       'Claim' as any,
       (preimageHash: string, preimage: string, event: ContractEventPayload) => {
+        this.logContractEvent(
+          'live',
+          'ERC20Swap',
+          'Claim',
+          event.log.transactionHash,
+          event.log.blockNumber,
+          event.log.index,
+          parseBuffer(preimageHash),
+        );
         this.emit('erc20.claim', {
+          source: 'live',
           version: this.version,
           transactionHash: event.log.transactionHash,
           preimageHash: parseBuffer(preimageHash),
@@ -288,4 +405,4 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 }
 
 export default ContractEventHandler;
-export { Events };
+export { type ContractEventSource, Events };

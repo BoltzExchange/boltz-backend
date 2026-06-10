@@ -16,7 +16,7 @@ pub mod serde_utils;
 pub mod utils;
 
 pub use manager::Manager;
-pub use quoter::{Call, Data as QuoterData, QuoteAggregator, QuoterType};
+pub use quoter::{Call, Data as QuoterData, Dex, QuoteAggregator};
 
 pub const MIN_CONTRACT_VERSION: u8 = 3;
 pub const MAX_CONTRACT_VERSION: u8 = 6;

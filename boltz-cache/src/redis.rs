@@ -91,6 +91,47 @@ impl Redis {
         Ok(())
     }
 
+    pub async fn set_multiple<V: Serialize + Sync>(
+        &self,
+        key: &str,
+        values: &[(String, &V)],
+        ttl: Option<u64>,
+    ) -> Result<()> {
+        if values.is_empty() {
+            return Ok(());
+        }
+
+        let values = values
+            .iter()
+            .map(|(field, value)| Ok((field, serde_json::to_string(value)?)))
+            .collect::<Result<Vec<_>>>()?;
+
+        let mut pipe = redis::pipe();
+        pipe.atomic();
+
+        let hset = pipe.cmd("HSET").arg(key);
+        for (field, value) in &values {
+            hset.arg(field).arg(value);
+        }
+        hset.ignore();
+
+        if let Some(ttl) = ttl {
+            let hexpire = pipe
+                .cmd("HEXPIRE")
+                .arg(key)
+                .arg(ttl)
+                .arg("FIELDS")
+                .arg(values.len());
+            for (field, _) in &values {
+                hexpire.arg(field);
+            }
+            hexpire.ignore();
+        }
+
+        pipe.exec_async(&mut self.connection.clone()).await?;
+        Ok(())
+    }
+
     pub async fn take<V: DeserializeOwned>(&self, key: &str, field: &str) -> Result<Option<V>> {
         let res: Vec<Option<String>> = redis::cmd("HGETDEL")
             .arg(key)
@@ -143,6 +184,35 @@ mod test {
 
         cache.set(key, field, &data, None).await.unwrap();
         assert_eq!(cache.get::<Data>(key, field).await.unwrap().unwrap(), data);
+    }
+
+    #[tokio::test]
+    async fn test_set_multiple() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let key = "test_set_multiple";
+        let data1 = Data {
+            data: "first".to_string(),
+        };
+        let data2 = Data {
+            data: "second".to_string(),
+        };
+        let values = vec![
+            ("field1".to_string(), &data1),
+            ("field2".to_string(), &data2),
+        ];
+
+        cache.set_multiple(key, &values, None).await.unwrap();
+
+        let results: Vec<Option<Data>> = cache
+            .get_multiple(key, &["field1", "field2"])
+            .await
+            .unwrap();
+        assert_eq!(results, vec![Some(data1), Some(data2)]);
     }
 
     #[tokio::test]

@@ -2,7 +2,8 @@
   "openapi": "3.0.0",
   "info": {
     "title": "Boltz API",
-    "version": "3.13.0"
+    "version": "3.13.0",
+    "description": "## ⚠️ DO NOT INTEGRATE THIS API DIRECTLY ⚠️\n\nAll Boltz integrations must use an official SDK or client library. They handle the cryptography, the swap state machine, and the fund-recovery edge cases for you. Integrating the API directly is error-prone and will lead to **loss of funds**.\n\nOfficial SDK list available [here](https://api.docs.boltz.exchange/libraries.html)!"
   },
   "paths": {
     "/version": {

@@ -2,14 +2,11 @@ use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
 use crate::service::{
-    KeyVecIterator, MAX_GAP_LIMIT, MAX_PAGINATION_LIMIT, Pagination, PubkeyIterator, RestoreQuery,
+    KeyVecIterator, MAX_GAP_LIMIT, MAX_PAGINATION_LIMIT, Pagination, PubkeyIterator,
     SingleKeyIterator, XpubIterator,
 };
 use crate::swap::manager::SwapManager;
-use crate::utils::serde::{
-    EvmAddressDeserialize, EvmAddressVecDeserialize, PublicKeyDeserialize, PublicKeyVecDeserialize,
-    XpubDeserialize,
-};
+use crate::utils::serde::{PublicKeyDeserialize, PublicKeyVecDeserialize, XpubDeserialize};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
@@ -34,12 +31,6 @@ pub enum RescueParams {
     PublicKeyVec {
         #[serde(rename = "publicKeys")]
         public_keys: PublicKeyVecDeserialize,
-    },
-    Address {
-        address: EvmAddressDeserialize,
-    },
-    Addresses {
-        addresses: EvmAddressVecDeserialize,
     },
 }
 
@@ -101,26 +92,6 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
             RescueParams::PublicKeyVec { public_keys } => {
                 Ok(Box::new(KeyVecIterator::new(public_keys.0)))
             }
-            RescueParams::Address { .. } | RescueParams::Addresses { .. } => Err(AxumError::new(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                anyhow::anyhow!("address lookup is only supported for restore"),
-            )),
-        }
-    }
-}
-
-impl TryFrom<RescueParams> for RestoreQuery {
-    type Error = AxumError;
-
-    fn try_from(params: RescueParams) -> Result<Self, Self::Error> {
-        match params {
-            RescueParams::Address { address } => {
-                Ok(RestoreQuery::Addresses(vec![address.0.to_string()]))
-            }
-            RescueParams::Addresses { addresses } => Ok(RestoreQuery::Addresses(
-                addresses.0.into_iter().map(|a| a.to_string()).collect(),
-            )),
-            other => Ok(RestoreQuery::Keys(other.try_into()?)),
         }
     }
 }
@@ -258,23 +229,6 @@ mod test {
             body["pagination"] = pagination_obj;
         }
 
-        setup_router()
-            .oneshot(
-                Request::builder()
-                    .method(axum::http::Method::POST)
-                    .uri(endpoint)
-                    .header(axum::http::header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(serde_json::to_vec(&body).unwrap()))
-                    .unwrap(),
-            )
-            .await
-            .unwrap()
-    }
-
-    async fn make_json_request(
-        endpoint: &str,
-        body: serde_json::Value,
-    ) -> axum::response::Response {
         setup_router()
             .oneshot(
                 Request::builder()
@@ -431,70 +385,5 @@ mod test {
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let error = serde_json::from_slice::<ApiError>(&body).unwrap();
         assert!(error.error.contains("limit must not exceed"));
-    }
-
-    const VALID_EVM_ADDRESS: &str = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
-
-    #[tokio::test]
-    async fn test_swap_restore_by_address() {
-        let res = make_json_request(
-            "/v2/swap/restore",
-            serde_json::json!({ "address": VALID_EVM_ADDRESS }),
-        )
-        .await;
-        assert_eq!(res.status(), StatusCode::OK);
-        let body = res.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(
-            serde_json::from_slice::<Vec<crate::service::test::RestorableSwap>>(&body).unwrap(),
-            vec![],
-        );
-    }
-
-    #[tokio::test]
-    async fn test_swap_restore_by_addresses() {
-        let res = make_json_request(
-            "/v2/swap/restore",
-            serde_json::json!({ "addresses": [VALID_EVM_ADDRESS, VALID_EVM_ADDRESS] }),
-        )
-        .await;
-        assert_eq!(res.status(), StatusCode::OK);
-        let body = res.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(
-            serde_json::from_slice::<Vec<crate::service::test::RestorableSwap>>(&body).unwrap(),
-            vec![],
-        );
-    }
-
-    #[tokio::test]
-    async fn test_swap_restore_invalid_address() {
-        let res = make_json_request(
-            "/v2/swap/restore",
-            serde_json::json!({ "address": "not-an-evm-address" }),
-        )
-        .await;
-        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
-    }
-
-    #[tokio::test]
-    async fn test_swap_rescue_rejects_address() {
-        let res = make_json_request(
-            "/v2/swap/rescue",
-            serde_json::json!({ "address": VALID_EVM_ADDRESS }),
-        )
-        .await;
-        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
-        let body = res.into_body().collect().await.unwrap().to_bytes();
-        let error = serde_json::from_slice::<ApiError>(&body).unwrap();
-        assert_eq!(error.error, "address lookup is only supported for restore");
-    }
-
-    #[tokio::test]
-    async fn test_swap_restore_index_rejects_address() {
-        let res = make_json_request(
-            "/v2/swap/restore/index",
-            serde_json::json!({ "address": VALID_EVM_ADDRESS }),
-        )
-        .await;
-        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
 }

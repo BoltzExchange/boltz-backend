@@ -1,6 +1,5 @@
 use crate::service::MAX_GAP_LIMIT;
 use bitcoin::{PublicKey, bip32::Xpub};
-use boltz_evm::Address as EvmAddress;
 use elements::Address as ElementsAddress;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serializer};
@@ -77,81 +76,6 @@ impl<'de> Deserialize<'de> for ElementsAddressDeserialize {
         }
 
         deserializer.deserialize_string(ElementsAddressDeserializeVisitor)
-    }
-}
-
-pub struct EvmAddressDeserialize(pub EvmAddress);
-
-impl<'de> Deserialize<'de> for EvmAddressDeserialize {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct EvmAddressDeserializeVisitor;
-
-        impl Visitor<'_> for EvmAddressDeserializeVisitor {
-            type Value = EvmAddressDeserialize;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a valid evm address")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                // `Address` parses lower-case and checksummed input alike; its `Display` re-emits
-                // the EIP-55 checksummed form, which is how `claimAddress` is stored.
-                match EvmAddress::from_str(value) {
-                    Ok(address) => Ok(EvmAddressDeserialize(address)),
-                    Err(err) => Err(E::custom(format!("invalid evm address: {err}"))),
-                }
-            }
-        }
-
-        deserializer.deserialize_string(EvmAddressDeserializeVisitor)
-    }
-}
-
-pub struct EvmAddressVecDeserialize(pub Vec<EvmAddress>);
-
-impl<'de> Deserialize<'de> for EvmAddressVecDeserialize {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct EvmAddressVecVisitor;
-
-        impl<'de> Visitor<'de> for EvmAddressVecVisitor {
-            type Value = EvmAddressVecDeserialize;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("an array of EVM addresses")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: serde::de::SeqAccess<'de>,
-            {
-                let mut vec = Vec::new();
-                while let Some(value) = seq.next_element::<String>()? {
-                    if vec.len() >= MAX_GAP_LIMIT as usize {
-                        return Err(serde::de::Error::custom(format!(
-                            "address array exceeds maximum length of {MAX_GAP_LIMIT}",
-                        )));
-                    }
-
-                    let address = EvmAddress::from_str(&value).map_err(|err| {
-                        serde::de::Error::custom(format!("invalid evm address: {err}"))
-                    })?;
-
-                    vec.push(address);
-                }
-                Ok(EvmAddressVecDeserialize(vec))
-            }
-        }
-
-        deserializer.deserialize_seq(EvmAddressVecVisitor)
     }
 }
 
@@ -434,103 +358,6 @@ mod tests {
                     .unwrap()
                     .to_string()
                     .contains("invalid elements address")
-            );
-        }
-    }
-
-    mod evm_address {
-        use serde::Deserialize;
-
-        #[derive(Deserialize)]
-        struct EvmAddressWrapper {
-            address: super::super::EvmAddressDeserialize,
-        }
-
-        const CHECKSUMMED: &str = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
-
-        #[test]
-        fn test_deserialize_lowercase_normalizes_to_checksummed() {
-            let json = r#"{"address":"0xd8da6bf26964af9d7eed9e03e53415d37aa96045"}"#;
-            let wrapper: EvmAddressWrapper = serde_json::from_str(json).unwrap();
-            assert_eq!(wrapper.address.0.to_string(), CHECKSUMMED);
-        }
-
-        #[test]
-        fn test_deserialize_checksummed_roundtrip() {
-            let json = format!(r#"{{"address":"{CHECKSUMMED}"}}"#);
-            let wrapper: EvmAddressWrapper = serde_json::from_str(&json).unwrap();
-            assert_eq!(wrapper.address.0.to_string(), CHECKSUMMED);
-        }
-
-        #[test]
-        fn test_deserialize_invalid_address() {
-            let json = r#"{"address":"not-an-evm-address"}"#;
-            let result: Result<EvmAddressWrapper, _> = serde_json::from_str(json);
-            assert!(result.is_err());
-            assert!(
-                result
-                    .err()
-                    .unwrap()
-                    .to_string()
-                    .contains("invalid evm address")
-            );
-        }
-    }
-
-    mod evm_address_vec {
-        use super::*;
-        use serde::Deserialize;
-
-        const ADDRESS: &str = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
-
-        #[derive(Deserialize)]
-        struct EvmAddressVecWrapper {
-            addresses: super::super::EvmAddressVecDeserialize,
-        }
-
-        #[test]
-        fn test_deserialize_empty_vec() {
-            let json = r#"{"addresses":[]}"#;
-            let wrapper: EvmAddressVecWrapper = serde_json::from_str(json).unwrap();
-            assert_eq!(wrapper.addresses.0.len(), 0);
-        }
-
-        #[test]
-        fn test_deserialize_normalizes_to_checksummed() {
-            let json = r#"{"addresses":["0xd8da6bf26964af9d7eed9e03e53415d37aa96045"]}"#;
-            let wrapper: EvmAddressVecWrapper = serde_json::from_str(json).unwrap();
-            assert_eq!(wrapper.addresses.0.len(), 1);
-            assert_eq!(wrapper.addresses.0[0].to_string(), ADDRESS);
-        }
-
-        #[test]
-        fn test_deserialize_invalid_address_in_vec() {
-            let json = r#"{"addresses":["not-an-evm-address"]}"#;
-            let result: Result<EvmAddressVecWrapper, _> = serde_json::from_str(json);
-            assert!(result.is_err());
-        }
-
-        #[test]
-        fn test_deserialize_max_limit() {
-            let addresses: Vec<String> = vec![format!("\"{ADDRESS}\""); MAX_GAP_LIMIT as usize];
-            let json = format!(r#"{{"addresses":[{}]}}"#, addresses.join(","));
-            let wrapper: EvmAddressVecWrapper = serde_json::from_str(&json).unwrap();
-            assert_eq!(wrapper.addresses.0.len(), MAX_GAP_LIMIT as usize);
-        }
-
-        #[test]
-        fn test_deserialize_exceeds_max_limit() {
-            let addresses: Vec<String> =
-                vec![format!("\"{ADDRESS}\""); (MAX_GAP_LIMIT + 1) as usize];
-            let json = format!(r#"{{"addresses":[{}]}}"#, addresses.join(","));
-            let result: Result<EvmAddressVecWrapper, _> = serde_json::from_str(&json);
-            assert!(result.is_err());
-            assert!(
-                result
-                    .err()
-                    .unwrap()
-                    .to_string()
-                    .contains("exceeds maximum length of 150")
             );
         }
     }

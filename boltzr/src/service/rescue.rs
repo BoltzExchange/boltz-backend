@@ -473,11 +473,6 @@ impl TryFrom<(&ReverseSwap, u32, String, Option<String>)> for RestorableSwap {
     }
 }
 
-pub enum RestoreQuery {
-    Keys(Box<dyn PubkeyIterator + Send>),
-    Addresses(Vec<String>),
-}
-
 pub struct SwapRescue {
     cache: Cache,
     currencies: Currencies,
@@ -527,38 +522,25 @@ impl SwapRescue {
     }
 
     #[instrument(name = "SwapRescue::restore", skip_all)]
-    pub fn restore(&self, query: RestoreQuery) -> Result<Vec<RestorableSwap>> {
-        let mut restorable = match query {
-            RestoreQuery::Keys(iterator) => {
-                debug!(
-                    "Scanning for restorable swaps for {}",
-                    iterator.identifier()
-                );
+    pub fn restore(&self, iterator: Box<dyn PubkeyIterator + Send>) -> Result<Vec<RestorableSwap>> {
+        debug!(
+            "Scanning for restorable swaps for {}",
+            iterator.identifier()
+        );
 
-                let pagination = iterator.pagination();
+        let pagination = iterator.pagination();
 
-                self.scan_swaps_paginated(
-                    iterator,
-                    vec![SwapType::Submarine, SwapType::Chain, SwapType::Reverse],
-                    Self::process_restorable_swaps,
-                    None,
-                    pagination,
-                )?
-            }
-            RestoreQuery::Addresses(addresses) => {
-                debug!(
-                    "Scanning for restorable swaps for {} address(es)",
-                    addresses.len()
-                );
-
-                self.scan_swaps_by_addresses(addresses)?
-            }
-        };
+        let mut restorable = self.scan_swaps_paginated(
+            iterator,
+            vec![SwapType::Submarine, SwapType::Chain, SwapType::Reverse],
+            Self::process_restorable_swaps,
+            None,
+            pagination,
+        )?;
 
         self.attach_metadata(&mut restorable)?;
 
         restorable.sort_by(|a, b| {
-            // EVM-only rows have no derivation index; sort them last and fall through to createdAt.
             fn get_key_index(swap: &RestorableSwap) -> u32 {
                 swap.refund_details
                     .as_ref()
@@ -573,30 +555,6 @@ impl SwapRescue {
         });
 
         Ok(restorable)
-    }
-
-    fn scan_swaps_by_addresses(&self, addresses: Vec<String>) -> Result<Vec<RestorableSwap>> {
-        if addresses.is_empty() {
-            return Ok(vec![]);
-        }
-
-        let reverse_swaps = self.reverse_swap_helper.get_all_nullable(Box::new(
-            crate::db::schema::reverseSwaps::dsl::version
-                .gt(0)
-                .and(crate::db::schema::reverseSwaps::dsl::claimAddress.eq_any(addresses.clone())),
-        ))?;
-
-        let chain_swaps = self.chain_swap_helper.get_by_data_nullable(Box::new(
-            crate::db::schema::chainSwapData::dsl::claimAddress.eq_any(addresses),
-        ))?;
-
-        let keys_map = HashMap::new();
-        let mut result = HashMap::new();
-        for swap in self.process_restorable_swaps(&keys_map, vec![], chain_swaps, reverse_swaps)? {
-            result.insert(swap.id().to_string(), swap);
-        }
-
-        Ok(result.into_values().collect())
     }
 
     fn attach_metadata(&self, swaps: &mut [RestorableSwap]) -> Result<()> {
@@ -1528,9 +1486,7 @@ swapTree: Some(tree.clone()),
         );
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let res = rescue
-            .restore(RestoreQuery::Keys(Box::new(
-                XpubIterator::new(xpub, None, None).unwrap(),
-            )))
+            .restore(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
             .unwrap();
         assert_eq!(res.len(), 3);
 
@@ -1745,7 +1701,7 @@ swapTree: Some(tree.clone()),
         )
         .unwrap();
         let res = rescue
-            .restore(RestoreQuery::Keys(Box::new(SingleKeyIterator::new(pubkey))))
+            .restore(Box::new(SingleKeyIterator::new(pubkey)))
             .unwrap();
 
         assert_eq!(res.len(), 1);
@@ -1892,7 +1848,7 @@ swapTree: Some(tree.clone()),
         )
         .unwrap();
         let res = rescue
-            .restore(RestoreQuery::Keys(Box::new(SingleKeyIterator::new(pubkey))))
+            .restore(Box::new(SingleKeyIterator::new(pubkey)))
             .unwrap();
 
         assert_eq!(res.len(), 1);
@@ -2004,9 +1960,7 @@ swapTree: Some(tree.clone()),
         )
         .unwrap();
         let res = rescue
-            .restore(RestoreQuery::Keys(Box::new(SingleKeyIterator::new(
-                pubkey_refund,
-            ))))
+            .restore(Box::new(SingleKeyIterator::new(pubkey_refund)))
             .unwrap();
 
         assert_eq!(res.len(), 1);
@@ -2785,7 +2739,7 @@ swapTree: Some(tree),
 
         let pubkey = PublicKey::from_str(&refund_pubkey).unwrap();
         let res = rescue
-            .restore(RestoreQuery::Keys(Box::new(SingleKeyIterator::new(pubkey))))
+            .restore(Box::new(SingleKeyIterator::new(pubkey)))
             .unwrap();
 
         assert_eq!(res.len(), 1);
@@ -2805,178 +2759,5 @@ swapTree: Some(tree),
             })
         );
         assert_eq!(res[0].refund_details.as_ref().map(|r| r.key_index), Some(0));
-    }
-
-    #[tokio::test]
-    async fn test_restore_chain_swap_evm_by_address() {
-        let tree = get_test_tree();
-        let refund_pubkey =
-            "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0".to_string();
-
-        let mut swap = get_test_chain_swap();
-        swap.pair = "RBTC/BTC".to_string();
-        swap.orderSide = crate::utils::pair::OrderSide::Buy as i32;
-
-        let chain_swap = ChainSwapInfo::new(
-            swap,
-            vec![
-                ChainSwapData {
-                    swapId: "chain".to_string(),
-                    symbol: "RBTC".to_string(),
-                    claimAddress: Some(EVM_CLAIM_ADDRESS.to_string()),
-                    lockupAddress: EVM_CONTRACT_ADDRESS.to_string(),
-                    transactionId: Some("0xevmlockup".to_string()),
-                    transactionVout: Some(0),
-                    amount: Some(200_000),
-                    timeoutBlockHeight: 13_211,
-                    ..Default::default()
-                },
-                ChainSwapData {
-                    swapId: "chain".to_string(),
-                    symbol: "BTC".to_string(),
-                    keyIndex: Some(11),
-                    theirPublicKey: Some(refund_pubkey.clone()),
-                    claimAddress: None,
-                    swapTree: Some(tree),
-                    timeoutBlockHeight: 13_211,
-                    lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
-                    transactionId: Some("chain tx".to_string()),
-                    transactionVout: Some(5),
-                    amount: Some(50_000),
-                },
-            ],
-        )
-        .unwrap();
-
-        let chain_helper = {
-            let chain_swap = chain_swap.clone();
-            let mut helper = MockChainSwapHelper::new();
-            helper
-                .expect_get_by_data_nullable()
-                .returning(move |_| Ok(vec![chain_swap.clone()]))
-                .times(1);
-            helper
-        };
-
-        let reverse_helper = {
-            let mut helper = MockReverseSwapHelper::new();
-            helper
-                .expect_get_all_nullable()
-                .returning(|_| Ok(vec![]))
-                .times(1);
-            helper
-        };
-
-        let rescue = SwapRescue::new(
-            Cache::Memory(MemCache::new()),
-            Arc::new(MockSwapHelper::new()),
-            Arc::new(chain_helper),
-            Arc::new(reverse_helper),
-            Arc::new(HashMap::new()),
-            Arc::new(empty_metadata_helper()),
-        );
-
-        let res = rescue
-            .restore(RestoreQuery::Addresses(vec![EVM_CLAIM_ADDRESS.to_string()]))
-            .unwrap();
-
-        assert_eq!(res.len(), 1);
-        assert_eq!(res[0].base.id, chain_swap.id());
-        assert_eq!(res[0].base.kind, SwapType::Chain);
-        assert_eq!(res[0].from, "BTC".to_string());
-        assert_eq!(res[0].to, "RBTC".to_string());
-        assert!(res[0].claim_details.is_none());
-        assert!(res[0].refund_details.is_none());
-        assert_eq!(
-            res[0].evm_claim_details,
-            Some(EvmDetails {
-                contract_address: EVM_CONTRACT_ADDRESS.to_string(),
-                claim_address: EVM_CLAIM_ADDRESS.to_string(),
-                transaction: Some(EvmTransaction {
-                    id: "0xevmlockup".to_string(),
-                }),
-                amount: Some(200_000),
-                timeout_block_height: 13_211,
-            })
-        );
-    }
-
-    #[tokio::test]
-    async fn test_restore_reverse_evm_by_address() {
-        let mut reverse = get_test_reverse_swap(get_test_tree());
-        reverse.pair = "RBTC/BTC".to_string();
-        reverse.orderSide = crate::utils::pair::OrderSide::Buy as i32;
-        reverse.claimPublicKey = None;
-        reverse.keyIndex = None;
-        reverse.redeemScript = None;
-        reverse.lockupAddress = EVM_CONTRACT_ADDRESS.to_string();
-        reverse.claimAddress = Some(EVM_CLAIM_ADDRESS.to_string());
-
-        let chain_helper = {
-            let mut helper = MockChainSwapHelper::new();
-            helper
-                .expect_get_by_data_nullable()
-                .returning(|_| Ok(vec![]))
-                .times(1);
-            helper
-        };
-
-        let reverse_helper = {
-            let reverse = reverse.clone();
-            let mut helper = MockReverseSwapHelper::new();
-            helper
-                .expect_get_all_nullable()
-                .returning(move |_| Ok(vec![reverse.clone()]))
-                .times(1);
-            helper
-        };
-
-        let rescue = SwapRescue::new(
-            Cache::Memory(MemCache::new()),
-            Arc::new(MockSwapHelper::new()),
-            Arc::new(chain_helper),
-            Arc::new(reverse_helper),
-            Arc::new(HashMap::new()),
-            Arc::new(empty_metadata_helper()),
-        );
-
-        let res = rescue
-            .restore(RestoreQuery::Addresses(vec![EVM_CLAIM_ADDRESS.to_string()]))
-            .unwrap();
-
-        assert_eq!(res.len(), 1);
-        assert_eq!(res[0].base.id, reverse.id());
-        assert_eq!(res[0].base.kind, SwapType::Reverse);
-        assert_eq!(res[0].from, "BTC".to_string());
-        assert_eq!(res[0].to, "RBTC".to_string());
-        assert!(res[0].claim_details.is_none());
-        assert!(res[0].refund_details.is_none());
-        assert_eq!(
-            res[0].evm_claim_details,
-            Some(EvmDetails {
-                contract_address: EVM_CONTRACT_ADDRESS.to_string(),
-                claim_address: EVM_CLAIM_ADDRESS.to_string(),
-                transaction: Some(EvmTransaction {
-                    id: "reverse tx".to_string(),
-                }),
-                amount: Some(reverse.onchainAmount),
-                timeout_block_height: reverse.timeoutBlockHeight as u64,
-            })
-        );
-    }
-
-    #[tokio::test]
-    async fn test_restore_by_addresses_empty() {
-        let rescue = SwapRescue::new(
-            Cache::Memory(MemCache::new()),
-            Arc::new(MockSwapHelper::new()),
-            Arc::new(MockChainSwapHelper::new()),
-            Arc::new(MockReverseSwapHelper::new()),
-            Arc::new(HashMap::new()),
-            Arc::new(MockSwapMetadataHelper::new()),
-        );
-
-        let res = rescue.restore(RestoreQuery::Addresses(vec![])).unwrap();
-        assert!(res.is_empty());
     }
 }

@@ -2065,32 +2065,6 @@ class SwapRouter extends RouterBase {
      * @openapi
      * components:
      *   schemas:
-     *     RestoreRequest:
-     *       oneOf:
-     *         - $ref: '#/components/schemas/RescueRequest'
-     *         - type: object
-     *           required: ["address"]
-     *           properties:
-     *             address:
-     *               type: string
-     *               pattern: '^(0x)?[a-fA-F0-9]{40}$'
-     *               description: Single EVM address (checksummed or lowercase) to search for in the claim address of swaps. Use this to restore EVM swaps (e.g. RSK)
-     *         - type: object
-     *           required: ["addresses"]
-     *           properties:
-     *             addresses:
-     *               type: array
-     *               maxItems: 150
-     *               items:
-     *                 type: string
-     *                 pattern: '^(0x)?[a-fA-F0-9]{40}$'
-     *               description: Array of EVM addresses to search for in the claim address of swaps
-     */
-
-    /**
-     * @openapi
-     * components:
-     *   schemas:
      *     Transaction:
      *       type: object
      *       required: ["id", "vout"]
@@ -2311,13 +2285,13 @@ class SwapRouter extends RouterBase {
      * /swap/restore:
      *   post:
      *     tags: [Swap]
-     *     description: Restore swaps by searching with an XPUB, a single public key, multiple public keys, or an EVM claim address. Returns full swap details needed to resume, claim, or refund swaps when information was lost
+     *     description: Restore swaps by searching with an XPUB, a single public key, or multiple public keys. Returns full swap details needed to resume, claim, or refund swaps when information was lost
      *     requestBody:
      *       required: true
      *       content:
      *         application/json:
      *           schema:
-     *             $ref: '#/components/schemas/RestoreRequest'
+     *             $ref: '#/components/schemas/RescueRequest'
      *     responses:
      *       '200':
      *         description: List of swaps that can be restored

@@ -2067,14 +2067,15 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     Transaction:
      *       type: object
-     *       required: ["id", "hex"]
+     *       required: ["id", "vout"]
      *       properties:
      *         id:
      *           type: string
-     *           description: ID of the transaction
-     *         hex:
-     *           type: string
-     *           description: The transaction encoded as HEX
+     *           description: ID of the lockup transaction
+     *         vout:
+     *           type: integer
+     *           minimum: 0
+     *           description: Index of the lockup output in the transaction
      *
      *     RescuableSwap:
      *       type: object
@@ -2129,7 +2130,7 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     RestoreClaimDetails:
      *       type: object
-     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey", "preimageHash"]
+     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey", "timeoutBlockHeight", "preimageHash"]
      *       properties:
      *         tree:
      *           $ref: '#/components/schemas/SwapTree'
@@ -2150,8 +2151,6 @@ class SwapRouter extends RouterBase {
      *         timeoutBlockHeight:
      *           type: number
      *           description: Block height at which the HTLC will time out
-     *         timeoutBlockHeights:
-     *           $ref: '#/components/schemas/ArkTimeouts'
      *         blindingKey:
      *           type: string
      *           description: Blinding key of the lockup address. Only set when the chain is Liquid
@@ -2161,7 +2160,7 @@ class SwapRouter extends RouterBase {
      *
      *     RestoreRefundDetails:
      *       type: object
-     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey"]
+     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey", "timeoutBlockHeight"]
      *       properties:
      *         tree:
      *           $ref: '#/components/schemas/SwapTree'
@@ -2182,15 +2181,41 @@ class SwapRouter extends RouterBase {
      *         timeoutBlockHeight:
      *           type: number
      *           description: Block height at which the HTLC will time out
-     *         timeoutBlockHeights:
-     *           $ref: '#/components/schemas/ArkTimeouts'
      *         blindingKey:
      *           type: string
      *           description: Blinding key of the lockup address. Only set when the chain is Liquid
      *
+     *     EvmTransaction:
+     *       type: object
+     *       required: ["id"]
+     *       properties:
+     *         id:
+     *           type: string
+     *           description: Hash of the EVM lockup transaction
+     *
+     *     RestoreEvmClaimDetails:
+     *       type: object
+     *       description: Details to claim an EVM swap. Present instead of claimDetails when the side the client claims is an EVM chain. The full lockup values can be reconstructed from the contract Lockup event filtered by the preimage hash
+     *       required: ["contractAddress", "claimAddress", "timeoutBlockHeight"]
+     *       properties:
+     *         contractAddress:
+     *           type: string
+     *           description: Address of the EtherSwap/ERC20Swap contract the funds are locked in
+     *         claimAddress:
+     *           type: string
+     *           description: EVM address that is allowed to claim the swap
+     *         transaction:
+     *           $ref: '#/components/schemas/EvmTransaction'
+     *         amount:
+     *           type: number
+     *           description: Amount locked in the swap
+     *         timeoutBlockHeight:
+     *           type: number
+     *           description: Block height at which the swap times out
+     *
      *     RestorableSwap:
      *       type: object
-     *       required: ["id", "type", "status", "createdAt", "from", "to"]
+     *       required: ["id", "type", "status", "createdAt", "from", "to", "preimageHash"]
      *       properties:
      *         id:
      *           type: string
@@ -2221,6 +2246,8 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/RestoreClaimDetails'
      *         refundDetails:
      *           $ref: '#/components/schemas/RestoreRefundDetails'
+     *         evmClaimDetails:
+     *           $ref: '#/components/schemas/RestoreEvmClaimDetails'
      *         metadata:
      *           type: string
      *           pattern: '^(?:[0-9a-fA-F]{2})+$'
@@ -2274,6 +2301,12 @@ class SwapRouter extends RouterBase {
      *               type: array
      *               items:
      *                 $ref: '#/components/schemas/RestorableSwap'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
 
     /**

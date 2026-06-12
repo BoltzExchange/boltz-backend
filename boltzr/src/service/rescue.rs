@@ -352,6 +352,53 @@ impl TryFrom<(&ChainSwapInfo, u32, String, Option<String>)> for ClaimDetails {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+pub struct EvmTransaction {
+    pub id: String,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+pub struct EvmDetails {
+    #[serde(rename = "contractAddress")]
+    pub contract_address: String,
+    #[serde(rename = "claimAddress")]
+    pub claim_address: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction: Option<EvmTransaction>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<i64>,
+    #[serde(rename = "timeoutBlockHeight")]
+    pub timeout_block_height: u64,
+}
+
+impl EvmDetails {
+    fn from_chain_data(data: &ChainSwapData) -> Result<Self> {
+        Ok(EvmDetails {
+            contract_address: data.lockupAddress.clone(),
+            claim_address: data
+                .claimAddress
+                .clone()
+                .ok_or_else(|| anyhow!("no claim address for {}", data.swapId))?,
+            transaction: data.transactionId.clone().map(|id| EvmTransaction { id }),
+            amount: data.amount,
+            timeout_block_height: data.timeoutBlockHeight as u64,
+        })
+    }
+
+    fn from_reverse(s: &ReverseSwap) -> Result<Self> {
+        Ok(EvmDetails {
+            contract_address: s.lockupAddress.clone(),
+            claim_address: s
+                .claimAddress
+                .clone()
+                .ok_or_else(|| anyhow!("no claim address for {}", s.id))?,
+            transaction: s.transactionId.clone().map(|id| EvmTransaction { id }),
+            amount: Some(s.onchainAmount),
+            timeout_block_height: s.timeoutBlockHeight as u64,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct RestorableSwap {
     #[serde(flatten)]
     pub base: SwapBase,
@@ -365,6 +412,8 @@ pub struct RestorableSwap {
     pub claim_details: Option<ClaimDetails>,
     #[serde(rename = "refundDetails", skip_serializing_if = "Option::is_none")]
     pub refund_details: Option<SwapDetailsBase>,
+    #[serde(rename = "evmClaimDetails", skip_serializing_if = "Option::is_none")]
+    pub evm_claim_details: Option<EvmDetails>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<String>,
 }
@@ -393,6 +442,7 @@ impl TryFrom<(&Swap, u32, String, Option<String>)> for RestorableSwap {
             invoice: s.invoice.clone(),
             claim_details: None,
             refund_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
+            evm_claim_details: None,
             metadata: None,
         })
     }
@@ -417,6 +467,7 @@ impl TryFrom<(&ReverseSwap, u32, String, Option<String>)> for RestorableSwap {
             invoice: Some(s.invoice.clone()),
             claim_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
             refund_details: None,
+            evm_claim_details: None,
             metadata: None,
         })
     }
@@ -490,11 +541,12 @@ impl SwapRescue {
         self.attach_metadata(&mut restorable)?;
 
         restorable.sort_by(|a, b| {
-            fn get_key_index(swap: &RestorableSwap) -> Option<u32> {
+            fn get_key_index(swap: &RestorableSwap) -> u32 {
                 swap.refund_details
                     .as_ref()
                     .map(|r| r.key_index)
                     .or_else(|| swap.claim_details.as_ref().map(|c| c.base.key_index))
+                    .unwrap_or(u32::MAX)
             }
 
             get_key_index(a)
@@ -864,37 +916,43 @@ impl SwapRescue {
     ) -> Result<RestorableSwap> {
         let sending_data = s.sending();
         let receiving_data = s.receiving();
-        let claim_key_index =
-            Self::lookup_optional_from_keys(keys_map, &sending_data.theirPublicKey);
         let refund_key_index =
             Self::lookup_optional_from_keys(keys_map, &receiving_data.theirPublicKey);
 
-        // No support for claim details on RSK yet, and single-key restore requests can
-        // legitimately cover only one side of a chain swap.
-        let claim_details = if let Some(key_index) = claim_key_index {
+        // The EVM side of a chain swap has no MuSig key, only a claim address; return a minimal
+        // pointer the client uses to rebuild the contract claim. Otherwise single-key restore
+        // requests can legitimately cover only one (UTXO) side of a chain swap.
+        let (claim_details, evm_claim_details) = if sending_data.claimAddress.is_some() {
+            (None, Some(EvmDetails::from_chain_data(sending_data)?))
+        } else if let Some(key_index) =
+            Self::lookup_optional_from_keys(keys_map, &sending_data.theirPublicKey)
+        {
             let sending_wallet = self.get_wallet(&sending_data.symbol)?;
-            Some(
-                (
-                    &s,
-                    key_index,
-                    Self::derive_our_public_key(
-                        secp,
-                        &s.sending().symbol,
-                        &sending_wallet,
-                        &s.id(),
-                        s.sending().keyIndex,
-                    )?,
-                    Self::derive_blinding_key(
-                        &sending_wallet,
-                        &s.id(),
-                        &s.sending().symbol,
-                        &s.sending().lockupAddress,
-                    )?,
-                )
-                    .try_into()?,
+            (
+                Some(
+                    (
+                        &s,
+                        key_index,
+                        Self::derive_our_public_key(
+                            secp,
+                            &s.sending().symbol,
+                            &sending_wallet,
+                            &s.id(),
+                            s.sending().keyIndex,
+                        )?,
+                        Self::derive_blinding_key(
+                            &sending_wallet,
+                            &s.id(),
+                            &s.sending().symbol,
+                            &s.sending().lockupAddress,
+                        )?,
+                    )
+                        .try_into()?,
+                ),
+                None,
             )
         } else {
-            None
+            (None, None)
         };
 
         let refund_details = if let Some(key_index) = refund_key_index {
@@ -923,7 +981,7 @@ impl SwapRescue {
             None
         };
 
-        if claim_details.is_none() && refund_details.is_none() {
+        if claim_details.is_none() && refund_details.is_none() && evm_claim_details.is_none() {
             return Err(anyhow!("no key mapping for {}", s.id()));
         }
 
@@ -935,6 +993,7 @@ impl SwapRescue {
             invoice: None,
             claim_details,
             refund_details,
+            evm_claim_details,
             metadata: None,
         })
     }
@@ -946,6 +1005,22 @@ impl SwapRescue {
         s: ReverseSwap,
     ) -> Result<RestorableSwap> {
         let chain_symbol = s.chain_symbol()?;
+
+        // EVM reverse swaps identify the user by a claim address, not a MuSig key.
+        if s.claimAddress.is_some() {
+            return Ok(RestorableSwap {
+                base: (&s).into(),
+                from: s.lightning_symbol()?,
+                to: chain_symbol,
+                preimage_hash: s.preimageHash.clone(),
+                invoice: Some(s.invoice.clone()),
+                claim_details: None,
+                refund_details: None,
+                evm_claim_details: Some(EvmDetails::from_reverse(&s)?),
+                metadata: None,
+            });
+        }
+
         let wallet = self.get_wallet(&chain_symbol)?;
 
         (
@@ -1115,6 +1190,7 @@ mod test {
             status: "transaction.failed".to_string(),
             invoice: "lnbc123reverse".to_string(),
             keyIndex: Some(789),
+            claimAddress: None,
             timeoutBlockHeight: 654,
             preimageHash: "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
                 .to_string(),
@@ -1144,7 +1220,8 @@ mod test {
                     "02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b"
                         .to_string(),
                 ),
-                swapTree: Some(tree.clone()),
+                claimAddress: None,
+swapTree: Some(tree.clone()),
                 timeoutBlockHeight: 13_211,
                 lockupAddress: "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m".to_string(),
                 amount: Some(50000),
@@ -1157,7 +1234,8 @@ mod test {
                     "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0"
                         .to_string(),
                 ),
-                swapTree: Some(tree),
+                claimAddress: None,
+swapTree: Some(tree),
                 timeoutBlockHeight: 13_211,
                 lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
                 amount: Some(200000),
@@ -1298,7 +1376,8 @@ mod test {
                     "02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b"
                         .to_string(),
                 ),
-                swapTree: Some(tree.clone()),
+                claimAddress: None,
+swapTree: Some(tree.clone()),
                 timeoutBlockHeight: 13_211,
                 lockupAddress: "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m".to_string(),
                 amount: Some(50000),
@@ -1312,7 +1391,8 @@ mod test {
                     "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0"
                         .to_string(),
                 ),
-                swapTree: Some(tree.clone()),
+                claimAddress: None,
+swapTree: Some(tree.clone()),
                 timeoutBlockHeight: 13_211,
                 lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
                 amount: Some(200000),
@@ -1442,6 +1522,7 @@ mod test {
                     ),
                     timeout_block_height: 321,
                 }),
+                evm_claim_details: None,
                 metadata: Some(hex::encode("opaque-client-metadata")),
             }
         );
@@ -1483,6 +1564,7 @@ mod test {
                     preimage_hash: reverse_swap.preimageHash.clone(),
                 }),
                 refund_details: None,
+                evm_claim_details: None,
                 metadata: None,
             }
         );
@@ -1550,6 +1632,7 @@ mod test {
                     ),
                     timeout_block_height: 13_211,
                 }),
+                evm_claim_details: None,
                 metadata: None,
             }
         );
@@ -1659,6 +1742,7 @@ mod test {
                     preimage_hash: reverse_swap.preimageHash.clone(),
                 }),
                 refund_details: None,
+                evm_claim_details: None,
                 metadata: None,
             }
         );
@@ -1678,7 +1762,8 @@ mod test {
                         "02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b"
                             .to_string(),
                     ),
-                    swapTree: Some(tree.clone()),
+                    claimAddress: None,
+swapTree: Some(tree.clone()),
                     timeoutBlockHeight: 13_211,
                     lockupAddress: "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m".to_string(),
                     amount: Some(50000),
@@ -1693,7 +1778,8 @@ mod test {
                         "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0"
                             .to_string(),
                     ),
-                    swapTree: Some(tree.clone()),
+                    claimAddress: None,
+swapTree: Some(tree.clone()),
                     timeoutBlockHeight: 13_211,
                     lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
                     amount: Some(200000),
@@ -1788,7 +1874,8 @@ mod test {
                         "02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b"
                             .to_string(),
                     ),
-                    swapTree: Some(tree.clone()),
+                    claimAddress: None,
+swapTree: Some(tree.clone()),
                     timeoutBlockHeight: 13_211,
                     lockupAddress: "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m".to_string(),
                     amount: Some(50000),
@@ -1803,7 +1890,8 @@ mod test {
                         "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0"
                             .to_string(),
                     ),
-                    swapTree: Some(tree.clone()),
+                    claimAddress: None,
+swapTree: Some(tree.clone()),
                     timeoutBlockHeight: 13_211,
                     lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
                     amount: Some(200000),
@@ -2168,7 +2256,8 @@ mod test {
                         "02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b"
                             .to_string(),
                     ),
-                    swapTree: Some(tree.clone()),
+                    claimAddress: None,
+swapTree: Some(tree.clone()),
                     timeoutBlockHeight: 13_211,
                     lockupAddress:
                         "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m"
@@ -2185,7 +2274,8 @@ mod test {
                         "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0"
                             .to_string(),
                     ),
-                    swapTree: Some(tree),
+                    claimAddress: None,
+swapTree: Some(tree),
                     timeoutBlockHeight: 13_211,
                     lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
                     amount: Some(200000),
@@ -2500,5 +2590,174 @@ mod test {
             .await
             .unwrap();
         assert_eq!(index, cache_value as i64);
+    }
+
+    const EVM_CLAIM_ADDRESS: &str = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+    const EVM_CONTRACT_ADDRESS: &str = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+
+    #[test]
+    fn test_evm_details_from_chain_data() {
+        let data = ChainSwapData {
+            swapId: "chain".to_string(),
+            symbol: "RBTC".to_string(),
+            lockupAddress: EVM_CONTRACT_ADDRESS.to_string(),
+            claimAddress: Some(EVM_CLAIM_ADDRESS.to_string()),
+            transactionId: Some("0xlockuptx".to_string()),
+            transactionVout: Some(0),
+            amount: Some(200_000),
+            timeoutBlockHeight: 13_211,
+            ..Default::default()
+        };
+
+        let details = EvmDetails::from_chain_data(&data).unwrap();
+        assert_eq!(
+            details,
+            EvmDetails {
+                contract_address: EVM_CONTRACT_ADDRESS.to_string(),
+                claim_address: EVM_CLAIM_ADDRESS.to_string(),
+                transaction: Some(EvmTransaction {
+                    id: "0xlockuptx".to_string(),
+                }),
+                amount: Some(200_000),
+                timeout_block_height: 13_211,
+            }
+        );
+    }
+
+    #[test]
+    fn test_evm_details_from_chain_data_missing_claim_address() {
+        let data = ChainSwapData {
+            swapId: "chain".to_string(),
+            symbol: "RBTC".to_string(),
+            claimAddress: None,
+            ..Default::default()
+        };
+        assert!(EvmDetails::from_chain_data(&data).is_err());
+    }
+
+    #[test]
+    fn test_evm_details_from_reverse() {
+        let mut reverse = get_test_reverse_swap(get_test_tree());
+        reverse.lockupAddress = EVM_CONTRACT_ADDRESS.to_string();
+        reverse.claimAddress = Some(EVM_CLAIM_ADDRESS.to_string());
+
+        let details = EvmDetails::from_reverse(&reverse).unwrap();
+        assert_eq!(
+            details,
+            EvmDetails {
+                contract_address: EVM_CONTRACT_ADDRESS.to_string(),
+                claim_address: EVM_CLAIM_ADDRESS.to_string(),
+                transaction: Some(EvmTransaction {
+                    id: "reverse tx".to_string(),
+                }),
+                amount: Some(reverse.onchainAmount),
+                timeout_block_height: reverse.timeoutBlockHeight as u64,
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_restore_chain_swap_utxo_to_evm() {
+        let tree = get_test_tree();
+        let refund_pubkey =
+            "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0".to_string();
+
+        let mut swap = get_test_chain_swap();
+        swap.pair = "RBTC/BTC".to_string();
+        swap.orderSide = crate::utils::pair::OrderSide::Buy as i32;
+
+        let chain_swap = ChainSwapInfo::new(
+            swap,
+            vec![
+                ChainSwapData {
+                    swapId: "chain".to_string(),
+                    symbol: "RBTC".to_string(),
+                    claimAddress: Some(EVM_CLAIM_ADDRESS.to_string()),
+                    lockupAddress: EVM_CONTRACT_ADDRESS.to_string(),
+                    transactionId: Some("0xevmlockup".to_string()),
+                    transactionVout: Some(0),
+                    amount: Some(200_000),
+                    timeoutBlockHeight: 13_211,
+                    ..Default::default()
+                },
+                ChainSwapData {
+                    swapId: "chain".to_string(),
+                    symbol: "BTC".to_string(),
+                    keyIndex: Some(11),
+                    theirPublicKey: Some(refund_pubkey.clone()),
+                    claimAddress: None,
+                    swapTree: Some(tree),
+                    timeoutBlockHeight: 13_211,
+                    lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
+                    transactionId: Some("chain tx".to_string()),
+                    transactionVout: Some(5),
+                    amount: Some(50_000),
+                },
+            ],
+        )
+        .unwrap();
+
+        let mut swap_helper = MockSwapHelper::new();
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut chain_helper = MockChainSwapHelper::new();
+        {
+            let chain_swap = chain_swap.clone();
+            chain_helper
+                .expect_get_by_data_nullable()
+                .returning(move |_| Ok(vec![chain_swap.clone()]))
+                .times(1);
+        }
+
+        let mut reverse_helper = MockReverseSwapHelper::new();
+        reverse_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::from([(
+                "BTC".to_string(),
+                Currency {
+                    network: Network::Regtest,
+                    wallet: Some(get_liquid_wallet()),
+                    chain: None,
+                    cln: None,
+                    lnds: HashMap::new(),
+                    evm_manager: None,
+                },
+            )])),
+            Arc::new(empty_metadata_helper()),
+        );
+
+        let pubkey = PublicKey::from_str(&refund_pubkey).unwrap();
+        let res = rescue
+            .restore(Box::new(SingleKeyIterator::new(pubkey)))
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].base.id, chain_swap.id());
+        assert_eq!(res[0].base.kind, SwapType::Chain);
+        assert!(res[0].claim_details.is_none());
+        assert_eq!(
+            res[0].evm_claim_details,
+            Some(EvmDetails {
+                contract_address: EVM_CONTRACT_ADDRESS.to_string(),
+                claim_address: EVM_CLAIM_ADDRESS.to_string(),
+                transaction: Some(EvmTransaction {
+                    id: "0xevmlockup".to_string(),
+                }),
+                amount: Some(200_000),
+                timeout_block_height: 13_211,
+            })
+        );
+        assert_eq!(res[0].refund_details.as_ref().map(|r| r.key_index), Some(0));
     }
 }

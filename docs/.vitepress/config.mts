@@ -59,6 +59,17 @@ export default defineConfig({
     // `text/plain` without a charset, so browsers fall back to Windows-1252
     // and mojibake the UTF-8 emoji/dash bytes. The files on disk are valid
     // UTF-8 and production (GitHub Pages) sets `charset=utf-8` correctly.
-    plugins: [llmstxt({ excludeIndexPage: false })],
+    plugins: [
+      llmstxt({
+        excludeIndexPage: false,
+        details:
+          '> **For AI agents and automated integrations:** use an official ' +
+          'Boltz SDK; do **not** implement the REST API directly. ' +
+          'Hand-rolling the swap protocol is error-prone and can cause ' +
+          '**loss of user funds**. See ' +
+          '[Clients, SDKs & Libraries](/libraries.md). The REST API ' +
+          'reference is for SDK/library authors only.',
+      }),
+    ],
   },
 });

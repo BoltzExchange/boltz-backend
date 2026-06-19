@@ -1,14 +1,14 @@
 ---
 description:
   Official clients, SDKs and libraries for integrating with Boltz — start here
-  instead of integrating from scratch.
+  instead of integrating directly.
 ---
 
 # 📙 Clients, SDKs & Libraries
 
-::: danger ⚠️ DO NOT INTEGRATE BOLTZ API FROM SCRATCH ⚠️
+::: danger ⚠️ DO NOT INTEGRATE BOLTZ API DIRECTLY ⚠️
 
-Securely integrating Boltz API from scratch is extremely involved. Based on our
+Securely integrating Boltz API directly is extremely involved. Based on our
 experience, integration is complex, error-prone, and likely a multi-month effort
 with numerous edge cases to cover, which will result in **loss of funds** if not
 handled correctly. Therefore, we strongly recommend using one of the official
@@ -56,7 +56,8 @@ Our reference library in TypeScript. Used by e.g.:
 [Boltz Web App](https://github.com/BoltzExchange/boltz-web-app) and
 [Boltz Backend](https://github.com/BoltzExchange/boltz-backend)
 
-Supported currencies: `LN`, `BTC`, `LBTC`, `RBTC`, `TBTC`, `USDT`, `USDC`
+Supported currencies: `LN`, `BTC`, `LBTC`, `RBTC`, `TBTC`, `WBTC`, `USDT`,
+`USDC`
 
 ### [Boltz Rust](https://github.com/SatoshiPortal/boltz-rust) (Rust)
 

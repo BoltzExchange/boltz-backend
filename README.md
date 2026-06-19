@@ -5,6 +5,10 @@
 
 This is the source of the official Boltz Backend powering swaps at [boltz.exchange](https://boltz.exchange/). It enables **non-custodial** swaps between different Bitcoin layers. Boltz Backend exposes a RESTful HTTP API that can be used to query information like supported pairs as well as to create and monitor swaps.
 
+## Integrating Boltz?
+
+**Don't integrate the API directly.** Use an official SDK or client library. They handle the cryptography, the swap state machine, and fund-recovery edge cases for you. See **[Clients, SDKs & Libraries](https://api.docs.boltz.exchange/libraries.html)**.
+
 ## Documentation
 
 API documentation can be found [here](https://docs.boltz.exchange/v/api).

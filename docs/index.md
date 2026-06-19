@@ -9,7 +9,9 @@ description: Introduction to the Boltz API and overview of swap integration.
 
 Boltz exposes a RESTful HTTP API that can be used to query information such as
 supported pairs as well as to create and monitor swaps. All swap clients, such
-as Boltz Web App, use Boltz API under the hood.
+as Boltz Web App, use Boltz API under the hood. Integrations must use Boltz API
+via [officially supported SDKs](/libraries) instead of integrating the API
+directly.
 
 ## Instances
 
@@ -48,3 +50,7 @@ These docs are also published in an LLM-friendly format following the
   a single plain-text file, suitable for loading into a model's context.
 - Per-page Markdown sources: append `.md` to any page URL (for example
   `/api-v2.md` or `/lifecycle.md`) to get the raw Markdown.
+- **Do not integrate the REST API directly; use an
+  [officially supported SDK](/libraries).** The SDKs handle the cryptography,
+  swap state machine, and fund-recovery edge cases that hand-rolled integrations
+  get wrong.

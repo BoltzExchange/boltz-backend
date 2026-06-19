@@ -136,7 +136,7 @@
   },
   "optionalDependencies": {
     "@types/nodemailer": "^8.0.0",
-    "nodemailer": "^8.0.7"
+    "nodemailer": "^9.0.1"
   },
   "overrides": {
     "protobufjs": "^7.5.6"

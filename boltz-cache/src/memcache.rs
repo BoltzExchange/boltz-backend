@@ -131,6 +131,19 @@ impl MemCache {
         Ok(())
     }
 
+    pub fn set_multiple<V: Serialize + Sync>(
+        &self,
+        key: &str,
+        values: &[(String, &V)],
+        ttl: Option<u64>,
+    ) -> anyhow::Result<()> {
+        for (field, value) in values {
+            self.set(key, field, value, ttl)?;
+        }
+
+        Ok(())
+    }
+
     pub fn take<V: DeserializeOwned>(&self, key: &str, field: &str) -> anyhow::Result<Option<V>> {
         let entry = self.map.remove(&Self::get_key(key, field));
         Ok(match entry {
@@ -195,6 +208,30 @@ mod tests {
 
         let retrieved: Option<TestData> = cache.get(key, field).unwrap();
         assert_eq!(retrieved, Some(value));
+    }
+
+    #[tokio::test]
+    async fn test_set_multiple_get_multiple() {
+        let cache = MemCache::new();
+        let key = "set_multiple_key";
+        let value1 = TestData {
+            id: 1,
+            name: "first".to_string(),
+        };
+        let value2 = TestData {
+            id: 2,
+            name: "second".to_string(),
+        };
+        let values = vec![
+            ("field1".to_string(), &value1),
+            ("field2".to_string(), &value2),
+        ];
+
+        cache.set_multiple(key, &values, None).unwrap();
+
+        let retrieved: Vec<Option<TestData>> =
+            cache.get_multiple(key, &["field1", "field2"]).unwrap();
+        assert_eq!(retrieved, vec![Some(value1), Some(value2)]);
     }
 
     #[tokio::test]

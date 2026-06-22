@@ -24,7 +24,7 @@ codegen-units = 1
 panic = "abort"
 
 [workspace.dependencies]
-alloy = { version = "2.0.4", features = [
+alloy = { version = "2.1.0", features = [
 	"reqwest",
 	"sol-types",
 	"serde",
@@ -40,13 +40,13 @@ alloy = { version = "2.0.4", features = [
 ] }
 anyhow = "1.0.102"
 base64 = "0.22.1"
-bitcoin = { version = "0.32.8", features = ["rand-std"] }
-bitcoin_hashes = "0.20.0"
+bitcoin = { version = "0.32.10", features = ["rand-std"] }
+bitcoin_hashes = "1.0.0"
 clap = { version = "4.6.1", features = ["derive"] }
-elements = "0.26.1"
+elements = "0.26.2"
 rand = "0.8.6"
-reqwest = { version = "0.13.3", features = ["json"] }
-rustls = { version = "0.23.40", default-features = false, features = [
+reqwest = { version = "0.13.4", features = ["json"] }
+rustls = { version = "0.23.41", default-features = false, features = [
 	"std",
 	"tls12",
 	"aws-lc-rs",
@@ -54,24 +54,24 @@ rustls = { version = "0.23.40", default-features = false, features = [
 ] }
 rstest = "0.26.1"
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
-serial_test = "3.4.0"
+serde_json = "1.0.150"
+serial_test = "3.5.0"
 static_assertions = "1.1.0"
 thiserror = "2.0.18"
-tokio = { version = "1.52.2", features = [
+tokio = { version = "1.52.3", features = [
 	"rt-multi-thread",
 	"macros",
 	"process",
 	"net",
 ] }
-tonic = { version = "0.14.5", features = ["tls-ring"] }
-tonic-prost = "0.14.5"
-tonic-prost-build = "0.14.5"
-prost = "0.14.3"
+tonic = { version = "0.14.6", features = ["tls-ring"] }
+tonic-prost = "0.14.6"
+tonic-prost-build = "0.14.6"
+prost = "0.14.4"
 dirs = "6.0.0"
-dashmap = "6.1.0"
-bytes = "1.11.1"
-chrono = "0.4.44"
+dashmap = "6.2.1"
+bytes = "1.12.0"
+chrono = "0.4.45"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 hex = { version = "0.4.3", features = ["serde"] }

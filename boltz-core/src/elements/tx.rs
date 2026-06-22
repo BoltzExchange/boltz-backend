@@ -1738,6 +1738,85 @@ pub mod tests {
     }
 
     #[test]
+    fn test_unblind_outputs_asset_consistency() {
+        use elements::secp256k1_zkp::{Generator, RangeProof};
+
+        let secp = Secp256k1::new();
+
+        let keys = Keypair::new(&secp, &mut rand::thread_rng());
+        let blinding = Keypair::new(&secp, &mut rand::thread_rng());
+
+        let lbtc = AssetId::from_slice(&[1u8; 32]).unwrap();
+        let worthless = AssetId::from_slice(&[2u8; 32]).unwrap();
+        let amount = 100_000u64;
+        let script_pubkey = Script::new();
+
+        let build = |committed_asset: AssetId, message_asset: AssetId| -> InputDetail {
+            let asset_bf = AssetBlindingFactor::new(&mut rand::thread_rng());
+            let value_bf = ValueBlindingFactor::new(&mut rand::thread_rng());
+
+            let asset_gen =
+                Generator::new_blinded(&secp, committed_asset.into_tag(), asset_bf.into_inner());
+            let value_commitment = Value::new_confidential(&secp, amount, asset_gen, value_bf);
+
+            let (nonce, shared_secret) = Nonce::with_ephemeral_sk(
+                &secp,
+                SecretKey::new(&mut rand::thread_rng()),
+                &blinding.public_key(),
+            );
+
+            let rangeproof = RangeProof::new(
+                &secp,
+                TxOut::RANGEPROOF_MIN_VALUE,
+                value_commitment.commitment().unwrap(),
+                amount,
+                value_bf.into_inner(),
+                &RangeProofMessage {
+                    asset: message_asset,
+                    bf: asset_bf,
+                }
+                .to_bytes(),
+                script_pubkey.as_bytes(),
+                shared_secret,
+                TxOut::RANGEPROOF_EXP_SHIFT,
+                TxOut::RANGEPROOF_MIN_PRIV_BITS,
+                asset_gen,
+            )
+            .unwrap();
+
+            InputDetail {
+                input_type: InputType::Claim([0; 32]),
+                output_type: OutputType::Taproot(None),
+                outpoint: OutPoint::default(),
+                tx_out: TxOut {
+                    asset: Asset::Confidential(asset_gen),
+                    value: value_commitment,
+                    script_pubkey: script_pubkey.clone(),
+                    nonce,
+                    witness: TxOutWitness {
+                        surjection_proof: None,
+                        rangeproof: Some(Box::new(rangeproof)),
+                    },
+                },
+                blinding_key: Some(blinding),
+                keys,
+            }
+        };
+
+        let genuine = unblind_outputs(&secp, &[build(lbtc, lbtc)]).unwrap();
+        match &genuine[0] {
+            UnblindedOutput::Unblinded(secrets) => {
+                assert_eq!(secrets.asset, lbtc);
+                assert_eq!(secrets.value, amount);
+            }
+            _ => panic!("expected unblinded output"),
+        }
+
+        let forged = unblind_outputs(&secp, &[build(worthless, lbtc)]);
+        assert!(matches!(forged.unwrap_err(), TxError::Unblind(_)));
+    }
+
+    #[test]
     fn test_blind_outputs_fee_too_high() {
         let secp = Secp256k1::new();
         let address = Address::from_str("el1qqvhpw75zjc2hhvk9g0cgv3e75azcct4sduxdv9rwpzxauwmw46chnlxjjwhk0jw2fny2jpgp8etz8j6wsqd7qk89rmtyucc52").unwrap();

@@ -8,10 +8,15 @@ edition.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 boltz-utils = { path = "../boltz-utils" }
-aws-sdk-s3 = { version = "1.131.0", default-features = false, features = ["sigv4a", "http-1x", "default-https-client", "rt-tokio"] }
+aws-sdk-s3 = { version = "1.137.0", default-features = false, features = [
+    "sigv4a",
+    "http-1x",
+    "default-https-client",
+    "rt-tokio",
+] }
 bytes = { workspace = true }
 chrono = { workspace = true }
-cron = "0.16.0"
+cron = "0.17.0"
 dashmap = { workspace = true }
 flate2 = "1.1.9"
 futures = { workspace = true }

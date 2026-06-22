@@ -104,6 +104,9 @@ export const getBlindingKey = (type: CurrencyType, address: string) => {
   return undefined;
 };
 
+const isAssetCommitmentMismatch = (e: unknown): boolean =>
+  e instanceof Error && e.message === 'Unblinded and output asset mistmatch';
+
 export const unblindOutput = (
   wallet: Wallet,
   output: LiquidTxOutput,
@@ -114,10 +117,16 @@ export const unblindOutput = (
 
   if (output.rangeProof?.length !== 0) {
     if (blindingKey !== undefined) {
-      const unblinded = confi.unblindOutputWithKey(output, blindingKey!);
+      try {
+        const unblinded = confi.unblindOutputWithKey(output, blindingKey);
 
-      value = Number(unblinded.value);
-      asset = unblinded.asset;
+        value = Number(unblinded.value);
+        asset = unblinded.asset;
+      } catch (e) {
+        if (!isAssetCommitmentMismatch(e)) {
+          throw e;
+        }
+      }
     }
   } else {
     value = confidential.confidentialValueToSatoshi(output.value as Buffer);

@@ -66,6 +66,11 @@ type SwapNurseryEvents = {
   'invoice.failedToPay': Swap;
   'invoice.paid': Swap;
   'claim.pending': Swap | ChainSwapInfo;
+  'claim.failure': {
+    swap: Swap | ChainSwapInfo;
+    symbol: string;
+    error: string;
+  };
   claim: {
     swap: Swap | ChainSwapInfo;
   };

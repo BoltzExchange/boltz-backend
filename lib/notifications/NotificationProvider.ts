@@ -302,6 +302,22 @@ class NotificationProvider {
       );
     });
 
+    this.service.eventHandler.on(
+      'claim.failure',
+      async ({ swap, symbol, error }) => {
+        const { base, quote } = splitPairId(swap.pair);
+        const truncatedError =
+          error.length > 200 ? error.substring(0, 200) + '...' : error;
+
+        const message =
+          `${Emojis.RotatingLight} **Claim failure for ${symbol}** ${Emojis.RotatingLight}\n` +
+          `${await getBasicSwapInfo(swap.type, swap, base, quote)}\n` +
+          `Error: ${truncatedError}`;
+
+        await this.client.sendMessage(message, true, true);
+      },
+    );
+
     this.service.swapManager.deferredClaimer.on(
       'batch.claim.failure',
       async ({ symbol, error }) => {

@@ -1277,6 +1277,53 @@ describe('SwapNursery', () => {
     });
   });
 
+  describe('claimUtxo', () => {
+    beforeEach(() => {
+      (swapNursery as any).claimer = {
+        deferClaim: jest.fn().mockResolvedValue(false),
+      };
+      jest.spyOn(swapNursery, 'emit');
+    });
+
+    test('should emit claim.failure with the wallet symbol and rethrow when the claim fails', async () => {
+      const swap = {
+        id: 'submarine-utxo-swap',
+        type: SwapType.Submarine,
+        pair: 'BTC/BTC',
+        orderSide: OrderSide.BUY,
+      } as any;
+      const wallet = {
+        symbol: 'BTC',
+        getAddress: jest.fn().mockResolvedValue('bcrt1qaddress'),
+      } as any;
+      const chainClient = {
+        symbol: 'BTC',
+        estimateFee: jest.fn().mockRejectedValue(new Error('estimate failed')),
+        sendRawTransaction: jest.fn(),
+      } as any;
+
+      await expect(
+        (swapNursery as any).claimUtxo(
+          swap,
+          chainClient,
+          wallet,
+          {} as any,
+          Buffer.from('preimage'),
+        ),
+      ).rejects.toThrow();
+
+      expect(swapNursery.emit).toHaveBeenCalledWith('claim.failure', {
+        swap,
+        symbol: 'BTC',
+        error: expect.any(String),
+      });
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'claim',
+        expect.anything(),
+      );
+    });
+  });
+
   describe('claimVtxo', () => {
     const mockArkClient = {
       claimVHtlc: jest.fn().mockResolvedValue('ark-claim-tx'),
@@ -1349,6 +1396,141 @@ describe('SwapNursery', () => {
         swap,
         Buffer.from('preimage'),
         0,
+      );
+    });
+
+    test('should emit claim.failure and rethrow when the claim fails', async () => {
+      const error = new Error('vHTLC claim failed');
+      const failingArkClient = {
+        ...mockArkClient,
+        claimVHtlc: jest.fn().mockRejectedValue(error),
+      };
+      const swap = {
+        id: 'submarine-ark-swap',
+        type: SwapType.Submarine,
+        theirRefundPublicKey: '02'.repeat(33),
+        lockupTransactionId: 'submarine-lockup-tx',
+        lockupTransactionVout: 4,
+      } as any;
+
+      await expect(
+        (swapNursery as any).claimVtxo(
+          swap,
+          failingArkClient,
+          Buffer.from('preimage'),
+        ),
+      ).rejects.toThrow(error);
+
+      expect(swapNursery.emit).toHaveBeenCalledWith('claim.failure', {
+        swap,
+        symbol: 'ARK',
+        error: error.message,
+      });
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'claim',
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('claimEther', () => {
+    const buildManager = () =>
+      ({
+        networkDetails: { name: 'Rootstock', symbol: 'RBTC' },
+      }) as any;
+
+    const swap = {
+      id: 'submarine-ether-swap',
+      type: SwapType.Submarine,
+      pair: 'BTC/RBTC',
+      orderSide: OrderSide.BUY,
+    } as any;
+
+    const etherSwapValues = {
+      amount: 1n,
+      refundAddress: '0xboltz',
+      timelock: 1,
+    } as any;
+
+    beforeEach(() => {
+      jest.spyOn(swapNursery, 'emit');
+    });
+
+    test('should emit claim.failure with the network symbol and rethrow when the claim fails', async () => {
+      const error = new Error('claimEther reverted');
+      const contracts = {
+        contractHandler: {
+          claimEther: jest.fn().mockRejectedValue(error),
+        },
+      } as any;
+
+      await expect(
+        (swapNursery as any).claimEther(
+          buildManager(),
+          contracts,
+          swap,
+          etherSwapValues,
+          Buffer.from('preimage'),
+        ),
+      ).rejects.toThrow(error);
+
+      expect(swapNursery.emit).toHaveBeenCalledWith('claim.failure', {
+        swap,
+        symbol: 'RBTC',
+        error: error.message,
+      });
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'claim',
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('claimERC20', () => {
+    const swap = {
+      id: 'submarine-erc20-swap',
+      type: SwapType.Submarine,
+      pair: 'BTC/USDT',
+      orderSide: OrderSide.BUY,
+    } as any;
+
+    const erc20SwapValues = {
+      amount: 1n,
+      refundAddress: '0xboltz',
+      timelock: 1,
+    } as any;
+
+    beforeEach(() => {
+      (swapNursery as any).walletManager = {
+        ethereumManagers: [],
+        wallets: new Map([['USDT', { walletProvider: {} }]]),
+      };
+      jest.spyOn(swapNursery, 'emit');
+    });
+
+    test('should emit claim.failure with the chain currency and rethrow when the claim fails', async () => {
+      const error = new Error('claimToken reverted');
+      const contractHandler = {
+        claimToken: jest.fn().mockRejectedValue(error),
+      } as any;
+
+      await expect(
+        (swapNursery as any).claimERC20(
+          contractHandler,
+          swap,
+          erc20SwapValues,
+          Buffer.from('preimage'),
+        ),
+      ).rejects.toThrow(error);
+
+      expect(swapNursery.emit).toHaveBeenCalledWith('claim.failure', {
+        swap,
+        symbol: 'USDT',
+        error: error.message,
+      });
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'claim',
+        expect.anything(),
       );
     });
   });

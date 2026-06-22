@@ -2065,16 +2065,46 @@ class SwapRouter extends RouterBase {
      * @openapi
      * components:
      *   schemas:
+     *     RestoreRequest:
+     *       oneOf:
+     *         - $ref: '#/components/schemas/RescueRequest'
+     *         - type: object
+     *           required: ["address", "timestamp", "signature"]
+     *           properties:
+     *             address:
+     *               type: string
+     *               pattern: '^(0x)?[a-fA-F0-9]{40}$'
+     *               description: Single EVM address (checksummed or lowercase) to search for in the claim address of swaps. Use this to restore EVM swaps (e.g. RSK). Ownership of the address must be proven with the signature
+     *             timestamp:
+     *               type: integer
+     *               description: Unix timestamp (seconds) included in the signed message. Must be within 60 seconds of the server time to limit replay
+     *             signature:
+     *               type: string
+     *               pattern: '^(0x)?[a-fA-F0-9]{130}$'
+     *               description: |
+     *                 EIP-191 personal_sign signature (65-byte hex) produced by the address, proving ownership before any swaps are returned. The signed message is, with the EIP-55 checksummed address:
+     *                 ```
+     *                 Boltz swap restore
+     *                 address: <address>
+     *                 timestamp: <timestamp>
+     *                 ```
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
      *     Transaction:
      *       type: object
-     *       required: ["id", "hex"]
+     *       required: ["id", "vout"]
      *       properties:
      *         id:
      *           type: string
-     *           description: ID of the transaction
-     *         hex:
-     *           type: string
-     *           description: The transaction encoded as HEX
+     *           description: ID of the lockup transaction
+     *         vout:
+     *           type: integer
+     *           minimum: 0
+     *           description: Index of the lockup output in the transaction
      *
      *     RescuableSwap:
      *       type: object
@@ -2129,8 +2159,12 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     RestoreClaimDetails:
      *       type: object
-     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey", "preimageHash"]
+     *       required: ["type", "tree", "keyIndex", "lockupAddress", "serverPublicKey", "timeoutBlockHeight", "preimageHash"]
      *       properties:
+     *         type:
+     *           type: string
+     *           enum: ["utxo"]
+     *           description: Discriminator identifying these as UTXO claim details
      *         tree:
      *           $ref: '#/components/schemas/SwapTree'
      *         amount:
@@ -2150,8 +2184,6 @@ class SwapRouter extends RouterBase {
      *         timeoutBlockHeight:
      *           type: number
      *           description: Block height at which the HTLC will time out
-     *         timeoutBlockHeights:
-     *           $ref: '#/components/schemas/ArkTimeouts'
      *         blindingKey:
      *           type: string
      *           description: Blinding key of the lockup address. Only set when the chain is Liquid
@@ -2161,7 +2193,7 @@ class SwapRouter extends RouterBase {
      *
      *     RestoreRefundDetails:
      *       type: object
-     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey"]
+     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey", "timeoutBlockHeight"]
      *       properties:
      *         tree:
      *           $ref: '#/components/schemas/SwapTree'
@@ -2182,15 +2214,45 @@ class SwapRouter extends RouterBase {
      *         timeoutBlockHeight:
      *           type: number
      *           description: Block height at which the HTLC will time out
-     *         timeoutBlockHeights:
-     *           $ref: '#/components/schemas/ArkTimeouts'
      *         blindingKey:
      *           type: string
      *           description: Blinding key of the lockup address. Only set when the chain is Liquid
      *
+     *     EvmTransaction:
+     *       type: object
+     *       required: ["id"]
+     *       properties:
+     *         id:
+     *           type: string
+     *           description: Hash of the EVM lockup transaction
+     *
+     *     RestoreEvmClaimDetails:
+     *       type: object
+     *       description: Variant of claimDetails returned when the side the client claims is an EVM chain. The full lockup values can be reconstructed from the contract Lockup event filtered by the preimage hash
+     *       required: ["type", "contractAddress", "claimAddress", "timeoutBlockHeight"]
+     *       properties:
+     *         type:
+     *           type: string
+     *           enum: ["evm"]
+     *           description: Discriminator identifying these as EVM claim details
+     *         contractAddress:
+     *           type: string
+     *           description: Address of the EtherSwap/ERC20Swap contract the funds are locked in
+     *         claimAddress:
+     *           type: string
+     *           description: EVM address that is allowed to claim the swap
+     *         transaction:
+     *           $ref: '#/components/schemas/EvmTransaction'
+     *         amount:
+     *           type: number
+     *           description: Amount locked in the swap
+     *         timeoutBlockHeight:
+     *           type: number
+     *           description: Block height at which the swap times out
+     *
      *     RestorableSwap:
      *       type: object
-     *       required: ["id", "type", "status", "createdAt", "from", "to"]
+     *       required: ["id", "type", "status", "createdAt", "from", "to", "preimageHash"]
      *       properties:
      *         id:
      *           type: string
@@ -2218,7 +2280,15 @@ class SwapRouter extends RouterBase {
      *           type: string
      *           description: Invoice of the swap, if set. Only set for submarine and reverse swaps
      *         claimDetails:
-     *           $ref: '#/components/schemas/RestoreClaimDetails'
+     *           oneOf:
+     *             - $ref: '#/components/schemas/RestoreClaimDetails'
+     *             - $ref: '#/components/schemas/RestoreEvmClaimDetails'
+     *           discriminator:
+     *             propertyName: type
+     *             mapping:
+     *               utxo: '#/components/schemas/RestoreClaimDetails'
+     *               evm: '#/components/schemas/RestoreEvmClaimDetails'
+     *           description: Details to claim the swap. The type field discriminates UTXO claim details (with a swap tree and MuSig key) from EVM claim details, depending on the chain the client claims on
      *         refundDetails:
      *           $ref: '#/components/schemas/RestoreRefundDetails'
      *         metadata:
@@ -2258,13 +2328,13 @@ class SwapRouter extends RouterBase {
      * /swap/restore:
      *   post:
      *     tags: [Swap]
-     *     description: Restore swaps by searching with an XPUB, a single public key, or multiple public keys. Returns full swap details needed to resume, claim, or refund swaps when information was lost
+     *     description: Restore swaps by searching with an XPUB, a single public key, multiple public keys, or an EVM claim address. Restoring by EVM address requires a signature from that address proving ownership. Returns full swap details needed to resume, claim, or refund swaps when information was lost
      *     requestBody:
      *       required: true
      *       content:
      *         application/json:
      *           schema:
-     *             $ref: '#/components/schemas/RescueRequest'
+     *             $ref: '#/components/schemas/RestoreRequest'
      *     responses:
      *       '200':
      *         description: List of swaps that can be restored
@@ -2274,6 +2344,18 @@ class SwapRouter extends RouterBase {
      *               type: array
      *               items:
      *                 $ref: '#/components/schemas/RestorableSwap'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '422':
+     *         description: The EVM restore proof failed validation (invalid or mismatched signature, invalid address, or a timestamp outside the validity window)
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
 
     /**

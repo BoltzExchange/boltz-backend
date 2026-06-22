@@ -26,6 +26,7 @@ pub use pubkey_iterator::{
     KeyVecIterator, MAX_GAP_LIMIT, MAX_PAGINATION_LIMIT, Pagination, PubkeyIterator,
     SingleKeyIterator, XpubIterator,
 };
+pub use rescue::RestoreQuery;
 
 pub struct Service {
     pub swap_rescue: SwapRescue,
@@ -98,7 +99,7 @@ pub mod test {
     use std::collections::HashMap;
 
     pub use pair_stats::PairStats;
-    pub use rescue::RescuableSwap;
+    pub use rescue::{RescuableSwap, RestorableSwap};
 
     mock! {
         SwapHelper {}

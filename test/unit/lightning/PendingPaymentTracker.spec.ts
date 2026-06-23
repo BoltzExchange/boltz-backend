@@ -109,6 +109,50 @@ describe('PendingPaymentTracker', () => {
     ).stop();
   });
 
+  describe('getRelevantNode', () => {
+    const preferredNode = { id: 'preferred' } as unknown as LightningClient;
+    const swap = { invoice: 'lnbcrt1' } as unknown as Swap;
+    const currency = { lndClients: new Map(), clnClient: undefined } as any;
+
+    beforeEach(() => {
+      (tracker as any).sidecar = {
+        decodeInvoiceOrOffer: jest
+          .fn()
+          .mockResolvedValue({ paymentHash: randomBytes(32) }),
+      };
+    });
+
+    test('should return existingRelevantAction undefined when no relevant payment exists', async () => {
+      LightningPaymentRepository.findByPreimageHash = jest
+        .fn()
+        .mockResolvedValue([
+          {
+            status: LightningPaymentStatus.TemporaryFailure,
+          } as LightningPayment,
+        ]);
+
+      const res = await tracker.getRelevantNode(currency, swap, preferredNode);
+
+      expect(res.existingRelevantAction).toBeUndefined();
+      expect(res.node).toBe(preferredNode);
+    });
+
+    test('should return the in-flight payment as existingRelevantAction', async () => {
+      const pending = {
+        status: LightningPaymentStatus.Pending,
+        nodeId: 'missing',
+      } as LightningPayment;
+      LightningPaymentRepository.findByPreimageHash = jest
+        .fn()
+        .mockResolvedValue([pending]);
+
+      const res = await tracker.getRelevantNode(currency, swap, preferredNode);
+
+      expect(res.existingRelevantAction).toBe(pending);
+      expect(res.node).toBe(preferredNode);
+    });
+  });
+
   describe('sendPaymentWithNode', () => {
     const lightningClient = {
       id: 'lnd-1',

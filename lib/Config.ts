@@ -15,6 +15,7 @@ import type { Config as RoutingFeeConfig } from './lightning/RoutingFee';
 import type { ClnConfig } from './lightning/cln/Types';
 import type { SidecarConfig } from './sidecar/Sidecar';
 import type { NodeSwitchConfig } from './swap/NodeSwitch';
+import type { SendApprovalDefaultAction } from './swap/hooks/SendApprovalHook';
 
 type EmailConfig = {
   enabled: boolean;
@@ -190,6 +191,10 @@ type SwapConfig = {
   overpayment?: OverPaymentConfig;
 
   paymentTimeoutMinutes?: number;
+
+  sendApproval?: {
+    defaultAction?: SendApprovalDefaultAction;
+  };
 };
 
 type ConfigType = {

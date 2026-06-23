@@ -26,6 +26,7 @@ import RefundTransaction from './models/RefundTransaction';
 import ReverseRoutingHint from './models/ReverseRoutingHint';
 import ReverseSwap from './models/ReverseSwap';
 import ScriptPubKey from './models/ScriptPubKey';
+import SendApprovalHold from './models/SendApprovalHold';
 import Swap from './models/Swap';
 import SwapMetadata from './models/SwapMetadata';
 import TransactionLabel from './models/TransactionLabel';
@@ -128,6 +129,7 @@ class Database {
       RefundTransaction.sync(),
       ClaimTransaction.sync(),
       ScriptPubKey.sync(),
+      SendApprovalHold.sync(),
     ]);
   };
 
@@ -175,6 +177,7 @@ class Database {
     Commitment.load(Database.sequelize);
     JwtToken.load(Database.sequelize);
     SwapMetadata.load(Database.sequelize);
+    SendApprovalHold.load(Database.sequelize);
 
     TransactionLabelRepository.setLogger(this.logger);
   };

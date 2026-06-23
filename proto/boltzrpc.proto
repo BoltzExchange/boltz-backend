@@ -68,6 +68,7 @@ service Boltz {
   rpc InvoiceCreationHook (stream InvoiceCreationHookResponse) returns (stream InvoiceCreationHookRequest);
   rpc TransactionHook (stream TransactionHookResponse) returns (stream TransactionHookRequest);
   rpc InvoicePaymentHook (stream InvoicePaymentHookResponse) returns (stream InvoicePaymentHookRequest);
+  rpc SendApprovalHook (stream SendApprovalHookResponse) returns (stream SendApprovalHookRequest);
 
   rpc SetLogLevel (SetLogLevelRequest) returns (SetLogLevelResponse);
 
@@ -510,6 +511,29 @@ message InvoicePaymentHookRequest {
   string id = 1;
   string invoice = 2;
   boltzr.DecodeInvoiceOrOfferResponse decoded = 3;
+}
+
+enum SendApprovalAction {
+  SEND_APPROVAL_ACCEPT = 0;
+  SEND_APPROVAL_REJECT = 1;
+  SEND_APPROVAL_HOLD = 2;
+}
+
+message SendApprovalHookResponse {
+  // Swap ID
+  string id = 1;
+  // ACCEPT to continue the send, REJECT to fail the swap, HOLD to pause the
+  // send and keep retrying until a later response
+  SendApprovalAction action = 2;
+}
+
+message SendApprovalHookRequest {
+  // Swap ID
+  string id = 1;
+  string pair = 2;
+  // Symbol of the asset being sent out
+  string symbol = 3;
+  uint64 amount = 4;
 }
 
 message SetLogLevelRequest {

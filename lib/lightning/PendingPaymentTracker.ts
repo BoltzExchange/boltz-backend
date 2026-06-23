@@ -108,6 +108,7 @@ class PendingPaymentTracker {
     paymentHash: string;
     node: LightningClient;
     payments: LightningPayment[];
+    existingRelevantAction: LightningPayment | undefined;
   }> => {
     const paymentHash = getHexString(
       (await this.sidecar.decodeInvoiceOrOffer(swap.invoice!)).paymentHash!,
@@ -127,6 +128,7 @@ class PendingPaymentTracker {
         payments,
         paymentHash,
         node: preferredNode,
+        existingRelevantAction,
       };
     }
 
@@ -145,6 +147,7 @@ class PendingPaymentTracker {
       payments,
       paymentHash,
       node: node || preferredNode,
+      existingRelevantAction,
     };
   };
 

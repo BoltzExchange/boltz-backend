@@ -17,6 +17,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import { msatToSat } from '../lightning/ChannelUtils';
 import type {
   LightningClient,
   PaymentResponse,
@@ -36,12 +37,18 @@ import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import LightningNursery from './LightningNursery';
 import type NodeSwitch from './NodeSwitch';
+import {
+  persistSendApprovalDecision,
+  resolveSendApprovalDecision,
+} from './SendApprovalGuard';
 import type SwapNursery from './SwapNursery';
 import type {
   InvoicePaymentHookContinue,
   InvoicePaymentHookHold,
 } from './hooks/InvoicePaymentHook';
 import { InvoicePaymentHookAction } from './hooks/InvoicePaymentHook';
+import { SendApprovalAction } from './hooks/SendApprovalHook';
+import type SendApprovalHook from './hooks/SendApprovalHook';
 
 type SwapNurseryEvents = {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -119,6 +126,7 @@ class PaymentHandler {
     private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
     private readonly pendingPaymentTracker: PendingPaymentTracker,
     private readonly swapNursery: SwapNursery,
+    private readonly sendApprovalHook: SendApprovalHook,
   ) {
     this.selfPaymentClient = new SelfPaymentClient(this.logger, swapNursery);
   }
@@ -160,7 +168,7 @@ class PaymentHandler {
       return undefined;
     }
 
-    const { node, paymentHash, payments } =
+    const { node, paymentHash, payments, existingRelevantAction } =
       await this.pendingPaymentTracker.getRelevantNode(
         lightningCurrency,
         swap,
@@ -193,13 +201,40 @@ class PaymentHandler {
       return undefined;
     }
 
-    if (isSubmarineInvoicePaymentSignerDisabled && payments.length === 0) {
+    if (
+      isSubmarineInvoicePaymentSignerDisabled &&
+      existingRelevantAction === undefined
+    ) {
       const errorMessage = disabledSignerMessage(
         Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
       );
       this.logPaymentFailure(swap, errorMessage);
       await this.abandonSwap(swap, errorMessage);
       return undefined;
+    }
+
+    if (existingRelevantAction === undefined) {
+      const sendApproval = await resolveSendApprovalDecision(
+        this.sendApprovalHook,
+        swap.id,
+        swap.pair,
+        lightningSymbol,
+        msatToSat(decoded.amountMsat),
+      );
+      if (
+        !(await persistSendApprovalDecision(swap.id, swap.type, sendApproval))
+      ) {
+        this.logger.verbose(
+          `Holding invoice payment of Swap ${swap.id} per send approval hook`,
+        );
+        return undefined;
+      }
+      if (sendApproval === SendApprovalAction.Reject) {
+        const errorMessage = Errors.HOOK_REJECTED().message;
+        this.logPaymentFailure(swap, errorMessage);
+        await this.abandonSwap(swap, errorMessage);
+        return undefined;
+      }
     }
 
     try {

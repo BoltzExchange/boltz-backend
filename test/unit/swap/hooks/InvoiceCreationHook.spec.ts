@@ -60,7 +60,7 @@ describe('InvoiceCreationHook', () => {
         params.invoiceAmount,
         params.referral,
       );
-      hook['pendingHooks'].get(params.id)?.({ nodeId: 'node-1' });
+      hook['pendingHooks'].get(params.id)?.resolve({ nodeId: 'node-1' });
 
       await expect(promise).resolves.toEqual({ nodeId: 'node-1' });
 

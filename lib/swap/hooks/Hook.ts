@@ -9,7 +9,10 @@ interface HookResponse {
 }
 
 abstract class Hook<P, Req, Res extends HookResponse> {
-  private readonly pendingHooks = new Map<string, (parsed: P) => void>();
+  private readonly pendingHooks = new Map<
+    string,
+    { resolve: (parsed: P) => void; fallback: P }
+  >();
 
   private stream?: ServerDuplexStream<Res, Req> = undefined;
 
@@ -58,19 +61,22 @@ abstract class Hook<P, Req, Res extends HookResponse> {
 
       const hook = this.pendingHooks.get(data.id);
       if (hook !== undefined) {
-        hook(this.parseGrpcAction(data));
+        hook.resolve(this.parseGrpcAction(data));
       }
     });
   };
 
   protected isConnected = (): boolean => this.stream !== undefined;
 
-  protected sendHook = (id: string, request: Req): Promise<P> => {
+  protected sendHook = (id: string, request: Req, fallback?: P): Promise<P> => {
+    const onNotConnected = fallback ?? this.notConnectedAction;
+    const onTimeout = fallback ?? this.defaultAction;
+
     if (!this.isConnected()) {
       this.logger.silly(
-        `gRPC ${this.name} hook is not connected, returning accept action`,
+        `gRPC ${this.name} hook is not connected, returning default action`,
       );
-      return Promise.resolve(this.notConnectedAction);
+      return Promise.resolve(onNotConnected);
     }
 
     const hook = new Promise<P>((resolve) => {
@@ -82,13 +88,16 @@ abstract class Hook<P, Req, Res extends HookResponse> {
       const timeout = setTimeout(() => {
         if (this.pendingHooks.has(id)) {
           this.logger.warn(`Hook ${this.name} timed out for ${id}`);
-          resolver(this.defaultAction);
+          resolver(onTimeout);
         }
       }, this.hookResolveTimeout);
 
-      this.pendingHooks.set(id, (parsed: P) => {
-        clearTimeout(timeout);
-        resolver(parsed);
+      this.pendingHooks.set(id, {
+        resolve: (parsed: P) => {
+          clearTimeout(timeout);
+          resolver(parsed);
+        },
+        fallback: onTimeout,
       });
     });
 
@@ -105,8 +114,8 @@ abstract class Hook<P, Req, Res extends HookResponse> {
     this.stream?.end();
     this.stream = undefined;
 
-    this.pendingHooks.forEach((resolve) => {
-      resolve(this.defaultAction);
+    this.pendingHooks.forEach((hook) => {
+      hook.resolve(hook.fallback);
     });
     this.pendingHooks.clear();
   };

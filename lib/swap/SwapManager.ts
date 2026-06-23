@@ -250,6 +250,7 @@ class SwapManager {
       lockupTransactionTracker,
       overpaymentProtector,
       swapConfig.paymentTimeoutMinutes,
+      swapConfig.sendApproval?.defaultAction,
     );
 
     this.renegotiator = new Renegotiator(

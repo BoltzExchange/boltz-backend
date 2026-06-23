@@ -68,7 +68,7 @@ describe('TransactionHook', () => {
         request.swapType,
         request.vout,
       );
-      hook['pendingHooks'].get(request.swapId)?.(Action.Accept);
+      hook['pendingHooks'].get(request.swapId)?.resolve(Action.Accept);
 
       await expect(promise).resolves.toEqual(Action.Accept);
 

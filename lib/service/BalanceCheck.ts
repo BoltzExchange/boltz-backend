@@ -1,5 +1,6 @@
 import type Logger from '../Logger';
 import { formatError } from '../Utils';
+import type Wallet from '../wallet/Wallet';
 import type WalletManager from '../wallet/WalletManager';
 import type { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import Errors from './Errors';
@@ -38,28 +39,42 @@ class BalanceCheck {
     }
   };
 
+  public refresh = async (symbol?: string): Promise<void> => {
+    if (symbol === undefined) {
+      await this.updateBalances();
+      return;
+    }
+
+    const wallet = this.walletManager.wallets.get(symbol);
+    if (wallet === undefined) {
+      throw Errors.CURRENCY_NOT_FOUND(symbol);
+    }
+
+    await this.updateBalance(symbol, wallet);
+  };
+
   private updateBalances = async (): Promise<void> => {
     this.logger.silly('Updating balance cache');
 
-    const updatePromises: Promise<void>[] = [];
+    await Promise.allSettled(
+      Array.from(this.walletManager.wallets).map(([symbol, wallet]) =>
+        this.updateBalance(symbol, wallet),
+      ),
+    );
+  };
 
-    for (const [symbol, wallet] of this.walletManager.wallets) {
-      updatePromises.push(
-        wallet
-          .getBalance()
-          .then((balance) => {
-            this.balanceCache.set(symbol, balance);
-          })
-          .catch((error) => {
-            this.balanceCache.delete(symbol);
-            this.logger.warn(
-              `Failed to update balance cache for ${symbol}: ${formatError(error)}`,
-            );
-          }),
+  private updateBalance = async (
+    symbol: string,
+    wallet: Wallet,
+  ): Promise<void> => {
+    try {
+      this.balanceCache.set(symbol, await wallet.getBalance());
+    } catch (error) {
+      this.logger.warn(
+        `Failed to update balance cache for ${symbol}: ${formatError(error)}`,
       );
+      throw error;
     }
-
-    await Promise.allSettled(updatePromises);
   };
 
   private startPeriodicUpdates = (): void => {

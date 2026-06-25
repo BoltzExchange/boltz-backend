@@ -64,6 +64,7 @@ class GrpcServer {
       setReferral: grpcService.setReferral,
       invoiceClnThreshold: grpcService.invoiceClnThreshold,
       devClearSwapUpdateCache: grpcService.devClearSwapUpdateCache,
+      devRefreshBalanceCache: grpcService.devRefreshBalanceCache,
       issueJwt: grpcService.issueJwt,
       revokeJwt: grpcService.revokeJwt,
       listJwts: grpcService.listJwts,

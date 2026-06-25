@@ -73,6 +73,7 @@ service Boltz {
 
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
   rpc DevClearSwapUpdateCache (DevClearSwapUpdateCacheRequest) returns (DevClearSwapUpdateCacheResponse);
+  rpc DevRefreshBalanceCache (DevRefreshBalanceCacheRequest) returns (DevRefreshBalanceCacheResponse);
 
   rpc IssueJwt (IssueJwtRequest) returns (IssueJwtResponse);
   rpc RevokeJwt (RevokeJwtRequest) returns (RevokeJwtResponse);
@@ -531,6 +532,11 @@ message DevClearSwapUpdateCacheRequest {
   optional string id = 1;
 }
 message DevClearSwapUpdateCacheResponse {}
+
+message DevRefreshBalanceCacheRequest {
+  optional string symbol = 1;
+}
+message DevRefreshBalanceCacheResponse {}
 
 message IssueJwtRequest {
   string label = 1;

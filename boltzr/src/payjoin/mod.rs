@@ -11,7 +11,9 @@ use anyhow::{Context, Result, anyhow};
 use payjoin::ImplementationError;
 use payjoin::bitcoin::Transaction;
 use payjoin::bitcoin::consensus::encode::{deserialize, serialize_hex};
+use payjoin::bitcoin::key::rand::thread_rng;
 use payjoin::bitcoin::psbt::Input;
+use payjoin::bitcoin::secp256k1::rand::prelude::SliceRandom;
 use payjoin::bitcoin::{Address, Amount, OutPoint, Psbt, TxIn, TxOut, Txid};
 use payjoin::persist::{OptionalTransitionOutcome, SessionPersister};
 use payjoin::receive::v2::{
@@ -24,7 +26,7 @@ use std::error::Error;
 use std::fmt;
 use std::future::Future;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use tracing::{debug, error, info, instrument, warn};
 
@@ -37,6 +39,41 @@ const OHTTP_RELAYS: [&str; 5] = [
     "https://pj.sms4sats.com",
 ];
 const DIRECTORY: &str = "https://payjo.in";
+
+#[derive(Debug, Default)]
+struct RelayManager {
+    selected_relay: Option<String>,
+    failed_relays: Vec<String>,
+}
+
+impl RelayManager {
+    fn selected_relay(&self) -> Option<String> {
+        self.selected_relay.clone()
+    }
+
+    fn set_selected_relay(&mut self, relay: String) {
+        self.selected_relay = Some(relay);
+    }
+
+    fn clear_selected_relay(&mut self) {
+        self.selected_relay = None;
+    }
+
+    fn add_failed_relay(&mut self, relay: String) {
+        self.failed_relays.push(relay);
+    }
+
+    fn failed_relays(&self) -> Vec<String> {
+        self.failed_relays.clone()
+    }
+}
+
+struct ValidatedOhttpKeys {
+    ohttp_keys: payjoin::OhttpKeys,
+    relay_url: String,
+}
+
+static RELAY_MANAGER: OnceLock<Mutex<RelayManager>> = OnceLock::new();
 
 #[derive(Clone)]
 pub struct PayjoinManager {
@@ -108,11 +145,15 @@ impl PayjoinManager {
         };
 
         let directory = payjoin_directory();
-        let ohttp_keys = fetch_ohttp_keys(&directory)
+        let validated_ohttp_keys = fetch_ohttp_keys(&directory)
             .await
             .context("failed to fetch payjoin OHTTP keys")?;
-        let mut builder = ReceiverBuilder::new(address.clone(), directory.as_str(), ohttp_keys)
-            .context("failed to build payjoin receiver")?;
+        let mut builder = ReceiverBuilder::new(
+            address.clone(),
+            directory.as_str(),
+            validated_ohttp_keys.ohttp_keys,
+        )
+        .context("failed to build payjoin receiver")?;
         if let Some(amount) = amount {
             builder = builder.with_amount(amount);
         }
@@ -130,6 +171,7 @@ impl PayjoinManager {
             btc_chain,
             address,
             network,
+            validated_ohttp_keys.relay_url,
             persister.session_id,
         ));
 
@@ -163,10 +205,18 @@ async fn poll_for_sender_proposal(
     btc_chain: Arc<dyn Client + Send + Sync>,
     receiver_address: Address,
     network: payjoin::bitcoin::Network,
+    ohttp_relay: String,
     session_id: i64,
 ) {
-    if let Err(err) =
-        try_poll_for_sender_proposal(repo, btc_chain, receiver_address, network, session_id).await
+    if let Err(err) = try_poll_for_sender_proposal(
+        repo,
+        btc_chain,
+        receiver_address,
+        network,
+        ohttp_relay,
+        session_id,
+    )
+    .await
     {
         error!(
             session_id = %session_id,
@@ -180,6 +230,7 @@ async fn try_poll_for_sender_proposal(
     btc_chain: Arc<dyn Client + Send + Sync>,
     receiver_address: Address,
     network: payjoin::bitcoin::Network,
+    ohttp_relay: String,
     session_id: i64,
 ) -> Result<()> {
     let persister = ReceiverPersister { repo, session_id };
@@ -188,8 +239,15 @@ async fn try_poll_for_sender_proposal(
 
     match session {
         ReceiveSession::Initialized(receiver) => {
-            poll_initialized_receiver(receiver, &persister, btc_chain, receiver_address, network)
-                .await
+            poll_initialized_receiver(
+                receiver,
+                &persister,
+                btc_chain,
+                receiver_address,
+                network,
+                &ohttp_relay,
+            )
+            .await
         }
         ReceiveSession::UncheckedOriginalPayload(receiver) => {
             process_unchecked_original_payload(
@@ -198,34 +256,57 @@ async fn try_poll_for_sender_proposal(
                 btc_chain,
                 receiver_address,
                 network,
+                &ohttp_relay,
             )
             .await
         }
         ReceiveSession::MaybeInputsOwned(receiver) => {
-            check_inputs_not_owned(receiver, &persister, btc_chain, receiver_address, network).await
+            check_inputs_not_owned(
+                receiver,
+                &persister,
+                btc_chain,
+                receiver_address,
+                network,
+                &ohttp_relay,
+            )
+            .await
         }
         ReceiveSession::MaybeInputsSeen(receiver) => {
-            check_no_inputs_seen_before(receiver, &persister, btc_chain, receiver_address, network)
-                .await
+            check_no_inputs_seen_before(
+                receiver,
+                &persister,
+                btc_chain,
+                receiver_address,
+                network,
+                &ohttp_relay,
+            )
+            .await
         }
         ReceiveSession::OutputsUnknown(receiver) => {
-            identify_receiver_outputs(receiver, &persister, btc_chain, receiver_address, network)
-                .await
+            identify_receiver_outputs(
+                receiver,
+                &persister,
+                btc_chain,
+                receiver_address,
+                network,
+                &ohttp_relay,
+            )
+            .await
         }
         ReceiveSession::WantsOutputs(receiver) => {
-            commit_outputs(receiver, &persister, btc_chain).await
+            commit_outputs(receiver, &persister, btc_chain, &ohttp_relay).await
         }
         ReceiveSession::WantsInputs(receiver) => {
-            contribute_inputs(receiver, &persister, btc_chain).await
+            contribute_inputs(receiver, &persister, btc_chain, &ohttp_relay).await
         }
         ReceiveSession::WantsFeeRange(receiver) => {
-            apply_fee_range(receiver, &persister, btc_chain).await
+            apply_fee_range(receiver, &persister, btc_chain, &ohttp_relay).await
         }
         ReceiveSession::ProvisionalProposal(receiver) => {
-            finalize_proposal(receiver, &persister, btc_chain).await
+            finalize_proposal(receiver, &persister, btc_chain, &ohttp_relay).await
         }
         ReceiveSession::PayjoinProposal(receiver) => {
-            submit_payjoin_proposal(receiver, &persister, btc_chain).await
+            submit_payjoin_proposal(receiver, &persister, btc_chain, &ohttp_relay).await
         }
         ReceiveSession::Monitor(receiver) => monitor_payment(receiver, &persister, btc_chain).await,
         ReceiveSession::Closed(outcome) => stop_at_closed_session(&persister, &outcome),
@@ -242,11 +323,11 @@ async fn poll_initialized_receiver(
     btc_chain: Arc<dyn Client + Send + Sync>,
     receiver_address: Address,
     network: payjoin::bitcoin::Network,
+    ohttp_relay: &str,
 ) -> Result<()> {
     loop {
-        let ohttp_relay = payjoin_ohttp_relay();
         let (req, context) = receiver
-            .create_poll_request(ohttp_relay.as_str())
+            .create_poll_request(ohttp_relay)
             .context("failed to create payjoin receiver poll request")?;
         let response = post_request(req).await?;
         let body = response
@@ -279,6 +360,7 @@ async fn poll_initialized_receiver(
                     btc_chain,
                     receiver_address,
                     network,
+                    ohttp_relay,
                 )
                 .await;
             }
@@ -296,6 +378,7 @@ async fn process_unchecked_original_payload(
     btc_chain: Arc<dyn Client + Send + Sync>,
     receiver_address: Address,
     network: payjoin::bitcoin::Network,
+    ohttp_relay: &str,
 ) -> Result<()> {
     let chain = btc_chain.clone();
     let receiver = receiver
@@ -309,7 +392,15 @@ async fn process_unchecked_original_payload(
         .save(persister)
         .context("failed to persist payjoin broadcast suitability check")?;
 
-    check_inputs_not_owned(receiver, persister, btc_chain, receiver_address, network).await
+    check_inputs_not_owned(
+        receiver,
+        persister,
+        btc_chain,
+        receiver_address,
+        network,
+        ohttp_relay,
+    )
+    .await
 }
 
 async fn check_inputs_not_owned(
@@ -318,6 +409,7 @@ async fn check_inputs_not_owned(
     btc_chain: Arc<dyn Client + Send + Sync>,
     receiver_address: Address,
     network: payjoin::bitcoin::Network,
+    ohttp_relay: &str,
 ) -> Result<()> {
     let chain = btc_chain.clone();
     let receiver = receiver
@@ -331,7 +423,15 @@ async fn check_inputs_not_owned(
         .save(persister)
         .context("failed to persist payjoin input ownership check")?;
 
-    check_no_inputs_seen_before(receiver, persister, btc_chain, receiver_address, network).await
+    check_no_inputs_seen_before(
+        receiver,
+        persister,
+        btc_chain,
+        receiver_address,
+        network,
+        ohttp_relay,
+    )
+    .await
 }
 
 async fn check_no_inputs_seen_before(
@@ -340,6 +440,7 @@ async fn check_no_inputs_seen_before(
     btc_chain: Arc<dyn Client + Send + Sync>,
     receiver_address: Address,
     network: payjoin::bitcoin::Network,
+    ohttp_relay: &str,
 ) -> Result<()> {
     let receiver = receiver
         .check_no_inputs_seen_before(&mut |outpoint| {
@@ -351,7 +452,15 @@ async fn check_no_inputs_seen_before(
         .save(persister)
         .context("failed to persist payjoin seen-input check")?;
 
-    identify_receiver_outputs(receiver, persister, btc_chain, receiver_address, network).await
+    identify_receiver_outputs(
+        receiver,
+        persister,
+        btc_chain,
+        receiver_address,
+        network,
+        ohttp_relay,
+    )
+    .await
 }
 
 async fn identify_receiver_outputs(
@@ -360,6 +469,7 @@ async fn identify_receiver_outputs(
     btc_chain: Arc<dyn Client + Send + Sync>,
     receiver_address: Address,
     network: payjoin::bitcoin::Network,
+    ohttp_relay: &str,
 ) -> Result<()> {
     let receiver = receiver
         .identify_receiver_outputs(&mut |script| {
@@ -369,26 +479,28 @@ async fn identify_receiver_outputs(
         .save(persister)
         .context("failed to persist payjoin receiver output identification")?;
 
-    commit_outputs(receiver, persister, btc_chain).await
+    commit_outputs(receiver, persister, btc_chain, ohttp_relay).await
 }
 
 async fn commit_outputs(
     receiver: Receiver<WantsOutputs>,
     persister: &ReceiverPersister,
     btc_chain: Arc<dyn Client + Send + Sync>,
+    ohttp_relay: &str,
 ) -> Result<()> {
     let receiver = receiver
         .commit_outputs()
         .save(persister)
         .context("failed to persist payjoin output commit")?;
 
-    contribute_inputs(receiver, persister, btc_chain).await
+    contribute_inputs(receiver, persister, btc_chain, ohttp_relay).await
 }
 
 async fn contribute_inputs(
     receiver: Receiver<WantsInputs>,
     persister: &ReceiverPersister,
     btc_chain: Arc<dyn Client + Send + Sync>,
+    ohttp_relay: &str,
 ) -> Result<()> {
     let selected = select_contribution_input(receiver.clone(), btc_chain.clone())
         .await
@@ -400,7 +512,7 @@ async fn contribute_inputs(
         .save(persister)
         .context("failed to persist payjoin input commit")?;
 
-    apply_fee_range(receiver, persister, btc_chain).await
+    apply_fee_range(receiver, persister, btc_chain, ohttp_relay).await
 }
 
 async fn select_contribution_input(
@@ -466,19 +578,21 @@ async fn apply_fee_range(
     receiver: Receiver<WantsFeeRange>,
     persister: &ReceiverPersister,
     btc_chain: Arc<dyn Client + Send + Sync>,
+    ohttp_relay: &str,
 ) -> Result<()> {
     let receiver = receiver
         .apply_fee_range(None, None)
         .save(persister)
         .context("failed to persist payjoin fee-range application")?;
 
-    finalize_proposal(receiver, persister, btc_chain).await
+    finalize_proposal(receiver, persister, btc_chain, ohttp_relay).await
 }
 
 async fn finalize_proposal(
     receiver: Receiver<ProvisionalProposal>,
     persister: &ReceiverPersister,
     btc_chain: Arc<dyn Client + Send + Sync>,
+    ohttp_relay: &str,
 ) -> Result<()> {
     let chain = btc_chain.clone();
     let receiver = receiver
@@ -486,17 +600,17 @@ async fn finalize_proposal(
         .save(persister)
         .context("failed to persist finalized payjoin proposal")?;
 
-    submit_payjoin_proposal(receiver, persister, btc_chain).await
+    submit_payjoin_proposal(receiver, persister, btc_chain, ohttp_relay).await
 }
 
 async fn submit_payjoin_proposal(
     receiver: Receiver<PayjoinProposal>,
     persister: &ReceiverPersister,
     btc_chain: Arc<dyn Client + Send + Sync>,
+    ohttp_relay: &str,
 ) -> Result<()> {
-    let ohttp_relay = payjoin_ohttp_relay();
     let (req, context) = receiver
-        .create_post_request(ohttp_relay.as_str())
+        .create_post_request(ohttp_relay)
         .context("failed to create payjoin proposal post request")?;
     let response = post_request(req).await?;
     let body = response
@@ -668,34 +782,95 @@ fn payjoin_ohttp_relays() -> Vec<String> {
         .unwrap_or_else(|| OHTTP_RELAYS.iter().map(|relay| relay.to_string()).collect())
 }
 
-fn payjoin_ohttp_relay() -> String {
-    payjoin_ohttp_relays()
-        .into_iter()
-        .next()
-        .unwrap_or_else(|| OHTTP_RELAY.to_string())
+fn relay_manager() -> &'static Mutex<RelayManager> {
+    RELAY_MANAGER.get_or_init(|| Mutex::new(RelayManager::default()))
 }
 
-async fn fetch_ohttp_keys(directory: &str) -> Result<payjoin::OhttpKeys> {
-    let mut errors = Vec::new();
-
-    for relay in payjoin_ohttp_relays() {
-        match payjoin::io::fetch_ohttp_keys(relay.as_str(), directory).await {
-            Ok(keys) => return Ok(keys),
+async fn fetch_ohttp_keys(directory: &str) -> Result<ValidatedOhttpKeys> {
+    if let Some(relay) = relay_manager()
+        .lock()
+        .expect("relay manager lock should not be poisoned")
+        .selected_relay()
+    {
+        match fetch_ohttp_keys_for_relay(&relay, directory).await {
+            Ok(ohttp_keys) => {
+                return Ok(ValidatedOhttpKeys {
+                    ohttp_keys,
+                    relay_url: relay,
+                });
+            }
+            Err(payjoin::io::Error::UnexpectedStatusCode(status)) => {
+                return Err(payjoin::io::Error::UnexpectedStatusCode(status).into());
+            }
             Err(error) => {
                 warn!(
                     relay = relay.as_str(),
                     error = %error,
-                    "Failed to fetch Payjoin OHTTP keys from directory"
+                    "Selected Payjoin OHTTP relay failed"
                 );
-                errors.push(format!("{relay}: {error}"));
+                let mut manager = relay_manager()
+                    .lock()
+                    .expect("relay manager lock should not be poisoned");
+                manager.clear_selected_relay();
+                manager.add_failed_relay(relay);
             }
         }
     }
 
-    Err(anyhow!(
-        "all configured Payjoin OHTTP relays failed: {}",
-        errors.join("; ")
-    ))
+    let relays = payjoin_ohttp_relays();
+
+    loop {
+        let failed_relays = relay_manager()
+            .lock()
+            .expect("relay manager lock should not be poisoned")
+            .failed_relays();
+        let remaining_relays = relays
+            .iter()
+            .filter(|relay| !failed_relays.contains(relay))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let relay = remaining_relays
+            .choose(&mut thread_rng())
+            .ok_or_else(|| anyhow!("no valid Payjoin OHTTP relays available"))?
+            .clone();
+
+        relay_manager()
+            .lock()
+            .expect("relay manager lock should not be poisoned")
+            .set_selected_relay(relay.clone());
+
+        match fetch_ohttp_keys_for_relay(&relay, directory).await {
+            Ok(ohttp_keys) => {
+                return Ok(ValidatedOhttpKeys {
+                    ohttp_keys,
+                    relay_url: relay,
+                });
+            }
+            Err(payjoin::io::Error::UnexpectedStatusCode(status)) => {
+                return Err(payjoin::io::Error::UnexpectedStatusCode(status).into());
+            }
+            Err(error) => {
+                debug!(
+                    relay = relay.as_str(),
+                    error = %error,
+                    "Failed to connect to Payjoin OHTTP relay"
+                );
+                let mut manager = relay_manager()
+                    .lock()
+                    .expect("relay manager lock should not be poisoned");
+                manager.clear_selected_relay();
+                manager.add_failed_relay(relay);
+            }
+        }
+    }
+}
+
+async fn fetch_ohttp_keys_for_relay(
+    relay: &str,
+    directory: &str,
+) -> std::result::Result<payjoin::OhttpKeys, payjoin::io::Error> {
+    payjoin::io::fetch_ohttp_keys(relay, directory).await
 }
 
 async fn post_request(req: payjoin::Request) -> Result<reqwest::Response> {

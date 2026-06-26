@@ -24,7 +24,7 @@ use std::error::Error;
 use std::fmt;
 use std::future::Future;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, info, instrument, warn};
 
@@ -519,22 +519,13 @@ async fn monitor_payment(
         "Payjoin receiver monitor started"
     );
 
-    let detected_payjoin_txid = Arc::new(Mutex::new(None::<Txid>));
-
     loop {
         let chain = btc_chain.clone();
-        let detected_payjoin_txid = detected_payjoin_txid.clone();
         match receiver
             .check_payment(|txid| {
                 let transaction =
                     block_on(async { lookup_btc_transaction(chain.clone(), txid).await })
                         .map_err(implementation_error)?;
-                if transaction.is_some() {
-                    let mut detected = detected_payjoin_txid.lock().map_err(|_| {
-                        implementation_error("failed to lock detected payjoin txid")
-                    })?;
-                    *detected = Some(txid);
-                }
 
                 Ok(transaction)
             })
@@ -544,23 +535,6 @@ async fn monitor_payment(
                 let outcome = replay_closed_outcome(persister)?.ok_or_else(|| {
                     anyhow!("payjoin receiver monitor closed without replayable outcome")
                 })?;
-                if matches!(outcome, SessionOutcome::Success(_)) {
-                    let detected_txid = detected_payjoin_txid
-                        .lock()
-                        .map_err(|_| anyhow!("failed to lock detected payjoin txid"))?
-                        .to_owned();
-                    if let Some(txid) = detected_txid {
-                        persister
-                            .repo
-                            .set_payjoin_transaction_id(persister.session_id, &txid.to_string())
-                            .context("failed to persist payjoin transaction id")?;
-                    } else {
-                        warn!(
-                            session_id = %persister.session_id,
-                            "Payjoin receiver closed successfully without a captured payjoin txid"
-                        );
-                    }
-                }
                 log_closed_outcome(persister.session_id, &outcome);
                 return Ok(());
             }

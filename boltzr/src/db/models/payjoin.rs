@@ -10,7 +10,6 @@ pub struct PayjoinReceiverSession {
     pub address: String,
     pub amountSats: Option<i64>,
     pub label: Option<String>,
-    pub payjoinTxId: Option<String>,
     pub createdAt: DateTime<Utc>,
     pub completedAt: Option<DateTime<Utc>>,
 }

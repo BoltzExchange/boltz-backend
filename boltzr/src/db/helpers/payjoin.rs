@@ -30,7 +30,6 @@ pub trait PayjoinReceiverSessionHelper {
     ) -> QueryResponse<Vec<PayjoinReceiverSessionEvent>>;
     fn close_receiver_session(&self, session_id: i64) -> QueryResponse<usize>;
     fn mark_completed(&self, session_id: i64) -> QueryResponse<usize>;
-    fn set_payjoin_transaction_id(&self, session_id: i64, tx_id: &str) -> QueryResponse<usize>;
 }
 
 #[derive(Clone, Debug)]
@@ -147,20 +146,6 @@ impl PayjoinReceiverSessionHelper for PayjoinReceiverSessionHelperDatabase {
         .set(payjoinReceiverSessions::completedAt.eq(Utc::now()))
         .execute(&mut self.pool.get()?)?)
     }
-
-    #[instrument(
-        name = "db::PayjoinReceiverSessionHelperDatabase::set_payjoin_transaction_id",
-        skip_all,
-        fields(session_id = %session_id, tx_id = %tx_id)
-    )]
-    fn set_payjoin_transaction_id(&self, session_id: i64, tx_id: &str) -> QueryResponse<usize> {
-        Ok(update(
-            payjoinReceiverSessions::dsl::payjoinReceiverSessions
-                .filter(payjoinReceiverSessions::id.eq(session_id)),
-        )
-        .set(payjoinReceiverSessions::payjoinTxId.eq(tx_id))
-        .execute(&mut self.pool.get()?)?)
-    }
 }
 
 #[cfg(test)]
@@ -189,22 +174,17 @@ mod test {
 
         assert_eq!(session.swapId, Some(swap_id.clone()));
         assert_eq!(session.completedAt, None);
-        assert_eq!(session.payjoinTxId, None);
 
         let by_swap_id = helper.get_by_swap_id(&swap_id).unwrap().unwrap();
         assert_eq!(by_swap_id.id, session.id);
         assert_eq!(by_swap_id.swapId, Some(swap_id));
 
-        helper
-            .set_payjoin_transaction_id(session.id, "txid")
-            .unwrap();
         helper.mark_completed(session.id).unwrap();
 
         let completed = helper
             .get_by_swap_id(by_swap_id.swapId.as_ref().unwrap())
             .unwrap()
             .unwrap();
-        assert_eq!(completed.payjoinTxId, Some("txid".to_string()));
         assert!(completed.completedAt.is_some());
     }
 }

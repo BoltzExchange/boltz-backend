@@ -1,3 +1,4 @@
+import { Psbt } from 'bitcoinjs-lib';
 import { QueryTypes } from 'sequelize';
 import Database from '../Database';
 
@@ -11,7 +12,6 @@ export enum PayjoinLockupMatch {
 
 type PayjoinReceiverSessionRow = {
   id: number;
-  payjoinTxId?: string;
 };
 
 type PayjoinReceiverSessionEventRow = {
@@ -40,7 +40,9 @@ class PayjoinReceiverRepository {
       return PayjoinLockupMatch.Failed;
     }
 
-    if (session.payjoinTxId !== txId) {
+    const expectedTransactionId =
+      this.getFinalizedProposalTransactionId(events);
+    if (expectedTransactionId !== txId) {
       return PayjoinLockupMatch.TxMismatch;
     }
 
@@ -54,7 +56,7 @@ class PayjoinReceiverRepository {
   ): Promise<PayjoinReceiverSessionRow | undefined> => {
     try {
       const rows = await Database.sequelize.query<PayjoinReceiverSessionRow>(
-        'SELECT id, "payjoinTxId" FROM "payjoinReceiverSessions" WHERE "swapId" = $1 LIMIT 1',
+        'SELECT id FROM "payjoinReceiverSessions" WHERE "swapId" = $1 LIMIT 1',
         {
           bind: [swapId],
           type: QueryTypes.SELECT,
@@ -97,6 +99,48 @@ class PayjoinReceiverRepository {
     }
 
     return Object.keys(closed)[0];
+  };
+
+  private static getFinalizedProposalTransactionId = (
+    events: PayjoinReceiverSessionEventRow[],
+  ): string | undefined => {
+    const finalizedProposal = this.findLastEvent(
+      events,
+      'FinalizedProposal',
+    )?.FinalizedProposal;
+
+    if (typeof finalizedProposal !== 'string') {
+      return undefined;
+    }
+
+    try {
+      return this.getPsbtUnsignedTransactionId(
+        this.parsePsbt(finalizedProposal),
+      );
+    } catch {
+      return undefined;
+    }
+  };
+
+  private static getPsbtUnsignedTransactionId = (
+    psbt: Psbt,
+  ): string | undefined => {
+    const unsignedTx = psbt.data.globalMap.unsignedTx as unknown as {
+      getId?: () => string;
+      tx?: {
+        getId: () => string;
+      };
+    };
+
+    return unsignedTx.tx?.getId() ?? unsignedTx.getId?.();
+  };
+
+  private static parsePsbt = (psbt: string): Psbt => {
+    try {
+      return Psbt.fromBase64(psbt);
+    } catch {
+      return Psbt.fromHex(psbt);
+    }
   };
 
   private static parseEvent = (eventData: string): any | undefined => {

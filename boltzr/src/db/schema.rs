@@ -169,7 +169,6 @@ diesel::table! {
         address -> Text,
         amountSats -> Nullable<BigInt>,
         label -> Nullable<Text>,
-        payjoinTxId -> Nullable<Text>,
         createdAt -> Timestamptz,
         completedAt -> Nullable<Timestamptz>,
     }

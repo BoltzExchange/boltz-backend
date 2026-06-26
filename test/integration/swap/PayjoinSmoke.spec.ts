@@ -48,11 +48,21 @@ type PayjoinSessionRow = {
   id: number;
   swapId: string;
   completedAt: Date | null;
-  payjoinTxId: string | null;
 };
 
 type PayjoinEventRow = {
   eventData: string;
+};
+
+const errorDetails = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  return {
+    name: error.name,
+    message: error.message,
+  };
 };
 
 const logStep = (message: string, details?: Record<string, unknown>) => {
@@ -76,7 +86,7 @@ const loggedStep = async <T>(
   } catch (error) {
     logStep(`${message}: failed`, {
       durationMs: Date.now() - started,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorDetails(error),
     });
     throw error;
   }
@@ -133,6 +143,39 @@ const getFreePort = async (): Promise<number> =>
       });
     });
   });
+
+const waitForTcpPort = async (
+  host: string,
+  port: number,
+  timeoutMs = 30_000,
+  intervalMs = 500,
+) => {
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    const isReady = await new Promise<boolean>((resolve) => {
+      const socket = net.createConnection({ host, port });
+      socket.once('connect', () => {
+        socket.destroy();
+        resolve(true);
+      });
+      socket.once('error', () => {
+        socket.destroy();
+        resolve(false);
+      });
+    });
+
+    if (isReady) {
+      return;
+    }
+
+    await wait(intervalMs);
+  }
+
+  throw new Error(
+    `Timed out waiting for TCP ${host}:${port}. Start regtest Postgres before running this smoke test.`,
+  );
+};
 
 const startPayjoinMailroom = async (
   cwd: string,
@@ -384,10 +427,17 @@ const runPayjoinCli = async (cwd: string, bip21: string) => {
   }
 
   expect(stdout).toContain('Payjoin sent');
+  const txId = stdout.match(/TXID:\s*([0-9a-f]{64})/i)?.[1];
+  if (txId === undefined) {
+    throw new Error(`payjoin-cli did not report a TXID\nstdout:\n${stdout}`);
+  }
   logStep('payjoin-cli sender completed', {
+    txId,
     stdout: stdout.trim(),
     stderr: stderr.trim(),
   });
+
+  return txId;
 };
 
 const payjoinDescribe = payjoinCliAvailable() ? describe : describe.skip;
@@ -476,6 +526,13 @@ payjoinDescribe('Payjoin submarine smoke', () => {
       'writing temporary boltzr sidecar config',
       () => writeSidecarConfig(tempDir),
     );
+    await loggedStep('running core setup', () => setup());
+
+    db = getPostgresDatabase();
+    await loggedStep('waiting for Postgres regtest database', () =>
+      waitForTcpPort('127.0.0.1', 5432),
+    );
+    await loggedStep('initializing Postgres database', () => db.init());
     await loggedStep('seeding boltzr sidecar database', () =>
       seedSidecarDatabase(),
     );
@@ -507,10 +564,6 @@ payjoinDescribe('Payjoin submarine smoke', () => {
         wsPort: sidecarConfig.wsPort,
       },
     );
-    await loggedStep('running core setup', () => setup());
-
-    db = getPostgresDatabase();
-    await loggedStep('initializing Postgres database', () => db.init());
     try {
       await loggedStep('adding BTC/BTC pair row', () =>
         PairRepository.addPair({
@@ -786,12 +839,12 @@ payjoinDescribe('Payjoin submarine smoke', () => {
     );
     expect(created.bip21).toContain('pj=');
 
-    await runPayjoinCli(tempDir, created.bip21);
+    const payjoinTransactionId = await runPayjoinCli(tempDir, created.bip21);
 
     logStep('waiting for Payjoin session to close', { swapId: created.id });
     const session = await waitFor('Payjoin session to close', async () => {
       const rows = await Database.sequelize.query<PayjoinSessionRow>(
-        'SELECT id, "swapId", "completedAt", "payjoinTxId" FROM "payjoinReceiverSessions" WHERE "swapId" = $1 LIMIT 1',
+        'SELECT id, "swapId", "completedAt" FROM "payjoinReceiverSessions" WHERE "swapId" = $1 LIMIT 1',
         {
           bind: [created.id],
           type: QueryTypes.SELECT,
@@ -803,12 +856,10 @@ payjoinDescribe('Payjoin submarine smoke', () => {
     });
 
     expect(session.swapId).toEqual(created.id);
-    expect(session.payjoinTxId).toBeTruthy();
     logStep('Payjoin session closed', {
       sessionId: session.id,
       swapId: session.swapId,
       completedAt: session.completedAt,
-      payjoinTxId: session.payjoinTxId,
     });
 
     logStep('loading Payjoin event log', { sessionId: session.id });
@@ -840,11 +891,11 @@ payjoinDescribe('Payjoin submarine smoke', () => {
     );
 
     logStep('injecting Payjoin transaction into UtxoNursery', {
-      txId: session.payjoinTxId,
+      txId: payjoinTransactionId,
     });
     const payjoinTransaction = parseTransaction(
       CurrencyType.BitcoinLike,
-      await bitcoinClient.getRawTransaction(session.payjoinTxId!),
+      await bitcoinClient.getRawTransaction(payjoinTransactionId),
     );
     smokeSidecar.emit('transaction', {
       symbol: bitcoinClient.symbol,
@@ -876,7 +927,7 @@ payjoinDescribe('Payjoin submarine smoke', () => {
     });
     expect(swap.preimageHash).toEqual(preimageHash);
     expect(swap.status).not.toEqual(SwapUpdateEvent.TransactionLockupFailed);
-    expect(swap.lockupTransactionId).toEqual(session.payjoinTxId);
+    expect(swap.lockupTransactionId).toEqual(payjoinTransactionId);
     expect(Number(swap.onchainAmount)).toBeGreaterThan(
       Number(swap.expectedAmount),
     );

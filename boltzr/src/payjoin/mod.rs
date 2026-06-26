@@ -709,7 +709,7 @@ async fn fetch_ohttp_keys(directory: &str) -> Result<payjoin::OhttpKeys> {
                 warn!(
                     relay = relay.as_str(),
                     error = %error,
-                    "Failed to fetch Payjoin OHTTP keys from relay"
+                    "Failed to fetch Payjoin OHTTP keys from directory"
                 );
                 errors.push(format!("{relay}: {error}"));
             }

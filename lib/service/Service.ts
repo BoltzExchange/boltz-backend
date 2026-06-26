@@ -201,7 +201,6 @@ class Service {
     );
 
     this.paymentRequestUtils = new PaymentRequestUtils(
-      this.sidecar,
       this.currencies.get(ElementsClient.symbol),
     );
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(
@@ -1563,18 +1562,30 @@ class Service {
 
     await this.createExtraFees(swap.id, fees.extraFee, extraFees);
     const label = getSwapMemo(lightningCurrency, SwapType.Submarine);
+    let bip21 = this.paymentRequestUtils.encodeBip21(
+      chainCurrency,
+      swap.lockupAddress,
+      expectedAmount,
+      label,
+    );
+
+    if (chainCurrency === 'BTC' && lightningCurrency === 'BTC') {
+      try {
+        bip21 = await this.sidecar.getPayjoinUri(
+          swap.lockupAddress,
+          expectedAmount,
+          label,
+          swap.id,
+        );
+      } catch {
+        // Fall back to a standard BIP21 when Payjoin URI generation is unavailable.
+      }
+    }
 
     return {
       expectedAmount,
       acceptZeroConf,
-      bip21: (await this.paymentRequestUtils.encodeBip21(
-        chainCurrency,
-        swap.lockupAddress,
-        expectedAmount,
-        label,
-        swap.id,
-        chainCurrency === 'BTC' && lightningCurrency === 'BTC',
-      ))!,
+      bip21: bip21!,
     };
   };
 
@@ -2425,7 +2436,7 @@ class Service {
       claimDetails: res.claimDetails,
       lockupDetails: {
         ...res.lockupDetails,
-        bip21: await this.paymentRequestUtils.encodeBip21(
+        bip21: this.paymentRequestUtils.encodeBip21(
           receivingCurrency.symbol,
           res.lockupDetails.lockupAddress,
           res.lockupDetails.amount,

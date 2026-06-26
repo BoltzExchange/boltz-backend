@@ -24,7 +24,6 @@ import KeyRepository from '../../../lib/db/repositories/KeyRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import RoutingFee from '../../../lib/lightning/RoutingFee';
-import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import Service from '../../../lib/service/Service';
 import Sidecar, { TransactionStatus } from '../../../lib/sidecar/Sidecar';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
@@ -88,8 +87,6 @@ const commandAvailable = (command: string) =>
 
 const payjoinCliAvailable = () =>
   commandAvailable('payjoin-cli') && commandAvailable('payjoin-mailroom');
-
-type EncodeBip21Args = Parameters<PaymentRequestUtils['encodeBip21']>;
 
 const waitFor = async <T>(
   description: string,
@@ -609,21 +606,6 @@ payjoinDescribe('Payjoin submarine smoke', () => {
       percentageFee: 100,
       percentageFeeRate: 0,
     });
-    const paymentRequestUtils = service['paymentRequestUtils'];
-    paymentRequestUtils.encodeBip21 = async (...args: EncodeBip21Args) => {
-      const [symbol, address, satoshis, label, swapId, enablePayjoin = true] =
-        args;
-
-      if (enablePayjoin && symbol === 'BTC' && swapId !== undefined) {
-        return smokeSidecar.getPayjoinUri(address, satoshis, label, swapId);
-      }
-
-      return PaymentRequestUtils.prototype.encodeBip21.call(
-        paymentRequestUtils,
-        ...args,
-      );
-    };
-
     await loggedStep('initializing rate provider', () =>
       service['rateProvider'].init([pair]),
     );

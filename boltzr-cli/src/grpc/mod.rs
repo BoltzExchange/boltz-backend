@@ -465,6 +465,19 @@ impl BoltzClient {
         Ok(response.into_inner())
     }
 
+    pub async fn dev_refresh_balance_cache(
+        &mut self,
+        symbol: Option<String>,
+    ) -> Result<boltz_rpc::DevRefreshBalanceCacheResponse> {
+        let response = self
+            .client
+            .dev_refresh_balance_cache(
+                self.req(boltz_rpc::DevRefreshBalanceCacheRequest { symbol }),
+            )
+            .await?;
+        Ok(response.into_inner())
+    }
+
     pub async fn issue_jwt(
         &mut self,
         label: String,

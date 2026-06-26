@@ -2,11 +2,13 @@ use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
 use crate::service::{
-    KeyVecIterator, MAX_GAP_LIMIT, MAX_PAGINATION_LIMIT, Pagination, PubkeyIterator,
+    KeyVecIterator, MAX_GAP_LIMIT, MAX_PAGINATION_LIMIT, Pagination, PubkeyIterator, RestoreQuery,
     SingleKeyIterator, XpubIterator,
 };
 use crate::swap::manager::SwapManager;
-use crate::utils::serde::{PublicKeyDeserialize, PublicKeyVecDeserialize, XpubDeserialize};
+use crate::utils::serde::{
+    EvmAddressDeserialize, PublicKeyDeserialize, PublicKeyVecDeserialize, XpubDeserialize,
+};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
@@ -32,11 +34,55 @@ pub enum RescueParams {
         #[serde(rename = "publicKeys")]
         public_keys: PublicKeyVecDeserialize,
     },
+    Address {
+        address: EvmAddressDeserialize,
+        timestamp: u64,
+        signature: String,
+    },
 }
 
 #[derive(Serialize)]
 pub struct RestoreIndexResponse {
     pub index: i64,
+}
+
+const RESTORE_SIGNATURE_VALIDITY_SECS: u64 = 60;
+
+fn restore_proof_message(address: &str, timestamp: u64) -> String {
+    format!("Boltz swap restore\naddress: {address}\ntimestamp: {timestamp}")
+}
+
+fn verify_restore_signature(
+    address: &boltz_evm::Address,
+    timestamp: u64,
+    signature: &str,
+) -> Result<(), AxumError> {
+    let now = chrono::Utc::now().timestamp();
+    let timestamp_secs = i64::try_from(timestamp).map_err(|_| {
+        AxumError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            anyhow::anyhow!("signature timestamp is not within the validity window"),
+        )
+    })?;
+    if now.abs_diff(timestamp_secs) > RESTORE_SIGNATURE_VALIDITY_SECS {
+        return Err(AxumError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            anyhow::anyhow!("signature timestamp is not within the validity window"),
+        ));
+    }
+
+    let message = restore_proof_message(&address.to_string(), timestamp);
+    let recovered = boltz_evm::recover_signer(message.as_bytes(), signature)
+        .map_err(|e| AxumError::new(StatusCode::UNPROCESSABLE_ENTITY, e))?;
+
+    if recovered != *address {
+        return Err(AxumError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            anyhow::anyhow!("signature does not match address"),
+        ));
+    }
+
+    Ok(())
 }
 
 impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
@@ -92,6 +138,28 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
             RescueParams::PublicKeyVec { public_keys } => {
                 Ok(Box::new(KeyVecIterator::new(public_keys.0)))
             }
+            RescueParams::Address { .. } => Err(AxumError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                anyhow::anyhow!("address lookup is only supported for restore"),
+            )),
+        }
+    }
+}
+
+impl TryFrom<RescueParams> for RestoreQuery {
+    type Error = AxumError;
+
+    fn try_from(params: RescueParams) -> Result<Self, Self::Error> {
+        match params {
+            RescueParams::Address {
+                address,
+                timestamp,
+                signature,
+            } => {
+                verify_restore_signature(&address.0, timestamp, &signature)?;
+                Ok(RestoreQuery::Address(address.0.to_string()))
+            }
+            other => Ok(RestoreQuery::Keys(other.try_into()?)),
         }
     }
 }
@@ -229,6 +297,23 @@ mod test {
             body["pagination"] = pagination_obj;
         }
 
+        setup_router()
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::POST)
+                    .uri(endpoint)
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    async fn make_json_request(
+        endpoint: &str,
+        body: serde_json::Value,
+    ) -> axum::response::Response {
         setup_router()
             .oneshot(
                 Request::builder()
@@ -385,5 +470,127 @@ mod test {
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let error = serde_json::from_slice::<ApiError>(&body).unwrap();
         assert!(error.error.contains("limit must not exceed"));
+    }
+
+    const VALID_EVM_ADDRESS: &str = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+    const OTHER_EVM_ADDRESS: &str = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+
+    fn now() -> u64 {
+        chrono::Utc::now().timestamp() as u64
+    }
+
+    fn signed_address_body(address: &str, timestamp: u64) -> serde_json::Value {
+        let message = super::restore_proof_message(address, timestamp);
+        let signature = boltz_evm::test_utils::sign_message(message.as_bytes());
+        serde_json::json!({
+            "address": address,
+            "timestamp": timestamp,
+            "signature": signature,
+        })
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_by_address() {
+        let res = make_json_request(
+            "/v2/swap/restore",
+            signed_address_body(VALID_EVM_ADDRESS, now()),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(
+            serde_json::from_slice::<Vec<crate::service::test::RestorableSwap>>(&body).unwrap(),
+            vec![],
+        );
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_signature_mismatch() {
+        let res = make_json_request(
+            "/v2/swap/restore",
+            signed_address_body(OTHER_EVM_ADDRESS, now()),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let error = serde_json::from_slice::<ApiError>(&body).unwrap();
+        assert_eq!(error.error, "signature does not match address");
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_stale_timestamp() {
+        let res = make_json_request(
+            "/v2/swap/restore",
+            signed_address_body(VALID_EVM_ADDRESS, now() - 10_000),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let error = serde_json::from_slice::<ApiError>(&body).unwrap();
+        assert!(error.error.contains("validity window"));
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_out_of_range_timestamp() {
+        let res = make_json_request(
+            "/v2/swap/restore",
+            signed_address_body(VALID_EVM_ADDRESS, u64::MAX),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let error = serde_json::from_slice::<ApiError>(&body).unwrap();
+        assert!(error.error.contains("validity window"));
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_invalid_signature() {
+        let res = make_json_request(
+            "/v2/swap/restore",
+            serde_json::json!({
+                "address": VALID_EVM_ADDRESS,
+                "timestamp": now(),
+                "signature": "0xnot-a-signature",
+            }),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_invalid_address() {
+        let res = make_json_request(
+            "/v2/swap/restore",
+            serde_json::json!({
+                "address": "not-an-evm-address",
+                "timestamp": now(),
+                "signature": "0xdead",
+            }),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn test_swap_rescue_rejects_address() {
+        let res = make_json_request(
+            "/v2/swap/rescue",
+            signed_address_body(VALID_EVM_ADDRESS, now()),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let error = serde_json::from_slice::<ApiError>(&body).unwrap();
+        assert_eq!(error.error, "address lookup is only supported for restore");
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_index_rejects_address() {
+        let res = make_json_request(
+            "/v2/swap/restore/index",
+            signed_address_body(VALID_EVM_ADDRESS, now()),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
 }

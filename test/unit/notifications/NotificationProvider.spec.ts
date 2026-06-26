@@ -22,9 +22,15 @@ type failureCallback = (args: {
   swap: Swap | ReverseSwap;
   reason: string;
 }) => void;
+type claimFailureCallback = (args: {
+  swap: Swap | ReverseSwap;
+  symbol: string;
+  error: string;
+}) => void;
 
 let emitSwapSuccess: successCallback;
 let emitSwapFailure: failureCallback;
+let emitClaimFailure: claimFailureCallback;
 let emitZeroConfDisabled: (symbol: string) => void;
 let emitBatchClaimFailure: (args: { symbol: string; error: string }) => void;
 
@@ -47,8 +53,10 @@ jest.mock('../../../lib/service/Service', () => {
         on: (event: string, callback: any) => {
           if (event === 'swap.success') {
             emitSwapSuccess = callback;
-          } else {
+          } else if (event === 'swap.failure') {
             emitSwapFailure = callback;
+          } else if (event === 'claim.failure') {
+            emitClaimFailure = callback;
           }
         },
       },
@@ -331,6 +339,29 @@ describe('NotificationProvider', () => {
     );
   });
 
+  test('should send notification on immediate claim failure', async () => {
+    const symbol = 'L-BTC';
+    const error = 'bad-txns-in-ne-out';
+
+    emitClaimFailure({ swap, symbol, error });
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      `${Emojis.RotatingLight} **Claim failure for ${symbol}** ${Emojis.RotatingLight}\n` +
+        `ID: ${swap.id}\n` +
+        `Pair: ${swap.pair}\n` +
+        'Order side: buy\n' +
+        `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToSatcomma(
+          bolt11.decode(swap.invoice!).satoshis!,
+        )} LTC\n` +
+        `Error: ${error}`,
+      true,
+      true,
+    );
+  });
+
   test('should truncate long error messages in batch claim failures', async () => {
     const symbol = 'L-BTC';
     const longError = 'a'.repeat(250);
@@ -342,6 +373,30 @@ describe('NotificationProvider', () => {
     const expectedError = longError.substring(0, 200) + '...';
     expect(mockSendMessage).toHaveBeenCalledWith(
       `${Emojis.RotatingLight} **Batch claim failure for ${symbol}** ${Emojis.RotatingLight}\n` +
+        `Error: ${expectedError}`,
+      true,
+      true,
+    );
+  });
+
+  test('should truncate long error messages in immediate claim failures', async () => {
+    const symbol = 'L-BTC';
+    const longError = 'a'.repeat(250);
+    const expectedError = longError.substring(0, 200) + '...';
+
+    emitClaimFailure({ swap, symbol, error: longError });
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      `${Emojis.RotatingLight} **Claim failure for ${symbol}** ${Emojis.RotatingLight}\n` +
+        `ID: ${swap.id}\n` +
+        `Pair: ${swap.pair}\n` +
+        'Order side: buy\n' +
+        `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToSatcomma(
+          bolt11.decode(swap.invoice!).satoshis!,
+        )} LTC\n` +
         `Error: ${expectedError}`,
       true,
       true,

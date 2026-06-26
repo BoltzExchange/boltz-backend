@@ -793,7 +793,7 @@ describe('GrpcService', () => {
       const claimedAmount = 123123123123n;
       grpcService['service'].walletManager.ethereumManagers.push({
         hasSymbol: jest.fn().mockReturnValue(true),
-        getClaimedAmount: jest
+        getReceivedAmount: jest
           .fn()
           .mockResolvedValue({ amount: claimedAmount }),
       } as unknown as EthereumManager);
@@ -838,7 +838,7 @@ describe('GrpcService', () => {
       const claimedAmount = 123123123123n;
       grpcService['service'].walletManager.ethereumManagers.push({
         hasSymbol: jest.fn().mockReturnValue(true),
-        getClaimedAmount: jest
+        getReceivedAmount: jest
           .fn()
           .mockResolvedValue({ amount: claimedAmount }),
       } as unknown as EthereumManager);
@@ -900,7 +900,7 @@ describe('GrpcService', () => {
       grpcService['service'].walletManager.ethereumManagers.length = 0;
       grpcService['service'].walletManager.ethereumManagers.push({
         hasSymbol: jest.fn().mockReturnValue(true),
-        getClaimedAmount: jest.fn().mockResolvedValue({
+        getReceivedAmount: jest.fn().mockResolvedValue({
           amount: claimedAmount,
           token: tokenAddress,
         }),

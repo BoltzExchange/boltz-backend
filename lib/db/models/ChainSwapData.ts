@@ -1,5 +1,5 @@
 import type { Sequelize } from 'sequelize';
-import { DataTypes, Model } from 'sequelize';
+import { DataTypes, Model, Op } from 'sequelize';
 import { SwapType } from '../../consts/Enums';
 import ChainSwap from './ChainSwap';
 
@@ -93,6 +93,16 @@ class ChainSwapData extends Model implements ChainSwapDataType {
           {
             unique: false,
             fields: ['theirPublicKey'],
+          },
+          {
+            name: 'chainSwapData_claimAddress',
+            unique: false,
+            fields: ['claimAddress'],
+            where: {
+              claimAddress: {
+                [Op.ne]: null,
+              },
+            },
           },
         ],
       },

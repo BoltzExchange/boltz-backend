@@ -49,7 +49,6 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
   private attemptSettleSwap!: (
     currency: Currency,
     swap: Swap | ChainSwapInfo,
-    outgoingChannelId?: string,
     preimage?: Buffer,
   ) => Promise<void>;
 
@@ -351,7 +350,6 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
             await this.attemptSettleSwap(
               this.currencies.get(swap.receivingData.symbol)!,
               swap,
-              undefined,
               preimage,
             );
           }

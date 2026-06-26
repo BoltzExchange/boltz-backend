@@ -12,6 +12,7 @@ import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import { networks } from '../wallet/ethereum/EvmNetworks';
 import ChainSwap from './models/ChainSwap';
+import ChainSwapData from './models/ChainSwapData';
 import Commitment from './models/Commitment';
 import DatabaseVersion from './models/DatabaseVersion';
 import LightningPayment from './models/LightningPayment';
@@ -63,7 +64,7 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 26;
+  private static latestSchemaVersion = 27;
   private static latestDeprecatedSchemaVersion = 11;
 
   private toBackFill: number[] = [];
@@ -773,6 +774,38 @@ class Migration {
             { transaction },
           );
         });
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 26: {
+        const queryInterface = this.sequelize.getQueryInterface();
+
+        this.logUpdatingTable(ReverseSwap.tableName);
+        this.logUpdatingTable(ChainSwapData.tableName);
+
+        await queryInterface.addIndex(ReverseSwap.tableName, ['claimAddress'], {
+          name: 'reverseSwaps_claimAddress',
+          where: {
+            claimAddress: {
+              [Op.ne]: null,
+            },
+          },
+        });
+
+        await queryInterface.addIndex(
+          ChainSwapData.tableName,
+          ['claimAddress'],
+          {
+            name: 'chainSwapData_claimAddress',
+            where: {
+              claimAddress: {
+                [Op.ne]: null,
+              },
+            },
+          },
+        );
 
         await this.finishMigration(versionRow.version, currencies);
         break;

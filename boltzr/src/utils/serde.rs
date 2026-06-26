@@ -1,5 +1,6 @@
 use crate::service::MAX_GAP_LIMIT;
 use bitcoin::{PublicKey, bip32::Xpub};
+use boltz_evm::Address as EvmAddress;
 use elements::Address as ElementsAddress;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serializer};
@@ -76,6 +77,39 @@ impl<'de> Deserialize<'de> for ElementsAddressDeserialize {
         }
 
         deserializer.deserialize_string(ElementsAddressDeserializeVisitor)
+    }
+}
+
+pub struct EvmAddressDeserialize(pub EvmAddress);
+
+impl<'de> Deserialize<'de> for EvmAddressDeserialize {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct EvmAddressDeserializeVisitor;
+
+        impl Visitor<'_> for EvmAddressDeserializeVisitor {
+            type Value = EvmAddressDeserialize;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a valid evm address")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                // `Address` parses lower-case and checksummed input alike; its `Display` re-emits
+                // the EIP-55 checksummed form, which is how `claimAddress` is stored.
+                match EvmAddress::from_str(value) {
+                    Ok(address) => Ok(EvmAddressDeserialize(address)),
+                    Err(err) => Err(E::custom(format!("invalid evm address: {err}"))),
+                }
+            }
+        }
+
+        deserializer.deserialize_string(EvmAddressDeserializeVisitor)
     }
 }
 
@@ -358,6 +392,45 @@ mod tests {
                     .unwrap()
                     .to_string()
                     .contains("invalid elements address")
+            );
+        }
+    }
+
+    mod evm_address {
+        use serde::Deserialize;
+
+        #[derive(Deserialize)]
+        struct EvmAddressWrapper {
+            address: super::super::EvmAddressDeserialize,
+        }
+
+        const CHECKSUMMED: &str = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+
+        #[test]
+        fn test_deserialize_lowercase_normalizes_to_checksummed() {
+            let json = r#"{"address":"0xd8da6bf26964af9d7eed9e03e53415d37aa96045"}"#;
+            let wrapper: EvmAddressWrapper = serde_json::from_str(json).unwrap();
+            assert_eq!(wrapper.address.0.to_string(), CHECKSUMMED);
+        }
+
+        #[test]
+        fn test_deserialize_checksummed_roundtrip() {
+            let json = format!(r#"{{"address":"{CHECKSUMMED}"}}"#);
+            let wrapper: EvmAddressWrapper = serde_json::from_str(&json).unwrap();
+            assert_eq!(wrapper.address.0.to_string(), CHECKSUMMED);
+        }
+
+        #[test]
+        fn test_deserialize_invalid_address() {
+            let json = r#"{"address":"not-an-evm-address"}"#;
+            let result: Result<EvmAddressWrapper, _> = serde_json::from_str(json);
+            assert!(result.is_err());
+            assert!(
+                result
+                    .err()
+                    .unwrap()
+                    .to_string()
+                    .contains("invalid evm address")
             );
         }
     }

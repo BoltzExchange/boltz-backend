@@ -323,7 +323,7 @@ class EthereumManager {
     return undefined;
   };
 
-  public getClaimedAmount = async (
+  public getReceivedAmount = async (
     txHex: string,
   ): Promise<{ token?: string; amount: bigint } | undefined> => {
     const tx = Transaction.from(txHex);
@@ -336,10 +336,14 @@ class EthereumManager {
       return undefined;
     }
 
-    const decoded = contracts.decodeClaimData(
-      getAddress(await contracts.erc20Swap.getAddress()) !== getAddress(tx.to),
-      tx.data,
-    );
+    const isEtherSwap =
+      getAddress(await contracts.erc20Swap.getAddress()) !== getAddress(tx.to);
+
+    let decoded: { token?: string; amount: bigint }[] =
+      contracts.decodeClaimData(isEtherSwap, tx.data);
+    if (decoded.length === 0) {
+      decoded = contracts.decodeRefundData(isEtherSwap, tx.data);
+    }
 
     if (decoded.length === 0) {
       return undefined;

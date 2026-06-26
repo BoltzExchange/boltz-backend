@@ -22,6 +22,7 @@ enum Feature {
 }
 
 type DecodedClaim = { token?: string; preimage: string; amount: bigint };
+type DecodedRefund = { token?: string; preimageHash: string; amount: bigint };
 
 class Contracts {
   public static readonly minVersion = 3n;
@@ -157,6 +158,32 @@ class Contracts {
           this.decodeErc20Claim,
           this.decodeErc20ClaimForAddress,
           this.decodeErc20ClaimSignature,
+        ]) {
+      try {
+        return decoder(data);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
+        // Ignored to try the next decoder
+      }
+    }
+
+    return [];
+  };
+
+  public decodeRefundData = (
+    isEtherSwap: boolean,
+    data: string,
+  ): DecodedRefund[] => {
+    for (const decoder of isEtherSwap
+      ? [
+          this.decodeEtherRefund,
+          this.decodeEtherRefundForAddress,
+          this.decodeEtherRefundCooperative,
+        ]
+      : [
+          this.decodeErc20Refund,
+          this.decodeErc20RefundForAddress,
+          this.decodeErc20RefundCooperative,
         ]) {
       try {
         return decoder(data);
@@ -332,6 +359,117 @@ class Contracts {
         token: dec[2],
       },
     ];
+  };
+
+  private decodeEtherRefund = (data: string) => {
+    const dec = this.etherSwap.interface.decodeFunctionData(
+      this.etherSwap.interface.getFunction(
+        'refund(bytes32,uint256,address,uint256)',
+      ),
+      data,
+    );
+    return [
+      {
+        preimageHash: dec[0],
+        amount: dec[1],
+      },
+    ];
+  };
+
+  private decodeEtherRefundForAddress = (data: string) => {
+    const dec = this.etherSwap.interface.decodeFunctionData(
+      this.etherSwap.interface.getFunction(
+        'refund(bytes32,uint256,address,address,uint256)',
+      ),
+      data,
+    );
+    return [
+      {
+        preimageHash: dec[0],
+        amount: dec[1],
+      },
+    ];
+  };
+
+  private decodeEtherRefundCooperative = (data: string) => {
+    for (const signature of [
+      'refundCooperative(bytes32,uint256,address,uint256,uint8,bytes32,bytes32)',
+      'refundCooperative(bytes32,uint256,address,address,uint256,uint8,bytes32,bytes32)',
+    ] as const) {
+      try {
+        const dec = this.etherSwap.interface.decodeFunctionData(
+          this.etherSwap.interface.getFunction(signature),
+          data,
+        );
+        return [
+          {
+            preimageHash: dec[0],
+            amount: dec[1],
+          },
+        ];
+      } catch {
+        // Ignored to try the next decoder
+      }
+    }
+
+    throw new Error('invalid EtherSwap cooperative refund data');
+  };
+
+  private decodeErc20Refund = (data: string) => {
+    const dec = this.erc20Swap.interface.decodeFunctionData(
+      this.erc20Swap.interface.getFunction(
+        'refund(bytes32,uint256,address,address,uint256)',
+      ),
+      data,
+    );
+    return [
+      {
+        preimageHash: dec[0],
+        amount: dec[1],
+        token: dec[2],
+      },
+    ];
+  };
+
+  private decodeErc20RefundForAddress = (data: string) => {
+    const dec = this.erc20Swap.interface.decodeFunctionData(
+      this.erc20Swap.interface.getFunction(
+        'refund(bytes32,uint256,address,address,address,uint256)',
+      ),
+      data,
+    );
+    return [
+      {
+        preimageHash: dec[0],
+        amount: dec[1],
+        token: dec[2],
+      },
+    ];
+  };
+
+  private decodeErc20RefundCooperative = (data: string) => {
+    for (const signature of [
+      'refundCooperative(bytes32,uint256,address,address,uint256,uint8,bytes32,bytes32)',
+      'refundCooperative(bytes32,uint256,address,address,address,uint256,uint8,bytes32,bytes32)',
+    ] as const) {
+      try {
+        const dec = this.erc20Swap.interface.decodeFunctionData(
+          this.erc20Swap.interface.getFunction(signature),
+          data,
+        );
+        return [
+          {
+            preimageHash: dec[0],
+            amount: dec[1],
+            token: dec[2],
+          },
+        ];
+      } catch {
+        // Ignored to try the next decoder
+      }
+    }
+
+    throw new Error('invalid ERC20Swap cooperative refund data');
   };
 }
 

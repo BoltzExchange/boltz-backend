@@ -132,13 +132,15 @@ impl GraphLightningInfo {
                     for (symbol, currency) in info.currencies.iter() {
                         let start = Instant::now();
                         match info.update_cache(symbol, currency).await {
-                            Ok(_) => {
+                            Ok(true) => {
                                 debug!(
                                     "Updated {} lightning gossip in: {:?}",
                                     symbol,
                                     start.elapsed()
                                 );
                             }
+                            // No lightning clients configured for the currency
+                            Ok(false) => {}
                             Err(err) => {
                                 warn!("Updating {} lightning gossip failed: {}", symbol, err);
                             }
@@ -151,11 +153,13 @@ impl GraphLightningInfo {
         info
     }
 
+    /// Returns `false` when the currency has no lightning clients configured
+    /// and there was nothing to update.
     #[instrument(name = "GraphLightningInfo::update_cache", skip_all, fields(symbol = symbol))]
-    async fn update_cache(&self, symbol: &str, currency: &Currency) -> Result<()> {
+    async fn update_cache(&self, symbol: &str, currency: &Currency) -> Result<bool> {
         let mut sources = build_sources(currency);
         if sources.is_empty() {
-            return Ok(());
+            return Ok(false);
         }
 
         info!("Updating {} lightning gossip", symbol);
@@ -180,7 +184,7 @@ impl GraphLightningInfo {
             .await
             .insert(symbol.to_string(), merged_nodes);
 
-        Ok(())
+        Ok(true)
     }
 
     async fn store_channels(

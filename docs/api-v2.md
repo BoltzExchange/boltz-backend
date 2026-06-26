@@ -1,27 +1,33 @@
 ---
 description:
-  Endpoint reference for the latest Boltz REST API v2, recommended for all
-  integrations.
+  Raw REST API v2 reference for SDK/library authors only. All integrations must
+  use an official SDK (see Clients, SDKs & Libraries).
 ---
 
 # 🤖 REST API (latest)
 
-This page introduces Boltz API v2, the latest and recommended API for all
-integrations.
+::: danger ⚠️ DO NOT INTEGRATE THIS API DIRECTLY ⚠️
+
+All Boltz integrations must use an official SDK or client library. They handle
+the cryptography, the swap state machine, and the fund-recovery edge cases for
+you. Integrating the API directly is error-prone and will lead to **loss of
+funds**.
+
+**Official SDK list available [here](/libraries)!**
+
+The raw REST API documented below, including the code samples, is for
+**SDK/library authors** only. The samples are illustrative: they are not
+feature-complete, do not cover important edge cases, and will lead to loss of
+funds if used in production.
+
+:::
 
 ## REST Endpoints
 
 The Swagger specifications of the latest Boltz REST API can be found
-:point_right: [here](https://api.boltz.exchange/swagger) :point_left:!
+[here](https://api.boltz.exchange/swagger).
 
 ## Examples
-
-::: danger ⚠️ WARNING: Code for educational purposes only
-
-The sample code below is not feature-complete, does not cover important edge
-cases, and almost certainly will lead to loss of funds if used in production.
-
-:::
 
 Below are some examples covering the flow of a given swap type from beginning to
 end, using API v2 and its WebSocket.

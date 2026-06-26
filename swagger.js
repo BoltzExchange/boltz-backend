@@ -10,6 +10,14 @@ const options = {
     info: {
       title: 'Boltz API',
       version: packageJson.version,
+      description:
+        '## ⚠️ DO NOT INTEGRATE THIS API DIRECTLY ⚠️\n\n' +
+        'All Boltz integrations must use an official SDK or client library. ' +
+        'They handle the cryptography, the swap state machine, and the ' +
+        'fund-recovery edge cases for you. Integrating the API directly ' +
+        'is error-prone and will lead to **loss of funds**.\n\n' +
+        'Official SDK list available ' +
+        '[here](https://api.docs.boltz.exchange/libraries.html)!',
     },
   },
   apis: [

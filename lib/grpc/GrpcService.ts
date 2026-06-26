@@ -450,7 +450,7 @@ class GrpcService {
             (m) => m.hasSymbol(tx.chain),
           );
           if (manager !== undefined) {
-            const received = await manager.getClaimedAmount(tx.hex);
+            const received = await manager.getReceivedAmount(tx.hex);
             if (received !== undefined) {
               txGrpc.amountReceived = received.amount.toString();
 
@@ -680,6 +680,28 @@ class GrpcService {
         this.logger.debug('Clearing entire swap update cache');
         await this.api.swapInfos.cache.clear();
       }
+
+      return {};
+    });
+  };
+
+  public devRefreshBalanceCache: handleUnaryCall<
+    boltzrpc.DevRefreshBalanceCacheRequest,
+    boltzrpc.DevRefreshBalanceCacheResponse
+  > = async (call, callback) => {
+    await GrpcService.handleCallback(call, callback, async () => {
+      const { symbol } = call.request;
+      const target =
+        symbol !== undefined && symbol !== null && symbol !== ''
+          ? symbol
+          : undefined;
+
+      this.logger.debug(
+        target !== undefined
+          ? `Refreshing balance cache for ${target}`
+          : 'Refreshing entire balance cache',
+      );
+      await this.service.refreshBalanceCache(target);
 
       return {};
     });

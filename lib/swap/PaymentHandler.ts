@@ -66,6 +66,11 @@ type SwapNurseryEvents = {
   'invoice.failedToPay': Swap;
   'invoice.paid': Swap;
   'claim.pending': Swap | ChainSwapInfo;
+  'claim.failure': {
+    swap: Swap | ChainSwapInfo;
+    symbol: string;
+    error: string;
+  };
   claim: {
     swap: Swap | ChainSwapInfo;
   };
@@ -123,10 +128,7 @@ class PaymentHandler {
     this.selfPaymentClient = new SelfPaymentClient(this.logger, swapNursery);
   }
 
-  public payInvoice = async (
-    swap: Swap,
-    outgoingChannelId?: string,
-  ): Promise<Buffer | undefined> => {
+  public payInvoice = async (swap: Swap): Promise<Buffer | undefined> => {
     this.logger.verbose(`Paying invoice of Swap ${swap.id}`);
 
     if (swap.status !== SwapUpdateEvent.InvoicePending) {
@@ -219,7 +221,6 @@ class PaymentHandler {
         paymentHash,
         payments,
         cltvLimit,
-        outgoingChannelId,
         preferredNode?.timePreference,
       );
 
@@ -227,7 +228,7 @@ class PaymentHandler {
         return await this.settleInvoice(swap, payResponse);
       }
     } catch (error) {
-      return this.handlePaymentFailure(swap, node, error, outgoingChannelId);
+      return this.handlePaymentFailure(swap, node, error);
     }
 
     return undefined;
@@ -237,15 +238,9 @@ class PaymentHandler {
     swap: Swap,
     lightningClient: LightningClient,
     error: unknown,
-    outgoingChannelId?: string,
   ): Promise<Buffer | undefined> => {
     if (lightningClient instanceof LndClient) {
-      return this.handleLndPaymentFailure(
-        swap,
-        lightningClient,
-        error,
-        outgoingChannelId,
-      );
+      return this.handleLndPaymentFailure(swap, lightningClient, error);
     } else if (lightningClient instanceof ClnClient) {
       return this.handleClnPaymentFailure(swap, error);
     }
@@ -257,16 +252,11 @@ class PaymentHandler {
     swap: Swap,
     lndClient: LndClient,
     error: unknown,
-    outgoingChannelId?: string,
   ): Promise<Buffer | undefined> => {
     const errorMessage =
       typeof error === 'number'
         ? LndClient.formatPaymentFailureReason(error as any)
         : formatError(error);
-
-    if (outgoingChannelId !== undefined) {
-      throw errorMessage;
-    }
 
     if (
       errorMessage === PaymentHandler.errCltvTooSmall ||

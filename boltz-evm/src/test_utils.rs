@@ -1,9 +1,28 @@
-use crate::{Config, ContractAddresses, Manager};
+use crate::{Address, Config, ContractAddresses, Manager};
 use crate::{English, MnemonicBuilder};
+use alloy::signers::SignerSync;
+use alloy::signers::local::PrivateKeySigner;
 use boltz_cache::{Cache, MemCache};
 
 pub const MNEMONIC: &str = "test test test test test test test test test test test junk";
 pub const PROVIDER: &str = "http://127.0.0.1:8545";
+
+pub const SIGNER_KEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
+pub fn signer() -> PrivateKeySigner {
+    SIGNER_KEY.parse().unwrap()
+}
+
+pub fn signer_address() -> Address {
+    signer().address()
+}
+
+pub fn sign_message(message: &[u8]) -> String {
+    format!(
+        "0x{}",
+        hex::encode(signer().sign_message_sync(message).unwrap().as_bytes())
+    )
+}
 
 pub const ETHER_SWAP_ADDRESS: &str = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 pub const ERC20_SWAP_ADDRESS: &str = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";

@@ -229,6 +229,8 @@ enum DevCommands {
     ClearSwapUpdateCache { id: Option<String> },
     #[command(about = "Dumps the heap of the daemon into a file")]
     HeapDump { path: Option<String> },
+    #[command(about = "Refreshes the balance cache used for liquidity checks")]
+    RefreshBalanceCache { symbol: Option<String> },
     #[command(about = "Sets the log level")]
     SetLogLevel { level: parsers::LogLevel },
     #[command(about = "Subscribes to swap updates via WebSocket")]
@@ -1146,6 +1148,13 @@ async fn run_command(cli: Cli) -> Result<()> {
                 let response = get_grpc_client(&cli)
                     .await?
                     .dev_heap_dump(path.clone())
+                    .await?;
+                print_pretty(&response)?;
+            }
+            DevCommands::RefreshBalanceCache { symbol } => {
+                let response = get_grpc_client(&cli)
+                    .await?
+                    .dev_refresh_balance_cache(symbol.clone())
                     .await?;
                 print_pretty(&response)?;
             }

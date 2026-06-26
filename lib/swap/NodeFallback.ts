@@ -19,10 +19,14 @@ type HolisticInvoice = InvoiceWithRoutingHints & {
 
 class NodeFallback {
   private static readonly addInvoiceTimeout = 10_000;
-  private static readonly invoiceMemoRegex = new RegExp(
-    // Visible ASCII characters, newlines, and the Bitcoin symbol with a maximal length of 500
+  // BOLT11 limits the length of the description field to 639 bytes
+  private static readonly invoiceMemoMaxBytes = 639;
+  private static readonly invoiceMemoBlockedCharsRegex = new RegExp(
+    // Unicode control characters except newlines, and bidirectional
+    // control characters that can spoof how the memo is displayed
     // eslint-disable-next-line no-control-regex
-    '^[\x20-\x7E\n\r₿]{0,500}$',
+    '[\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u061C\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069]',
+    'u',
   );
 
   constructor(
@@ -142,8 +146,18 @@ class NodeFallback {
       return;
     }
 
-    if (!NodeFallback.invoiceMemoRegex.test(memo)) {
-      throw Errors.INVALID_INVOICE_MEMO();
+    if (!memo.isWellFormed()) {
+      throw Errors.INVALID_INVOICE_MEMO('not a well-formed string');
+    }
+
+    if (Buffer.byteLength(memo, 'utf8') > NodeFallback.invoiceMemoMaxBytes) {
+      throw Errors.INVALID_INVOICE_MEMO(
+        `exceeds maximum length of ${NodeFallback.invoiceMemoMaxBytes} bytes`,
+      );
+    }
+
+    if (NodeFallback.invoiceMemoBlockedCharsRegex.test(memo)) {
+      throw Errors.INVALID_INVOICE_MEMO('contains blocked characters');
     }
   };
 }

@@ -342,9 +342,11 @@ async fn check_no_inputs_seen_before(
     network: payjoin::bitcoin::Network,
 ) -> Result<()> {
     let receiver = receiver
-        .check_no_inputs_seen_before(&mut |_outpoint| {
-            // TODO: replace with DB-backed seen-input tracking before enabling full proposal flow.
-            Ok(false)
+        .check_no_inputs_seen_before(&mut |outpoint| {
+            persister
+                .repo
+                .insert_seen_input(&outpoint.to_string())
+                .map_err(implementation_error)
         })
         .save(persister)
         .context("failed to persist payjoin seen-input check")?;

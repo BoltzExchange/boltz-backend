@@ -1,10 +1,12 @@
 use crate::db::Pool;
 use crate::db::helpers::QueryResponse;
 use crate::db::models::{
-    NewPayjoinReceiverSession, NewPayjoinReceiverSessionEvent, PayjoinReceiverSession,
-    PayjoinReceiverSessionEvent,
+    NewPayjoinReceiverSeenInput, NewPayjoinReceiverSession, NewPayjoinReceiverSessionEvent,
+    PayjoinReceiverSession, PayjoinReceiverSessionEvent,
 };
-use crate::db::schema::{payjoinReceiverSessionEvents, payjoinReceiverSessions};
+use crate::db::schema::{
+    payjoinReceiverSeenInputs, payjoinReceiverSessionEvents, payjoinReceiverSessions,
+};
 use chrono::Utc;
 use diesel::{
     ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper, insert_into,
@@ -30,6 +32,7 @@ pub trait PayjoinReceiverSessionHelper {
     ) -> QueryResponse<Vec<PayjoinReceiverSessionEvent>>;
     fn close_receiver_session(&self, session_id: i64) -> QueryResponse<usize>;
     fn mark_completed(&self, session_id: i64) -> QueryResponse<usize>;
+    fn insert_seen_input(&self, outpoint: &str) -> QueryResponse<bool>;
 }
 
 #[derive(Clone, Debug)]
@@ -146,6 +149,23 @@ impl PayjoinReceiverSessionHelper for PayjoinReceiverSessionHelperDatabase {
         .set(payjoinReceiverSessions::completedAt.eq(Utc::now()))
         .execute(&mut self.pool.get()?)?)
     }
+
+    #[instrument(
+        name = "db::PayjoinReceiverSessionHelperDatabase::insert_seen_input",
+        skip_all,
+        fields(outpoint = %outpoint)
+    )]
+    fn insert_seen_input(&self, outpoint: &str) -> QueryResponse<bool> {
+        let inserted = insert_into(payjoinReceiverSeenInputs::dsl::payjoinReceiverSeenInputs)
+            .values(&NewPayjoinReceiverSeenInput {
+                outpoint: outpoint.to_string(),
+            })
+            .on_conflict(payjoinReceiverSeenInputs::outpoint)
+            .do_nothing()
+            .execute(&mut self.pool.get()?)?;
+
+        Ok(inserted == 0)
+    }
 }
 
 #[cfg(test)]
@@ -186,5 +206,14 @@ mod test {
             .unwrap()
             .unwrap();
         assert!(completed.completedAt.is_some());
+    }
+
+    #[test]
+    fn test_insert_seen_input_reports_duplicates() {
+        let helper = PayjoinReceiverSessionHelperDatabase::new(get_pool());
+        let outpoint = format!("{}:{}", random_id(), 0);
+
+        assert!(!helper.insert_seen_input(&outpoint).unwrap());
+        assert!(helper.insert_seen_input(&outpoint).unwrap());
     }
 }

@@ -184,7 +184,19 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    #[allow(non_snake_case)]
+    payjoinReceiverSeenInputs (outpoint) {
+        outpoint -> Text,
+        createdAt -> Timestamptz,
+    }
+}
+
 joinable!(chainSwapData -> chainSwaps (swapId));
 joinable!(payjoinReceiverSessionEvents -> payjoinReceiverSessions (sessionId));
 allow_tables_to_appear_in_same_query!(chainSwaps, chainSwapData);
-allow_tables_to_appear_in_same_query!(payjoinReceiverSessions, payjoinReceiverSessionEvents);
+allow_tables_to_appear_in_same_query!(
+    payjoinReceiverSessions,
+    payjoinReceiverSessionEvents,
+    payjoinReceiverSeenInputs
+);

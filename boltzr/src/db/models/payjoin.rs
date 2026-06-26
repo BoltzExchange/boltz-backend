@@ -42,3 +42,10 @@ pub struct NewPayjoinReceiverSessionEvent {
     pub sessionId: i64,
     pub eventData: String,
 }
+
+#[derive(Insertable, PartialEq, Clone, Debug)]
+#[diesel(table_name = crate::db::schema::payjoinReceiverSeenInputs)]
+#[allow(non_snake_case)]
+pub struct NewPayjoinReceiverSeenInput {
+    pub outpoint: String,
+}

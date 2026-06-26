@@ -16,6 +16,6 @@ CREATE TABLE web_hooks (
 
 CREATE INDEX web_hooks_state_idx ON web_hooks (state);
 
-CREATE TRIGGER update_web_hooks_modified_time
-BEFORE UPDATE ON web_hooks FOR EACH ROW
+CREATE TRIGGER update_web_hooks_modified_time BEFORE
+UPDATE ON web_hooks FOR EACH ROW
 EXECUTE FUNCTION update_modified_column ();

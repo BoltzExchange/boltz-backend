@@ -1790,6 +1790,22 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     };
   };
 
+  private emitClaimFailure = (
+    swap: Swap | ChainSwapInfo,
+    symbol: string,
+    error: unknown,
+  ) => {
+    const formattedError = formatError(error);
+    this.logger.error(
+      `Claim of ${symbol} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} failed: ${formattedError}`,
+    );
+    this.emit('claim.failure', {
+      swap,
+      symbol,
+      error: formattedError,
+    });
+  };
+
   private claimUtxo = async (
     swap: Swap | ChainSwapInfo,
     chainClient: IChainClient,
@@ -1802,44 +1818,52 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       return;
     }
 
-    const claimTransaction = constructClaimTransaction(
-      wallet,
-      [
-        constructClaimDetails(
-          this.swapOutputType,
-          wallet,
+    try {
+      const claimTransaction = constructClaimTransaction(
+        wallet,
+        [
+          constructClaimDetails(
+            this.swapOutputType,
+            wallet,
+            swap.type === SwapType.Submarine
+              ? (swap as Swap)
+              : (swap as ChainSwapInfo).receivingData,
+            transaction,
+            preimage,
+          ),
+        ] as ClaimDetails[] | LiquidClaimDetails[],
+        await wallet.getAddress(TransactionLabelRepository.claimLabel(swap)),
+        await chainClient.estimateFee(),
+      );
+
+      const claimTransactionFee = await calculateTransactionFee(
+        chainClient,
+        claimTransaction,
+      );
+
+      await chainClient.sendRawTransaction(TxView.of(claimTransaction).hex);
+
+      this.logger.info(
+        `Claimed ${wallet.symbol} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${TxView.of(claimTransaction).id}`,
+      );
+
+      this.emit('claim', {
+        swap:
           swap.type === SwapType.Submarine
-            ? (swap as Swap)
-            : (swap as ChainSwapInfo).receivingData,
-          transaction,
-          preimage,
-        ),
-      ] as ClaimDetails[] | LiquidClaimDetails[],
-      await wallet.getAddress(TransactionLabelRepository.claimLabel(swap)),
-      await chainClient.estimateFee(),
-    );
-
-    const claimTransactionFee = await calculateTransactionFee(
-      chainClient,
-      claimTransaction,
-    );
-
-    await chainClient.sendRawTransaction(TxView.of(claimTransaction).hex);
-
-    this.logger.info(
-      `Claimed ${wallet.symbol} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${TxView.of(claimTransaction).id}`,
-    );
-
-    this.emit('claim', {
-      swap:
-        swap.type === SwapType.Submarine
-          ? await SwapRepository.setMinerFee(swap as Swap, claimTransactionFee)
-          : await ChainSwapRepository.setClaimMinerFee(
-              swap as ChainSwapInfo,
-              preimage,
-              claimTransactionFee,
-            ),
-    });
+            ? await SwapRepository.setMinerFee(
+                swap as Swap,
+                claimTransactionFee,
+              )
+            : await ChainSwapRepository.setClaimMinerFee(
+                swap as ChainSwapInfo,
+                preimage,
+                claimTransactionFee,
+              ),
+      });
+    } catch (error) {
+      this.emitClaimFailure(swap, wallet.symbol, error);
+      throw error;
+    }
   };
 
   private claimVtxo = async (
@@ -1847,36 +1871,41 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     arkClient: ArkClient,
     preimage: Buffer,
   ) => {
-    const txId =
-      swap.type === SwapType.Submarine
-        ? (swap as Swap).lockupTransactionId
-        : (swap as ChainSwapInfo).receivingData.transactionId;
-    const vout =
-      swap.type === SwapType.Submarine
-        ? (swap as Swap).lockupTransactionVout
-        : (swap as ChainSwapInfo).receivingData.transactionVout;
-
-    const claimTransaction = await arkClient.claimVHtlc(
-      preimage,
-      getHexBuffer(swap.theirRefundPublicKey!),
-      arkClient.pubkey,
-      { txId: txId!, vout: vout! },
-      TransactionLabelRepository.claimLabel(swap),
-    );
-    this.logger.info(
-      `Claimed ${arkClient.symbol} vHTLC of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${claimTransaction}`,
-    );
-
-    this.emit('claim', {
-      swap:
+    try {
+      const txId =
         swap.type === SwapType.Submarine
-          ? await SwapRepository.setMinerFee(swap as Swap, 0)
-          : await ChainSwapRepository.setClaimMinerFee(
-              swap as ChainSwapInfo,
-              preimage,
-              0,
-            ),
-    });
+          ? (swap as Swap).lockupTransactionId
+          : (swap as ChainSwapInfo).receivingData.transactionId;
+      const vout =
+        swap.type === SwapType.Submarine
+          ? (swap as Swap).lockupTransactionVout
+          : (swap as ChainSwapInfo).receivingData.transactionVout;
+
+      const claimTransaction = await arkClient.claimVHtlc(
+        preimage,
+        getHexBuffer(swap.theirRefundPublicKey!),
+        arkClient.pubkey,
+        { txId: txId!, vout: vout! },
+        TransactionLabelRepository.claimLabel(swap),
+      );
+      this.logger.info(
+        `Claimed ${arkClient.symbol} vHTLC of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${claimTransaction}`,
+      );
+
+      this.emit('claim', {
+        swap:
+          swap.type === SwapType.Submarine
+            ? await SwapRepository.setMinerFee(swap as Swap, 0)
+            : await ChainSwapRepository.setClaimMinerFee(
+                swap as ChainSwapInfo,
+                preimage,
+                0,
+              ),
+      });
+    } catch (error) {
+      this.emitClaimFailure(swap, arkClient.symbol, error);
+      throw error;
+    }
   };
 
   private claimEther = async (
@@ -1886,28 +1915,34 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     etherSwapValues: EtherSwapValues,
     preimage: Buffer,
   ) => {
-    const contractTransaction = await contracts.contractHandler.claimEther(
-      swap,
-      preimage,
-      etherSwapValues.amount,
-      etherSwapValues.refundAddress,
-      etherSwapValues.timelock,
-    );
+    try {
+      const contractTransaction = await contracts.contractHandler.claimEther(
+        swap,
+        preimage,
+        etherSwapValues.amount,
+        etherSwapValues.refundAddress,
+        etherSwapValues.timelock,
+      );
 
-    this.logger.info(
-      `Claimed ${manager.networkDetails.name} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
-    );
-    const transactionFee = calculateEthereumTransactionFee(contractTransaction);
-    this.emit('claim', {
-      swap:
-        swap.type === SwapType.Submarine
-          ? await SwapRepository.setMinerFee(swap as Swap, transactionFee)
-          : await ChainSwapRepository.setClaimMinerFee(
-              swap as ChainSwapInfo,
-              preimage,
-              transactionFee,
-            ),
-    });
+      this.logger.info(
+        `Claimed ${manager.networkDetails.name} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
+      );
+      const transactionFee =
+        calculateEthereumTransactionFee(contractTransaction);
+      this.emit('claim', {
+        swap:
+          swap.type === SwapType.Submarine
+            ? await SwapRepository.setMinerFee(swap as Swap, transactionFee)
+            : await ChainSwapRepository.setClaimMinerFee(
+                swap as ChainSwapInfo,
+                preimage,
+                transactionFee,
+              ),
+      });
+    } catch (error) {
+      this.emitClaimFailure(swap, manager.networkDetails.symbol, error);
+      throw error;
+    }
   };
 
   private claimERC20 = async (
@@ -1921,29 +1956,35 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     const wallet = this.walletManager.wallets.get(chainCurrency)!;
 
-    const contractTransaction = await contractHandler.claimToken(
-      swap,
-      wallet.walletProvider as ERC20WalletProvider,
-      preimage,
-      erc20SwapValues.amount,
-      erc20SwapValues.refundAddress,
-      erc20SwapValues.timelock,
-    );
+    try {
+      const contractTransaction = await contractHandler.claimToken(
+        swap,
+        wallet.walletProvider as ERC20WalletProvider,
+        preimage,
+        erc20SwapValues.amount,
+        erc20SwapValues.refundAddress,
+        erc20SwapValues.timelock,
+      );
 
-    this.logger.info(
-      `Claimed ${chainCurrency} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
-    );
-    const transactionFee = calculateEthereumTransactionFee(contractTransaction);
-    this.emit('claim', {
-      swap:
-        swap.type === SwapType.Submarine
-          ? await SwapRepository.setMinerFee(swap as Swap, transactionFee)
-          : await ChainSwapRepository.setClaimMinerFee(
-              swap as ChainSwapInfo,
-              preimage,
-              transactionFee,
-            ),
-    });
+      this.logger.info(
+        `Claimed ${chainCurrency} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
+      );
+      const transactionFee =
+        calculateEthereumTransactionFee(contractTransaction);
+      this.emit('claim', {
+        swap:
+          swap.type === SwapType.Submarine
+            ? await SwapRepository.setMinerFee(swap as Swap, transactionFee)
+            : await ChainSwapRepository.setClaimMinerFee(
+                swap as ChainSwapInfo,
+                preimage,
+                transactionFee,
+              ),
+      });
+    } catch (error) {
+      this.emitClaimFailure(swap, chainCurrency, error);
+      throw error;
+    }
   };
 
   private handleSwapSendFailed = async (

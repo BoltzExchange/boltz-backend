@@ -44,6 +44,11 @@ class EventHandler extends TypedEventEmitter<{
     swap: AnySwap;
     reason: string;
   };
+  'claim.failure': {
+    swap: AnySwap;
+    symbol: string;
+    error: string;
+  };
   'channel.backup': {
     currency: string;
     channelBackup: string;
@@ -203,6 +208,14 @@ class EventHandler extends TypedEventEmitter<{
         status: {
           status: SwapUpdateEvent.TransactionClaimPending,
         },
+      });
+    });
+
+    this.nursery.on('claim.failure', ({ swap, symbol, error }) => {
+      this.emit('claim.failure', {
+        swap,
+        symbol,
+        error,
       });
     });
 

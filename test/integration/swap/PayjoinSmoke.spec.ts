@@ -370,8 +370,6 @@ const writeSidecarConfig = async (cwd: string) => {
 };
 
 const seedSidecarDatabase = async () => {
-  const sidecarDb = getPostgresDatabase();
-  await sidecarDb.init();
   if ((await KeyRepository.getKeyProvider('BTC')) === null) {
     await KeyRepository.addKeyProvider({
       symbol: 'BTC',
@@ -379,7 +377,6 @@ const seedSidecarDatabase = async () => {
       highestUsedIndex: 0,
     });
   }
-  await sidecarDb.close();
 };
 
 const startSmokeSidecar = (

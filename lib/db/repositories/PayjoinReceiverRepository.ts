@@ -1,4 +1,4 @@
-import { Psbt } from 'bitcoinjs-lib';
+import { Transaction } from 'bitcoinjs-lib';
 import { QueryTypes } from 'sequelize';
 import Database from '../Database';
 
@@ -16,6 +16,24 @@ type PayjoinReceiverSessionRow = {
 
 type PayjoinReceiverSessionEventRow = {
   eventData: string;
+};
+
+type SerializedTransaction = {
+  version: number;
+  lock_time: number;
+  input: {
+    previous_output: string;
+    script_sig: string;
+    sequence: number;
+  }[];
+  output: {
+    value: number;
+    script_pubkey: string;
+  }[];
+};
+
+type SerializedPsbt = {
+  unsigned_tx: SerializedTransaction;
 };
 
 class PayjoinReceiverRepository {
@@ -109,38 +127,64 @@ class PayjoinReceiverRepository {
       'FinalizedProposal',
     )?.FinalizedProposal;
 
-    if (typeof finalizedProposal !== 'string') {
+    if (!this.isSerializedPsbt(finalizedProposal)) {
       return undefined;
     }
 
     try {
-      return this.getPsbtUnsignedTransactionId(
-        this.parsePsbt(finalizedProposal),
+      return this.getSerializedTransactionId(finalizedProposal.unsigned_tx);
+    } catch {
+      return undefined;
+    }
+  };
+
+  private static getSerializedTransactionId = (
+    unsignedTx: SerializedTransaction,
+  ): string => {
+    const tx = new Transaction();
+    tx.version = unsignedTx.version;
+    tx.locktime = unsignedTx.lock_time;
+
+    for (const input of unsignedTx.input) {
+      const [txId, vout] = input.previous_output.split(':');
+      tx.addInput(
+        Buffer.from(txId, 'hex').reverse(),
+        Number(vout),
+        input.sequence,
+        Buffer.from(input.script_sig, 'hex'),
       );
-    } catch {
-      return undefined;
     }
+
+    for (const output of unsignedTx.output) {
+      tx.addOutput(Buffer.from(output.script_pubkey, 'hex'), output.value);
+    }
+
+    return tx.getId();
   };
 
-  private static getPsbtUnsignedTransactionId = (
-    psbt: Psbt,
-  ): string | undefined => {
-    const unsignedTx = psbt.data.globalMap.unsignedTx as unknown as {
-      getId?: () => string;
-      tx?: {
-        getId: () => string;
-      };
-    };
-
-    return unsignedTx.tx?.getId() ?? unsignedTx.getId?.();
+  private static isSerializedPsbt = (psbt: unknown): psbt is SerializedPsbt => {
+    return (
+      typeof psbt === 'object' &&
+      psbt !== null &&
+      'unsigned_tx' in psbt &&
+      this.isSerializedTransaction(psbt.unsigned_tx)
+    );
   };
 
-  private static parsePsbt = (psbt: string): Psbt => {
-    try {
-      return Psbt.fromBase64(psbt);
-    } catch {
-      return Psbt.fromHex(psbt);
+  private static isSerializedTransaction = (
+    tx: unknown,
+  ): tx is SerializedTransaction => {
+    if (typeof tx !== 'object' || tx === null) {
+      return false;
     }
+
+    const candidate = tx as SerializedTransaction;
+    return (
+      typeof candidate.version === 'number' &&
+      typeof candidate.lock_time === 'number' &&
+      Array.isArray(candidate.input) &&
+      Array.isArray(candidate.output)
+    );
   };
 
   private static parseEvent = (eventData: string): any | undefined => {

@@ -787,11 +787,14 @@ fn relay_manager() -> &'static Mutex<RelayManager> {
 }
 
 async fn fetch_ohttp_keys(directory: &str) -> Result<ValidatedOhttpKeys> {
-    if let Some(relay) = relay_manager()
-        .lock()
-        .expect("relay manager lock should not be poisoned")
-        .selected_relay()
-    {
+    let selected_relay = {
+        relay_manager()
+            .lock()
+            .expect("relay manager lock should not be poisoned")
+            .selected_relay()
+    };
+
+    if let Some(relay) = selected_relay {
         match fetch_ohttp_keys_for_relay(&relay, directory).await {
             Ok(ohttp_keys) => {
                 return Ok(ValidatedOhttpKeys {
@@ -820,10 +823,12 @@ async fn fetch_ohttp_keys(directory: &str) -> Result<ValidatedOhttpKeys> {
     let relays = payjoin_ohttp_relays();
 
     loop {
-        let failed_relays = relay_manager()
-            .lock()
-            .expect("relay manager lock should not be poisoned")
-            .failed_relays();
+        let failed_relays = {
+            relay_manager()
+                .lock()
+                .expect("relay manager lock should not be poisoned")
+                .failed_relays()
+        };
         let remaining_relays = relays
             .iter()
             .filter(|relay| !failed_relays.contains(relay))

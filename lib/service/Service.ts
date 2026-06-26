@@ -672,6 +672,9 @@ class Service {
     return response;
   };
 
+  public refreshBalanceCache = (symbol?: string): Promise<void> =>
+    this.balanceCheck.refresh(symbol);
+
   /**
    * Gets all supported pairs and their conversion rates
    */

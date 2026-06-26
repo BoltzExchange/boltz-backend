@@ -56,4 +56,63 @@ describe('BalanceCheck', () => {
       ),
     ).rejects.toEqual(Errors.INSUFFICIENT_LIQUIDITY());
   });
+
+  test.each`
+    symbol
+    ${undefined}
+    ${'BTC'}
+  `('should refresh the cache with symbol $symbol', async ({ symbol }) => {
+    const getBalance = jest.spyOn(wallet, 'getBalance');
+    getBalance.mockClear();
+
+    await balanceCheck.refresh(symbol);
+
+    expect(getBalance).toHaveBeenCalledTimes(1);
+    await balanceCheck.checkBalance(
+      'BTC',
+      (await wallet.getBalance()).confirmedBalance,
+    );
+
+    getBalance.mockRestore();
+  });
+
+  test('should throw when refreshing an unknown symbol', async () => {
+    const symbol = 'notFound';
+    await expect(balanceCheck.refresh(symbol)).rejects.toEqual(
+      Errors.CURRENCY_NOT_FOUND(symbol),
+    );
+  });
+
+  test('should throw and keep the cached balance when refreshing a symbol fails', async () => {
+    const getBalance = jest
+      .fn()
+      .mockResolvedValueOnce({ confirmedBalance: 21, unconfirmedBalance: 0 })
+      .mockRejectedValue(new Error('failed to get balance'));
+    const check = new BalanceCheck(Logger.disabledLogger, {
+      wallets: new Map<string, any>([['BTC', { getBalance }]]),
+    } as unknown as WalletManager);
+
+    await check.refresh('BTC');
+    await check.checkBalance('BTC', 21);
+
+    await expect(check.refresh('BTC')).rejects.toThrow('failed to get balance');
+    await check.checkBalance('BTC', 21);
+  });
+
+  test('should not throw when refreshing all balances fails', async () => {
+    const check = new BalanceCheck(Logger.disabledLogger, {
+      wallets: new Map<string, any>([
+        [
+          'BTC',
+          {
+            getBalance: jest
+              .fn()
+              .mockRejectedValue(new Error('failed to get balance')),
+          },
+        ],
+      ]),
+    } as unknown as WalletManager);
+
+    await expect(check.refresh()).resolves.toBeUndefined();
+  });
 });

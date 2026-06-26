@@ -685,6 +685,28 @@ class GrpcService {
     });
   };
 
+  public devRefreshBalanceCache: handleUnaryCall<
+    boltzrpc.DevRefreshBalanceCacheRequest,
+    boltzrpc.DevRefreshBalanceCacheResponse
+  > = async (call, callback) => {
+    await GrpcService.handleCallback(call, callback, async () => {
+      const { symbol } = call.request;
+      const target =
+        symbol !== undefined && symbol !== null && symbol !== ''
+          ? symbol
+          : undefined;
+
+      this.logger.debug(
+        target !== undefined
+          ? `Refreshing balance cache for ${target}`
+          : 'Refreshing entire balance cache',
+      );
+      await this.service.refreshBalanceCache(target);
+
+      return {};
+    });
+  };
+
   public issueJwt: handleUnaryCall<
     boltzrpc.IssueJwtRequest,
     boltzrpc.IssueJwtResponse

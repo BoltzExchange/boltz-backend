@@ -38,7 +38,7 @@ describe('PaymentRequestUtils', () => {
     network: networks.liquid,
   } as any);
 
-  test('should encode BTC BIP21', async () => {
+  test('should encode BTC BIP21', () => {
     const symbol = 'BTC';
     const address = 'bcrt1qxmhp6s7j2n6ffkymnkrtxnxyf40l37h2g3pwlk';
     const satoshis = 1123123;
@@ -54,7 +54,7 @@ describe('PaymentRequestUtils', () => {
     );
   });
 
-  test('should not encode BIP-21 with scientific notation', async () => {
+  test('should not encode BIP-21 with scientific notation', () => {
     const address = 'bcrt1qxmhp6s7j2n6ffkymnkrtxnxyf40l37h2g3pwlk';
     expect(pru.encodeBip21('BTC', address, 42)).toEqual(
       `bitcoin:${address}?amount=0.00000042`,
@@ -67,7 +67,7 @@ describe('PaymentRequestUtils', () => {
     ${0}
   `(
     'should skip encoding amount when satoshis is $satoshis',
-    async ({ satoshis }) => {
+    ({ satoshis }) => {
       const symbol = 'BTC';
       const address = 'bcrt1qxmhp6s7j2n6ffkymnkrtxnxyf40l37h2g3pwlk';
       const label = 'no_amount';
@@ -78,7 +78,7 @@ describe('PaymentRequestUtils', () => {
     },
   );
 
-  test('should encode LTC BIP21', async () => {
+  test('should encode LTC BIP21', () => {
     const symbol = 'LTC';
     const address =
       'ltc1ppdaqq7q0nagcd6v02n7zslck5dg8ugzmx445as9ytr0prc42zq3qa3e64v';
@@ -92,7 +92,7 @@ describe('PaymentRequestUtils', () => {
     );
   });
 
-  test('should encode L-BTC BIP21', async () => {
+  test('should encode L-BTC BIP21', () => {
     const symbol = 'L-BTC';
     const address =
       'ert1qmlpr7ujjcjmm95gg7hrmhcetty59yck9rxrg3qm3dsl0juhrhpvqy7m2jq';
@@ -122,7 +122,7 @@ describe('PaymentRequestUtils', () => {
     });
   });
 
-  test('should encode testnet L-BTC BIP21', async () => {
+  test('should encode testnet L-BTC BIP21', () => {
     const symbol = 'L-BTC';
     const address =
       'ert1qmlpr7ujjcjmm95gg7hrmhcetty59yck9rxrg3qm3dsl0juhrhpvqy7m2jq';
@@ -148,7 +148,7 @@ describe('PaymentRequestUtils', () => {
     });
   });
 
-  test('should not encode L-BTC BIP21 when asset hash is missing', async () => {
+  test('should not encode L-BTC BIP21 when asset hash is missing', () => {
     const symbol = 'L-BTC';
     const address =
       'ert1qmlpr7ujjcjmm95gg7hrmhcetty59yck9rxrg3qm3dsl0juhrhpvqy7m2jq';

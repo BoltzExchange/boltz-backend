@@ -95,6 +95,76 @@ describe('PendingEthereumTransactionRepository', () => {
     });
   });
 
+  describe('addTransaction', () => {
+    test('should be idempotent when the same hash is added again', async () => {
+      const first = await PendingEthereumTransactionRepository.addTransaction(
+        'txHash',
+        networks.Rootstock.symbol,
+        10,
+        100n,
+        'hex',
+      );
+      const second = await PendingEthereumTransactionRepository.addTransaction(
+        'txHash',
+        networks.Rootstock.symbol,
+        10,
+        100n,
+        'hex',
+      );
+
+      expect(second.hash).toEqual(first.hash);
+      await expect(
+        PendingEthereumTransactionRepository.getTransactions(
+          networks.Rootstock.symbol,
+        ),
+      ).resolves.toHaveLength(1);
+    });
+
+    test('should surface a (chain, nonce) collision as a legible error', async () => {
+      await PendingEthereumTransactionRepository.addTransaction(
+        'txHash1',
+        networks.Rootstock.symbol,
+        10,
+        100n,
+        'hex1',
+      );
+
+      await expect(
+        PendingEthereumTransactionRepository.addTransaction(
+          'txHash2',
+          networks.Rootstock.symbol,
+          10,
+          200n,
+          'hex2',
+        ),
+      ).rejects.toEqual(
+        new Error(
+          `nonce 10 on ${networks.Rootstock.symbol} already used by another transaction`,
+        ),
+      );
+    });
+
+    test('should allow the same nonce on a different chain', async () => {
+      await PendingEthereumTransactionRepository.addTransaction(
+        'txHash1',
+        networks.Rootstock.symbol,
+        10,
+        100n,
+        'hex1',
+      );
+
+      await expect(
+        PendingEthereumTransactionRepository.addTransaction(
+          'txHash2',
+          networks.Ethereum.symbol,
+          10,
+          200n,
+          'hex2',
+        ),
+      ).resolves.toBeDefined();
+    });
+  });
+
   describe('getHighestNonce', () => {
     test('should get highest nonce when there are no pending transactions', async () => {
       await expect(

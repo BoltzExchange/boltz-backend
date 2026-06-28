@@ -256,22 +256,26 @@ class InjectedProvider implements Provider {
     addressOrName: string,
     blockTag?: BlockTag,
   ): Promise<number> => {
-    {
-      const highestNonce =
-        await PendingEthereumTransactionRepository.getHighestNonce(
-          this.networkDetails.symbol,
-        );
-      if (highestNonce !== undefined) {
-        return highestNonce;
-      }
-    }
+    // Max of our pending-tx high-water mark and the chain's count, so a stale or
+    // orphaned pending row can't drag the nonce below the chain's floor.
+    const [highestNonce, rpc] = await Promise.all([
+      PendingEthereumTransactionRepository.getHighestNonce(
+        this.networkDetails.symbol,
+      ),
+      this.forwardMethod<number>(
+        'getTransactionCount',
+        addressOrName,
+        blockTag,
+      ),
+    ]);
 
-    return await this.forwardMethod(
-      'getTransactionCount',
-      addressOrName,
-      blockTag,
-    );
+    return Math.max(highestNonce ?? 0, rpc);
   };
+
+  public getConfirmedTransactionCount = (
+    addressOrName: string,
+  ): Promise<number> =>
+    this.forwardMethod<number>('getTransactionCount', addressOrName, 'latest');
 
   public getTransactionReceipt = (
     transactionHash: string,

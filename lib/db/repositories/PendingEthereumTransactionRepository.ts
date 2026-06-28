@@ -1,4 +1,4 @@
-import type { WhereOptions } from 'sequelize';
+import { UniqueConstraintError, type WhereOptions } from 'sequelize';
 import PendingEthereumTransaction from '../models/PendingEthereumTransaction';
 
 class PendingEthereumTransactionRepository {
@@ -47,20 +47,35 @@ class PendingEthereumTransactionRepository {
     );
   };
 
-  public static addTransaction = (
+  // Idempotent on the hash: the signer writes the row under its lock, then
+  // broadcastTransaction writes the same row again after broadcasting.
+  public static addTransaction = async (
     hash: string,
     chain: string,
     nonce: number,
     etherAmount: bigint,
     hex: string,
   ): Promise<PendingEthereumTransaction> => {
-    return PendingEthereumTransaction.create({
-      hash,
-      chain,
-      nonce,
-      etherAmount,
-      hex,
-    });
+    try {
+      const [transaction] = await PendingEthereumTransaction.findOrCreate({
+        where: { hash },
+        defaults: {
+          hash,
+          chain,
+          nonce,
+          etherAmount,
+          hex,
+        },
+      });
+      return transaction;
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        throw new Error(
+          `nonce ${nonce} on ${chain} already used by another transaction`,
+        );
+      }
+      throw error;
+    }
   };
 }
 

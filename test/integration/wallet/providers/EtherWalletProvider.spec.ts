@@ -1,6 +1,7 @@
 import Logger from '../../../../lib/Logger';
 import { etherDecimals } from '../../../../lib/consts/Consts';
 import Database from '../../../../lib/db/Database';
+import PendingEthereumTransaction from '../../../../lib/db/models/PendingEthereumTransaction';
 import TransactionLabel from '../../../../lib/db/models/TransactionLabel';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
 import { bumpGasLimit } from '../../../../lib/wallet/ethereum/EthereumUtils';
@@ -81,6 +82,11 @@ describe('EtherWalletProvider', () => {
   });
 
   test('should sweep wallet', async () => {
+    // The earlier send leaves a pending row that the tracker would normally
+    // reap once it confirms; there is no tracker here, so drop it ourselves to
+    // avoid double-counting its value against the sweep balance.
+    await PendingEthereumTransaction.destroy({ truncate: true });
+
     const balance = await setup.provider.getBalance(
       await setup.signer.getAddress(),
     );

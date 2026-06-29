@@ -152,6 +152,12 @@ class TimeoutDeltaProvider {
     const chainCurrency = this.currencies.get(
       getChainCurrency(base, quote, swap.orderSide, false),
     )!;
+    const lightningCurrency = getLightningCurrency(
+      base,
+      quote,
+      swap.orderSide,
+      false,
+    );
 
     let blocksLeft: number;
 
@@ -166,8 +172,9 @@ class TimeoutDeltaProvider {
         (swap.timeoutBlockHeight - currentTimestamp) /
           // To minutes
           60 /
-          // To blocks
-          TimeoutDeltaProvider.blockTimes.get(chainCurrency.symbol)!,
+          // To blocks of the lightning currency, which is the unit the CLTV
+          // limit is denominated in
+          TimeoutDeltaProvider.blockTimes.get(lightningCurrency)!,
       );
     } else {
       let currentBlock: number;
@@ -191,7 +198,7 @@ class TimeoutDeltaProvider {
 
       blocksLeft = TimeoutDeltaProvider.convertBlocks(
         chainCurrency.symbol,
-        getLightningCurrency(base, quote, swap.orderSide, false),
+        lightningCurrency,
         swap.timeoutBlockHeight - currentBlock,
       );
     }

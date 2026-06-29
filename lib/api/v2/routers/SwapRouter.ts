@@ -3330,11 +3330,12 @@ class SwapRouter extends RouterBase {
   };
 
   private getSwapStatusMultiple = async (req: Request, res: Response) => {
-    const ids = req.query.ids as string[];
-    if (!Array.isArray(ids)) {
-      errorResponse(this.logger, req, res, 'ids must be an array', 400);
-      return;
-    }
+    // A single `?ids=x` is parsed as a bare string by Express's query parser;
+    // treat it as a one-element array so callers needn't special-case one id.
+    const raw = req.query.ids;
+    const ids = (
+      Array.isArray(raw) ? raw : raw === undefined ? [] : [raw]
+    ) as string[];
 
     if (ids.length > 64) {
       errorResponse(this.logger, req, res, 'too many ids', 400);

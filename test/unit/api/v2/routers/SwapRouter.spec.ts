@@ -320,15 +320,26 @@ describe('SwapRouter', () => {
   });
 
   describe('getSwapStatusMultiple', () => {
-    test('should not get multiple swap statuses when ids is not an array', async () => {
+    test('should return an empty result when ids is missing', async () => {
       const res = mockResponse();
       await swapRouter['getSwapStatusMultiple'](
         mockRequest(undefined, {}),
         res,
       );
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'ids must be an array' });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({});
+    });
+
+    test('should return an empty result when ids is an empty array', async () => {
+      const res = mockResponse();
+      await swapRouter['getSwapStatusMultiple'](
+        mockRequest(undefined, { ids: [] }),
+        res,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({});
     });
 
     test('should not get multiple swap statuses when ids contains non-strings', async () => {
@@ -358,6 +369,19 @@ describe('SwapRouter', () => {
       const res = mockResponse();
       await swapRouter['getSwapStatusMultiple'](
         mockRequest(undefined, { ids: ['swapId'] }),
+        res,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        swapId: await swapInfos.get('swapId'),
+      });
+    });
+
+    test('should get a single status when ids is a bare string (one ?ids=x param)', async () => {
+      const res = mockResponse();
+      await swapRouter['getSwapStatusMultiple'](
+        mockRequest(undefined, { ids: 'swapId' }),
         res,
       );
 

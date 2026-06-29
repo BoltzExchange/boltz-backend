@@ -56,7 +56,10 @@ describe('CreationHook', () => {
     `('should handle hook on data $action', ({ action, result }) => {
       const pendingHookId = '1';
       const pendingHook = jest.fn();
-      hook['pendingHooks'].set(pendingHookId, pendingHook);
+      hook['pendingHooks'].set(pendingHookId, {
+        resolve: pendingHook,
+        fallback: hook['defaultAction'],
+      });
 
       let emitData: any;
       stream.on = jest.fn().mockImplementation((event: string, data: any) => {
@@ -131,7 +134,7 @@ describe('CreationHook', () => {
       };
 
       const promise = hook.hook(SwapType.Submarine, params);
-      hook['pendingHooks'].get(params.id)?.(Action.Accept);
+      hook['pendingHooks'].get(params.id)?.resolve(Action.Accept);
       await promise;
 
       expect(stream.write).toHaveBeenCalledTimes(1);
@@ -162,7 +165,7 @@ describe('CreationHook', () => {
       };
 
       const promise = hook.hook(SwapType.ReverseSubmarine, params);
-      hook['pendingHooks'].get(params.id)?.(Action.Accept);
+      hook['pendingHooks'].get(params.id)?.resolve(Action.Accept);
       await promise;
 
       expect(stream.write).toHaveBeenCalledTimes(1);
@@ -192,7 +195,7 @@ describe('CreationHook', () => {
       };
 
       const promise = hook.hook(SwapType.Chain, params);
-      hook['pendingHooks'].get(params.id)?.(Action.Accept);
+      hook['pendingHooks'].get(params.id)?.resolve(Action.Accept);
       await promise;
 
       expect(stream.write).toHaveBeenCalledTimes(1);
@@ -225,7 +228,10 @@ describe('CreationHook', () => {
 
     const pendingHookId = '1';
     const pendingHook = jest.fn();
-    hook['pendingHooks'].set(pendingHookId, pendingHook);
+    hook['pendingHooks'].set(pendingHookId, {
+      resolve: pendingHook,
+      fallback: hook['defaultAction'],
+    });
 
     hook['closeStream']();
 

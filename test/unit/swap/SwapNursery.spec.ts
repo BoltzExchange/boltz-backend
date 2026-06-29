@@ -10,10 +10,12 @@ import {
 } from '../../../lib/consts/Enums';
 import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
+import type Swap from '../../../lib/db/models/Swap';
 import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SendApprovalHoldRepository from '../../../lib/db/repositories/SendApprovalHoldRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import type { LightningClient } from '../../../lib/lightning/LightningClient';
@@ -22,6 +24,7 @@ import { Signer } from '../../../lib/proto/boltzrpc';
 import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
 import Errors from '../../../lib/swap/Errors';
 import SwapNursery from '../../../lib/swap/SwapNursery';
+import { SendApprovalAction } from '../../../lib/swap/hooks/SendApprovalHook';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import {
   queryERC20SwapValuesFromLock,
@@ -36,6 +39,15 @@ jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 jest.mock('../../../lib/db/repositories/ChainSwapRepository');
 jest.mock('../../../lib/db/repositories/WrappedSwapRepository');
 jest.mock('../../../lib/db/repositories/RefundTransactionRepository');
+jest.mock('../../../lib/db/repositories/SendApprovalHoldRepository', () => ({
+  __esModule: true,
+  default: {
+    create: jest.fn(),
+    remove: jest.fn(),
+    getAll: jest.fn().mockResolvedValue([]),
+    exists: jest.fn().mockResolvedValue(false),
+  },
+}));
 jest.mock('../../../lib/wallet/ethereum/contracts/ContractUtils', () => ({
   queryEtherSwapValuesFromLock: jest.fn(),
   queryERC20SwapValuesFromLock: jest.fn(),
@@ -351,6 +363,251 @@ describe('SwapNursery', () => {
         );
       },
     );
+
+    const makeSendApprovalNursery = () => {
+      const signerControlRegistry = SignerControlRegistry.getInstance();
+      (signerControlRegistry as any)['disabledSigners'].clear();
+      (signerControlRegistry as any)['repository'] = undefined;
+
+      return new SwapNursery(
+        mockLogger,
+        {} as any,
+        mockNotifications,
+        {} as any,
+        {} as any,
+        {} as any,
+        mockWalletManager,
+        {} as any,
+        0,
+        mockClaimer,
+        mockChainSwapSigner,
+        {} as any,
+        {} as any,
+      );
+    };
+
+    const chainSendSwap = {
+      id: 'chain-swap-id',
+      pair: 'BTC/BTC',
+      type: SwapType.Chain,
+      sendingData: {
+        expectedAmount: 100_000,
+        lockupAddress: 'bcrt1lockup',
+        symbol: 'BTC',
+      },
+    };
+    const reverseSendSwap = {
+      id: 'reverse-swap-id',
+      pair: 'BTC/BTC',
+      type: SwapType.ReverseSubmarine,
+      onchainAmount: 90_000,
+      lockupAddress: 'bcrt1reverse',
+    };
+
+    test.each`
+      method           | swap
+      ${'lockupUtxo'}  | ${chainSendSwap}
+      ${'lockupVtxo'}  | ${chainSendSwap}
+      ${'lockupEther'} | ${chainSendSwap}
+      ${'lockupERC20'} | ${chainSendSwap}
+      ${'lockupUtxo'}  | ${reverseSendSwap}
+      ${'lockupVtxo'}  | ${reverseSendSwap}
+      ${'lockupEther'} | ${reverseSendSwap}
+      ${'lockupERC20'} | ${reverseSendSwap}
+    `(
+      'should fail $method ($swap.type) when the send approval is rejected',
+      async ({ method, swap }) => {
+        const nursery = makeSendApprovalNursery();
+
+        const wallet = {
+          symbol: 'BTC',
+          sendToAddress: jest.fn(),
+        };
+        const handleSwapSendFailedSpy = jest
+          .spyOn(nursery as any, 'handleSwapSendFailed')
+          .mockResolvedValue(undefined);
+
+        if (method === 'lockupUtxo') {
+          await (nursery as any)[method](
+            swap,
+            mockChainClient,
+            wallet,
+            SendApprovalAction.Reject,
+          );
+        } else {
+          await (nursery as any)[method](
+            swap,
+            wallet,
+            SendApprovalAction.Reject,
+          );
+        }
+
+        expect(wallet.sendToAddress).not.toHaveBeenCalled();
+        expect(handleSwapSendFailedSpy).toHaveBeenCalledTimes(1);
+        expect(
+          (handleSwapSendFailedSpy.mock.calls[0][2] as Error).message,
+        ).toEqual(Errors.HOOK_REJECTED().message);
+      },
+    );
+
+    test('should fail the lockup defensively when the approval is a hold', async () => {
+      const nursery = makeSendApprovalNursery();
+      const wallet = { symbol: 'BTC', sendToAddress: jest.fn() };
+      const handleSwapSendFailedSpy = jest
+        .spyOn(nursery as any, 'handleSwapSendFailed')
+        .mockResolvedValue(undefined);
+
+      await (nursery as any).lockupVtxo(
+        chainSendSwap,
+        wallet,
+        SendApprovalAction.Hold,
+      );
+
+      expect(wallet.sendToAddress).not.toHaveBeenCalled();
+      expect(handleSwapSendFailedSpy).toHaveBeenCalledTimes(1);
+      expect(
+        (handleSwapSendFailedSpy.mock.calls[0][2] as Error).message,
+      ).toEqual(Errors.HOOK_REJECTED().message);
+    });
+
+    test('should lock up when the send approval is accepted', async () => {
+      const nursery = makeSendApprovalNursery();
+
+      const wallet = {
+        symbol: 'BTC',
+        sendToAddress: jest
+          .fn()
+          .mockResolvedValue({ transactionId: 'txid', vout: 0, fee: 1 }),
+      };
+
+      await (nursery as any).lockupVtxo(
+        chainSendSwap,
+        wallet,
+        SendApprovalAction.Accept,
+      );
+
+      expect(wallet.sendToAddress).toHaveBeenCalledTimes(1);
+      expect(wallet.sendToAddress).toHaveBeenCalledWith(
+        chainSendSwap.sendingData.lockupAddress,
+        chainSendSwap.sendingData.expectedAmount,
+        undefined,
+        expect.anything(),
+      );
+    });
+
+    test.each`
+      swap               | amount
+      ${chainSendSwap}   | ${chainSendSwap.sendingData.expectedAmount}
+      ${reverseSendSwap} | ${reverseSendSwap.onchainAmount}
+    `(
+      'should resolve send approval with the $swap.type lockup amount',
+      async ({ swap, amount }) => {
+        const nursery = makeSendApprovalNursery();
+        const hook = jest.fn().mockResolvedValue(SendApprovalAction.Accept);
+        (nursery as any).sendApprovalHook = { hook };
+
+        await expect(
+          (nursery as any).resolveSendApproval(swap, 'BTC'),
+        ).resolves.toEqual(SendApprovalAction.Accept);
+
+        expect(hook).toHaveBeenCalledWith(
+          swap.id,
+          swap.pair,
+          'BTC',
+          amount,
+          undefined,
+        );
+      },
+    );
+
+    test('should share one in-flight send approval per swap id', async () => {
+      const nursery = makeSendApprovalNursery();
+      let resolveHook!: (action: SendApprovalAction) => void;
+      const hook = jest.fn().mockReturnValue(
+        new Promise<SendApprovalAction>((resolve) => {
+          resolveHook = resolve;
+        }),
+      );
+      (nursery as any).sendApprovalHook = { hook };
+
+      const first = (nursery as any).resolveSendApproval(chainSendSwap, 'BTC');
+      const second = (nursery as any).resolveSendApproval(chainSendSwap, 'BTC');
+
+      expect(second).toBe(first);
+      // the deduped hook call fires after the async already-held check
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(hook).toHaveBeenCalledTimes(1);
+
+      resolveHook(SendApprovalAction.Accept);
+      await expect(first).resolves.toEqual(SendApprovalAction.Accept);
+
+      await (nursery as any).resolveSendApproval(chainSendSwap, 'BTC');
+      expect(hook).toHaveBeenCalledTimes(1);
+
+      await (nursery as any).handleSendApproval(
+        chainSendSwap,
+        SendApprovalAction.Accept,
+      );
+
+      await (nursery as any).resolveSendApproval(chainSendSwap, 'BTC');
+      expect(hook).toHaveBeenCalledTimes(2);
+    });
+
+    test('keeps the in-flight decision until it is persisted', async () => {
+      const nursery = makeSendApprovalNursery();
+      const hook = jest.fn().mockResolvedValue(SendApprovalAction.Hold);
+      (nursery as any).sendApprovalHook = { hook };
+
+      await expect(
+        (nursery as any).resolveSendApproval(chainSendSwap, 'BTC'),
+      ).resolves.toEqual(SendApprovalAction.Hold);
+
+      await (nursery as any).resolveSendApproval(chainSendSwap, 'BTC');
+
+      expect(hook).toHaveBeenCalledTimes(1);
+      expect(SendApprovalHoldRepository.exists).toHaveBeenCalledTimes(1);
+    });
+
+    test('should ask with a hold fallback when the swap is already held', async () => {
+      const nursery = makeSendApprovalNursery();
+      const hook = jest.fn().mockResolvedValue(SendApprovalAction.Hold);
+      (nursery as any).sendApprovalHook = { hook };
+      (SendApprovalHoldRepository.exists as jest.Mock).mockResolvedValueOnce(
+        true,
+      );
+
+      await (nursery as any).resolveSendApproval(chainSendSwap, 'BTC');
+
+      expect(hook).toHaveBeenCalledWith(
+        chainSendSwap.id,
+        chainSendSwap.pair,
+        'BTC',
+        chainSendSwap.sendingData.expectedAmount,
+        SendApprovalAction.Hold,
+      );
+    });
+
+    test('should keep an already-held swap held when the hook is disconnected', async () => {
+      const nursery = makeSendApprovalNursery();
+      (SendApprovalHoldRepository.exists as jest.Mock).mockResolvedValueOnce(
+        true,
+      );
+
+      await expect(
+        (nursery as any).resolveSendApproval(chainSendSwap, 'BTC'),
+      ).resolves.toEqual(SendApprovalAction.Hold);
+    });
+
+    test('should fall back to the configured default on first contact when the hook is disconnected', async () => {
+      const nursery = makeSendApprovalNursery();
+      (SendApprovalHoldRepository.exists as jest.Mock).mockResolvedValueOnce(
+        false,
+      );
+
+      await expect(
+        (nursery as any).resolveSendApproval(chainSendSwap, 'BTC'),
+      ).resolves.toEqual(SendApprovalAction.Accept);
+    });
 
     test('should not register chain swaps for claim when UTXO lockup signer is disabled', async () => {
       const guardedNursery = await createGuardedNursery(
@@ -713,6 +970,491 @@ describe('SwapNursery', () => {
     });
   });
 
+  describe('invoice.paid', () => {
+    const getInvoicePaidHandler = async () => {
+      await swapNursery.init([mockCurrency]);
+      const handler = (swapNursery as any).lightningNursery.on.mock.calls.find(
+        ([event]: [string]) => event === 'invoice.paid',
+      )?.[1];
+      expect(handler).toBeDefined();
+      return handler;
+    };
+
+    test('should warn and not ask approval when the reverse swap is missing', async () => {
+      jest
+        .spyOn(ReverseSwapRepository, 'getReverseSwap')
+        .mockResolvedValue(null);
+      (swapNursery as any).sendApprovalHook = { hook: jest.fn() };
+
+      const handler = await getInvoicePaidHandler();
+      await handler({ id: 'missing' });
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Could not find Reverse Swap with id: missing',
+      );
+      expect((swapNursery as any).sendApprovalHook.hook).not.toHaveBeenCalled();
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith('missing');
+    });
+
+    test('should not ask approval when the reverse swap status is not eligible', async () => {
+      jest.spyOn(ReverseSwapRepository, 'getReverseSwap').mockResolvedValue({
+        id: 'reverse-swap-id',
+        pair: 'BTC/BTC',
+        orderSide: OrderSide.BUY,
+        status: SwapUpdateEvent.TransactionMempool,
+      } as ReverseSwap);
+      (swapNursery as any).sendApprovalHook = { hook: jest.fn() };
+
+      const handler = await getInvoicePaidHandler();
+      await handler({ id: 'reverse-swap-id' });
+
+      expect((swapNursery as any).sendApprovalHook.hook).not.toHaveBeenCalled();
+    });
+
+    test.each`
+      type                        | method           | hasChainClient
+      ${CurrencyType.BitcoinLike} | ${'lockupUtxo'}  | ${true}
+      ${CurrencyType.Ether}       | ${'lockupEther'} | ${false}
+      ${CurrencyType.ERC20}       | ${'lockupERC20'} | ${false}
+      ${CurrencyType.Ark}         | ${'lockupVtxo'}  | ${false}
+    `(
+      'should resolve the send approval and thread it into $method',
+      async ({ type, method, hasChainClient }) => {
+        const reverseSwap = {
+          id: 'reverse-swap-id',
+          pair: 'BTC/BTC',
+          type: SwapType.ReverseSubmarine,
+          orderSide: OrderSide.BUY,
+          status: SwapUpdateEvent.SwapCreated,
+          onchainAmount: 100_000,
+          nodeId: mockLndClient.id,
+        } as unknown as ReverseSwap;
+        jest
+          .spyOn(ReverseSwapRepository, 'getReverseSwap')
+          .mockResolvedValue(reverseSwap);
+        (swapNursery as any).sendApprovalHook = {
+          hook: jest.fn().mockResolvedValue(SendApprovalAction.Reject),
+        };
+        const methodSpy = jest
+          .spyOn(swapNursery as any, method)
+          .mockResolvedValue(undefined);
+
+        const handler = await getInvoicePaidHandler();
+        swapNursery.currencies = new Map([['BTC', { ...mockCurrency, type }]]);
+        await handler({ id: reverseSwap.id });
+
+        expect((swapNursery as any).sendApprovalHook.hook).toHaveBeenCalledWith(
+          reverseSwap.id,
+          reverseSwap.pair,
+          'BTC',
+          reverseSwap.onchainAmount,
+          undefined,
+        );
+        expect(methodSpy).toHaveBeenCalledWith(
+          reverseSwap,
+          ...(hasChainClient ? [mockCurrency.chainClient] : []),
+          mockWallet,
+          SendApprovalAction.Reject,
+          mockLndClient,
+        );
+      },
+    );
+
+    test('should record a hold and not lock up when the send approval holds', async () => {
+      const reverseSwap = {
+        id: 'reverse-swap-id',
+        pair: 'BTC/BTC',
+        type: SwapType.ReverseSubmarine,
+        orderSide: OrderSide.BUY,
+        status: SwapUpdateEvent.SwapCreated,
+        onchainAmount: 100_000,
+        nodeId: mockLndClient.id,
+      } as unknown as ReverseSwap;
+      jest
+        .spyOn(ReverseSwapRepository, 'getReverseSwap')
+        .mockResolvedValue(reverseSwap);
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockResolvedValue(SendApprovalAction.Hold),
+      };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'lockupReverseSwap')
+        .mockResolvedValue(undefined);
+
+      const handler = await getInvoicePaidHandler();
+      swapNursery.currencies = new Map([
+        ['BTC', { ...mockCurrency, type: CurrencyType.BitcoinLike }],
+      ]);
+      await handler({ id: reverseSwap.id });
+
+      expect(SendApprovalHoldRepository.create).toHaveBeenCalledWith({
+        swapId: reverseSwap.id,
+        type: SwapType.ReverseSubmarine,
+      });
+      expect(lockupSpy).not.toHaveBeenCalled();
+    });
+
+    test('should not lock up when the reverse swap becomes final while approval is pending', async () => {
+      const reverseSwap = {
+        id: 'reverse-swap-id',
+        pair: 'BTC/BTC',
+        type: SwapType.ReverseSubmarine,
+        orderSide: OrderSide.BUY,
+        status: SwapUpdateEvent.SwapCreated,
+        onchainAmount: 100_000,
+        nodeId: mockLndClient.id,
+      } as unknown as ReverseSwap;
+      jest
+        .spyOn(ReverseSwapRepository, 'getReverseSwap')
+        .mockResolvedValueOnce(reverseSwap)
+        .mockResolvedValueOnce({
+          ...reverseSwap,
+          status: SwapUpdateEvent.TransactionRefunded,
+        } as ReverseSwap);
+      let resolveApproval!: (action: SendApprovalAction) => void;
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockReturnValue(
+          new Promise<SendApprovalAction>((resolve) => {
+            resolveApproval = resolve;
+          }),
+        ),
+      };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'lockupReverseSwap')
+        .mockResolvedValue(undefined);
+
+      const handler = await getInvoicePaidHandler();
+      const handlerPromise = handler({ id: reverseSwap.id });
+      await new Promise((resolve) => setImmediate(resolve));
+
+      resolveApproval(SendApprovalAction.Accept);
+      await handlerPromise;
+
+      expect(lockupSpy).not.toHaveBeenCalled();
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        reverseSwap.id,
+      );
+      expect((swapNursery as any).pendingSendApprovals.size).toEqual(0);
+    });
+  });
+
+  describe('retryHeldLockup', () => {
+    const heldReverseSwap = {
+      id: 'reverse-swap-id',
+      pair: 'BTC/BTC',
+      type: SwapType.ReverseSubmarine,
+      orderSide: OrderSide.BUY,
+      status: SwapUpdateEvent.SwapCreated,
+      onchainAmount: 100_000,
+    } as unknown as ReverseSwap;
+
+    test('should re-drive a held reverse swap and lock up when accepted', async () => {
+      jest
+        .spyOn(ReverseSwapRepository, 'getReverseSwap')
+        .mockResolvedValue(heldReverseSwap);
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockResolvedValue(SendApprovalAction.Accept),
+      };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'lockupReverseSwap')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: heldReverseSwap.id,
+        type: SwapType.ReverseSubmarine,
+      });
+
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        heldReverseSwap.id,
+      );
+      expect(lockupSpy).toHaveBeenCalledWith(
+        heldReverseSwap,
+        SendApprovalAction.Accept,
+      );
+    });
+
+    test('should keep holding and not lock up when still held', async () => {
+      jest
+        .spyOn(ReverseSwapRepository, 'getReverseSwap')
+        .mockResolvedValue(heldReverseSwap);
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockResolvedValue(SendApprovalAction.Hold),
+      };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'lockupReverseSwap')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: heldReverseSwap.id,
+        type: SwapType.ReverseSubmarine,
+      });
+
+      expect(lockupSpy).not.toHaveBeenCalled();
+    });
+
+    test('should drop the hold for a missing reverse swap', async () => {
+      jest
+        .spyOn(ReverseSwapRepository, 'getReverseSwap')
+        .mockResolvedValue(null);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: 'missing',
+        type: SwapType.ReverseSubmarine,
+      });
+
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith('missing');
+    });
+
+    test('should fail a held reverse swap when rejected', async () => {
+      jest
+        .spyOn(ReverseSwapRepository, 'getReverseSwap')
+        .mockResolvedValue(heldReverseSwap);
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockResolvedValue(SendApprovalAction.Reject),
+      };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'lockupReverseSwap')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: heldReverseSwap.id,
+        type: SwapType.ReverseSubmarine,
+      });
+
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        heldReverseSwap.id,
+      );
+      expect(lockupSpy).toHaveBeenCalledWith(
+        heldReverseSwap,
+        SendApprovalAction.Reject,
+      );
+    });
+
+    const heldChainSwap = {
+      id: 'chain-swap-id',
+      pair: 'BTC/BTC',
+      type: SwapType.Chain,
+      status: SwapUpdateEvent.TransactionConfirmed,
+      createdRefundSignature: false,
+      sendingData: {
+        transactionId: null,
+        expectedAmount: 100_000,
+        symbol: 'BTC',
+      },
+    };
+
+    test('should re-drive a held chain swap and lock up when accepted', async () => {
+      mockGetChainSwapResult = heldChainSwap;
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockResolvedValue(SendApprovalAction.Accept),
+      };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'handleChainSwapLockup')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: heldChainSwap.id,
+        type: SwapType.Chain,
+      });
+
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        heldChainSwap.id,
+      );
+      expect(lockupSpy).toHaveBeenCalledWith(
+        heldChainSwap,
+        SendApprovalAction.Accept,
+      );
+    });
+
+    test('should fail a held chain swap when rejected', async () => {
+      mockGetChainSwapResult = heldChainSwap;
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockResolvedValue(SendApprovalAction.Reject),
+      };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'handleChainSwapLockup')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: heldChainSwap.id,
+        type: SwapType.Chain,
+      });
+
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        heldChainSwap.id,
+      );
+      expect(lockupSpy).toHaveBeenCalledWith(
+        heldChainSwap,
+        SendApprovalAction.Reject,
+      );
+    });
+
+    test('should drop the hold for a held chain swap in a final state', async () => {
+      mockGetChainSwapResult = {
+        ...heldChainSwap,
+        status: SwapUpdateEvent.TransactionFailed,
+      };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'handleChainSwapLockup')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: heldChainSwap.id,
+        type: SwapType.Chain,
+      });
+
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        heldChainSwap.id,
+      );
+      expect(lockupSpy).not.toHaveBeenCalled();
+    });
+
+    test('should drop the hold for a held chain swap with rejected zero-conf', async () => {
+      mockGetChainSwapResult = {
+        ...heldChainSwap,
+        status: SwapUpdateEvent.TransactionZeroConfRejected,
+      };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'handleChainSwapLockup')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: heldChainSwap.id,
+        type: SwapType.Chain,
+      });
+
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        heldChainSwap.id,
+      );
+      expect(lockupSpy).not.toHaveBeenCalled();
+    });
+
+    test('should drop the hold for a chain swap that already locked up', async () => {
+      mockGetChainSwapResult = {
+        ...heldChainSwap,
+        sendingData: { ...heldChainSwap.sendingData, transactionId: 'sent' },
+      };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'handleChainSwapLockup')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: heldChainSwap.id,
+        type: SwapType.Chain,
+      });
+
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        heldChainSwap.id,
+      );
+      expect(lockupSpy).not.toHaveBeenCalled();
+    });
+
+    test('should keep holding a chain swap that is still held', async () => {
+      mockGetChainSwapResult = heldChainSwap;
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockResolvedValue(SendApprovalAction.Hold),
+      };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'handleChainSwapLockup')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: heldChainSwap.id,
+        type: SwapType.Chain,
+      });
+
+      expect(SendApprovalHoldRepository.create).toHaveBeenCalledWith({
+        swapId: heldChainSwap.id,
+        type: SwapType.Chain,
+      });
+      expect(lockupSpy).not.toHaveBeenCalled();
+    });
+
+    test('should drop the hold for a missing chain swap', async () => {
+      mockGetChainSwapResult = null;
+      (swapNursery as any).sendApprovalHook = { hook: jest.fn() };
+      const lockupSpy = jest
+        .spyOn(swapNursery as any, 'handleChainSwapLockup')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: 'chain-swap-id',
+        type: SwapType.Chain,
+      });
+
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        'chain-swap-id',
+      );
+      expect((swapNursery as any).sendApprovalHook.hook).not.toHaveBeenCalled();
+      expect(lockupSpy).not.toHaveBeenCalled();
+    });
+
+    test('should leave a held submarine swap that is still pending', async () => {
+      jest
+        .spyOn(SwapRepository, 'getSwap')
+        .mockResolvedValue({ status: SwapUpdateEvent.InvoicePending } as any);
+      const reverseSpy = jest.spyOn(ReverseSwapRepository, 'getReverseSwap');
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: 'submarine-id',
+        type: SwapType.Submarine,
+      });
+
+      expect(SendApprovalHoldRepository.remove).not.toHaveBeenCalled();
+      expect(reverseSpy).not.toHaveBeenCalled();
+    });
+
+    test('should drop the hold for a missing submarine swap', async () => {
+      jest.spyOn(SwapRepository, 'getSwap').mockResolvedValue(null);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: 'submarine-id',
+        type: SwapType.Submarine,
+      });
+
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        'submarine-id',
+      );
+    });
+
+    test('should drop the hold for a submarine swap that left InvoicePending', async () => {
+      jest.spyOn(SwapRepository, 'getSwap').mockResolvedValue({
+        status: SwapUpdateEvent.InvoiceFailedToPay,
+      } as any);
+
+      await (swapNursery as any).retryHeldLockup({
+        swapId: 'submarine-id',
+        type: SwapType.Submarine,
+      });
+
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        'submarine-id',
+      );
+    });
+  });
+
+  describe('retryHeldSendApprovals', () => {
+    test('should re-drive every held swap under the matching lock', async () => {
+      const holds = [
+        { swapId: 'reverse-id', type: SwapType.ReverseSubmarine },
+        { swapId: 'chain-id', type: SwapType.Chain },
+        { swapId: 'submarine-id', type: SwapType.Submarine },
+      ];
+      (SendApprovalHoldRepository.getAll as jest.Mock).mockResolvedValueOnce(
+        holds,
+      );
+      const retrySpy = jest
+        .spyOn(swapNursery as any, 'retryHeldLockup')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).retryHeldSendApprovals();
+
+      expect(retrySpy).toHaveBeenCalledTimes(3);
+      expect(retrySpy).toHaveBeenCalledWith(holds[0]);
+      expect(retrySpy).toHaveBeenCalledWith(holds[1]);
+      expect(retrySpy).toHaveBeenCalledWith(holds[2]);
+    });
+  });
+
   describe('chainSwap.lockup', () => {
     let baseMockChainSwap: ChainSwapInfo;
     let mockTransaction: any;
@@ -721,10 +1463,14 @@ describe('SwapNursery', () => {
     beforeEach(async () => {
       baseMockChainSwap = {
         id: 'test-chain-swap-id',
+        pair: 'BTC/BTC',
         type: SwapType.Chain,
+        status: SwapUpdateEvent.TransactionConfirmed,
         createdRefundSignature: false,
         sendingData: {
           transactionId: null,
+          expectedAmount: 100_000,
+          symbol: 'BTC',
         },
       } as unknown as ChainSwapInfo;
 
@@ -761,18 +1507,44 @@ describe('SwapNursery', () => {
       });
 
       await eventPromise;
+      await new Promise((resolve) => setImmediate(resolve));
 
       expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
         id: baseMockChainSwap.id,
       });
       expect(mockHandleChainSwapLockup).toHaveBeenCalledWith(
         mockGetChainSwapResult,
+        SendApprovalAction.Accept,
       );
       expect(swapNursery.emit).toHaveBeenCalledWith('transaction', {
         confirmed: true,
         transaction: mockTransaction,
         swap: mockGetChainSwapResult,
       });
+    });
+
+    test('should record a hold and not lock up when the send approval holds', async () => {
+      mockGetChainSwapResult = baseMockChainSwap;
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockResolvedValue(SendApprovalAction.Hold),
+      };
+
+      const eventPromise = new Promise<void>((resolve) => {
+        swapNursery.once('transaction', () => resolve());
+      });
+      (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
+        swap: baseMockChainSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+      await eventPromise;
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(SendApprovalHoldRepository.create).toHaveBeenCalledWith({
+        swapId: baseMockChainSwap.id,
+        type: SwapType.Chain,
+      });
+      expect(mockHandleChainSwapLockup).not.toHaveBeenCalled();
     });
 
     test('should return early when fetched swap is null', async () => {
@@ -821,6 +1593,9 @@ describe('SwapNursery', () => {
         'transaction',
         expect.anything(),
       );
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        baseMockChainSwap.id,
+      );
     });
 
     test('should prevent second lockup when sendingData.transactionId exists', async () => {
@@ -850,6 +1625,91 @@ describe('SwapNursery', () => {
         'transaction',
         expect.anything(),
       );
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        baseMockChainSwap.id,
+      );
+    });
+
+    test('should not lock up when the chain swap becomes final while approval is pending', async () => {
+      mockGetChainSwapResult = baseMockChainSwap;
+      let resolveApproval!: (action: SendApprovalAction) => void;
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockReturnValue(
+          new Promise<SendApprovalAction>((resolve) => {
+            resolveApproval = resolve;
+          }),
+        ),
+      };
+
+      (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
+        swap: baseMockChainSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect((swapNursery as any).sendApprovalHook.hook).toHaveBeenCalled();
+
+      mockGetChainSwapResult = {
+        ...baseMockChainSwap,
+        status: SwapUpdateEvent.TransactionFailed,
+      };
+      resolveApproval(SendApprovalAction.Accept);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('final status'),
+      );
+      expect(mockHandleChainSwapLockup).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        baseMockChainSwap.id,
+      );
+      expect((swapNursery as any).pendingSendApprovals.size).toEqual(0);
+    });
+
+    test('should not lock up when zero-conf is rejected while approval is pending', async () => {
+      mockGetChainSwapResult = baseMockChainSwap;
+      let resolveApproval!: (action: SendApprovalAction) => void;
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockReturnValue(
+          new Promise<SendApprovalAction>((resolve) => {
+            resolveApproval = resolve;
+          }),
+        ),
+      };
+
+      (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
+        swap: baseMockChainSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect((swapNursery as any).sendApprovalHook.hook).toHaveBeenCalled();
+
+      mockGetChainSwapResult = {
+        ...baseMockChainSwap,
+        status: SwapUpdateEvent.TransactionZeroConfRejected,
+      };
+      resolveApproval(SendApprovalAction.Accept);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('non-actionable status'),
+      );
+      expect(mockHandleChainSwapLockup).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        baseMockChainSwap.id,
+      );
+      expect((swapNursery as any).pendingSendApprovals.size).toEqual(0);
     });
   });
 
@@ -868,6 +1728,7 @@ describe('SwapNursery', () => {
       const baseMockChainSwap = {
         id: 'test-chain-swap-id',
         type: SwapType.Chain,
+        status: SwapUpdateEvent.SwapCreated,
         sendingData: {
           transactionId: null,
         },
@@ -901,6 +1762,140 @@ describe('SwapNursery', () => {
       expect(swapNursery.emit).not.toHaveBeenCalledWith(
         'transaction',
         expect.anything(),
+      );
+      expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(
+        baseMockChainSwap.id,
+      );
+    });
+
+    test('should thread the resolved approval into the chain lockup', async () => {
+      const listeners: Record<string, (...args: any[]) => Promise<void>> = {};
+      const ethereumNursery = {
+        on: jest.fn(
+          (event: string, callback: (...args: any[]) => Promise<void>) => {
+            listeners[event] = callback;
+          },
+        ),
+        init: jest.fn().mockResolvedValue(undefined),
+      } as any;
+
+      const chainSwap = {
+        id: 'test-chain-swap-id',
+        pair: 'BTC/BTC',
+        type: SwapType.Chain,
+        status: SwapUpdateEvent.SwapCreated,
+        sendingData: {
+          transactionId: null,
+          expectedAmount: 100_000,
+          symbol: 'BTC',
+        },
+      } as unknown as ChainSwapInfo;
+      mockGetChainSwapResult = chainSwap;
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockResolvedValue(SendApprovalAction.Accept),
+      };
+      const mockHandleChainSwapLockup = jest
+        .spyOn(swapNursery as any, 'handleChainSwapLockup')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).listenEthereumNursery(ethereumNursery);
+      await listeners['eth.lockup']({
+        swap: chainSwap,
+        transactionHash: '0xaccept',
+      });
+
+      expect((swapNursery as any).sendApprovalHook.hook).toHaveBeenCalledWith(
+        chainSwap.id,
+        chainSwap.pair,
+        'BTC',
+        chainSwap.sendingData.expectedAmount,
+        undefined,
+      );
+      expect(mockHandleChainSwapLockup).toHaveBeenCalledWith(
+        mockGetChainSwapResult,
+        SendApprovalAction.Accept,
+      );
+    });
+
+    test('should record a hold and not lock up the chain swap when the send approval holds', async () => {
+      const listeners: Record<string, (...args: any[]) => Promise<void>> = {};
+      const ethereumNursery = {
+        on: jest.fn(
+          (event: string, callback: (...args: any[]) => Promise<void>) => {
+            listeners[event] = callback;
+          },
+        ),
+        init: jest.fn().mockResolvedValue(undefined),
+      } as any;
+
+      const chainSwap = {
+        id: 'test-chain-swap-id',
+        pair: 'BTC/BTC',
+        type: SwapType.Chain,
+        status: SwapUpdateEvent.SwapCreated,
+        sendingData: {
+          transactionId: null,
+          expectedAmount: 100_000,
+          symbol: 'BTC',
+        },
+      } as unknown as ChainSwapInfo;
+      mockGetChainSwapResult = chainSwap;
+      (swapNursery as any).sendApprovalHook = {
+        hook: jest.fn().mockResolvedValue(SendApprovalAction.Hold),
+      };
+      const mockHandleChainSwapLockup = jest
+        .spyOn(swapNursery as any, 'handleChainSwapLockup')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).listenEthereumNursery(ethereumNursery);
+      await listeners['eth.lockup']({
+        swap: chainSwap,
+        transactionHash: '0xhold',
+      });
+
+      expect(SendApprovalHoldRepository.create).toHaveBeenCalledWith({
+        swapId: chainSwap.id,
+        type: SwapType.Chain,
+      });
+      expect(mockHandleChainSwapLockup).not.toHaveBeenCalled();
+    });
+
+    test('should not consult the chain approval pre-gate for submarine swaps', async () => {
+      const listeners: Record<string, (...args: any[]) => Promise<void>> = {};
+      const ethereumNursery = {
+        on: jest.fn(
+          (event: string, callback: (...args: any[]) => Promise<void>) => {
+            listeners[event] = callback;
+          },
+        ),
+        init: jest.fn().mockResolvedValue(undefined),
+      } as any;
+
+      const submarineSwap = {
+        id: 'submarine-swap-id',
+        pair: 'BTC/BTC',
+        type: SwapType.Submarine,
+        orderSide: OrderSide.BUY,
+        invoice: 'lnbcrt1',
+        createdRefundSignature: false,
+      } as unknown as Swap;
+      mockGetSwapResult = submarineSwap;
+      (swapNursery as any).sendApprovalHook = { hook: jest.fn() };
+      const attemptSettleSwapSpy = jest
+        .spyOn(swapNursery, 'attemptSettleSwap')
+        .mockResolvedValue(undefined);
+
+      await (swapNursery as any).listenEthereumNursery(ethereumNursery);
+      await listeners['eth.lockup']({
+        swap: submarineSwap,
+        transactionHash: '0xsubmarine',
+      });
+
+      expect(ChainSwapRepository.getChainSwap).not.toHaveBeenCalled();
+      expect((swapNursery as any).sendApprovalHook.hook).not.toHaveBeenCalled();
+      expect(attemptSettleSwapSpy).toHaveBeenCalledWith(
+        mockCurrency,
+        submarineSwap,
       );
     });
   });

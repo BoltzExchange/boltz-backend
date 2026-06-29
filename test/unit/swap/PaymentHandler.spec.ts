@@ -1,7 +1,9 @@
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
-import { SwapUpdateEvent } from '../../../lib/consts/Enums';
+import { SwapType, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import { LightningPaymentStatus } from '../../../lib/db/models/LightningPayment';
 import type Swap from '../../../lib/db/models/Swap';
+import SendApprovalHoldRepository from '../../../lib/db/repositories/SendApprovalHoldRepository';
 import LightningErrors from '../../../lib/lightning/Errors';
 import type { LightningClient } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
@@ -15,6 +17,7 @@ import type Sidecar from '../../../lib/sidecar/Sidecar';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import PaymentHandler from '../../../lib/swap/PaymentHandler';
 import { InvoicePaymentHookAction } from '../../../lib/swap/hooks/InvoicePaymentHook';
+import { SendApprovalAction } from '../../../lib/swap/hooks/SendApprovalHook';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import { raceCall } from '../../Utils';
 
@@ -34,6 +37,15 @@ jest.mock('../../../lib/swap/NodeSwitch', () => {
 });
 
 const MockedNodeSwitch = <jest.Mock<NodeSwitch>>(<any>NodeSwitch);
+
+jest.mock('../../../lib/db/repositories/SendApprovalHoldRepository', () => ({
+  __esModule: true,
+  default: {
+    create: jest.fn(),
+    remove: jest.fn(),
+    exists: jest.fn().mockResolvedValue(false),
+  },
+}));
 
 let cltvLimit = 100;
 
@@ -84,6 +96,10 @@ describe('PaymentHandler', () => {
 
   const mockedEmit = jest.fn();
 
+  const sendApprovalHook = {
+    hook: jest.fn().mockResolvedValue(SendApprovalAction.Accept),
+  };
+
   const btcLndClient = MockedLndClient();
 
   const btcCurrency = {
@@ -95,6 +111,7 @@ describe('PaymentHandler', () => {
     id: 'test',
     invoice: 'lnbcrt1testinvoice',
     pair: 'BTC/BTC',
+    type: SwapType.Submarine,
     preimageHash:
       '8bc944ac6563a0dc50c2666ffc1f6cc6295d5f093859f869c8d065fcb965443a',
     status: SwapUpdateEvent.InvoicePending,
@@ -122,10 +139,18 @@ describe('PaymentHandler', () => {
             node,
             paymentHash: swap.preimageHash,
             payments: relevantPayments,
+            existingRelevantAction: relevantPayments.find((p: any) =>
+              [
+                LightningPaymentStatus.Pending,
+                LightningPaymentStatus.Success,
+                LightningPaymentStatus.PermanentFailure,
+              ].includes(p.status),
+            ),
           };
         }),
     } as any,
     { emit: mockedEmit } as any,
+    sendApprovalHook as any,
   );
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
@@ -143,6 +168,12 @@ describe('PaymentHandler', () => {
     trackPaymentResponse = undefined;
     (signerControlRegistry as any)['disabledSigners'].clear();
     (signerControlRegistry as any)['repository'] = undefined;
+    sendApprovalHook.hook.mockResolvedValue(SendApprovalAction.Accept);
+    (SendApprovalHoldRepository.exists as jest.Mock)
+      .mockReset()
+      .mockResolvedValue(false);
+    (SendApprovalHoldRepository.create as jest.Mock).mockReset();
+    (SendApprovalHoldRepository.remove as jest.Mock).mockReset();
     relevantPayments = [];
     (
       handler['selfPaymentClient'].handleSelfPayment as jest.Mock
@@ -192,11 +223,136 @@ describe('PaymentHandler', () => {
     });
   });
 
-  test('should allow payment retries with history when signer is disabled', async () => {
+  test('should fail when the send approval hook rejects', async () => {
+    sendApprovalHook.hook.mockResolvedValue(SendApprovalAction.Reject);
+
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
+
+    expect(sendApprovalHook.hook).toHaveBeenCalledTimes(1);
+    expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
+    expect(swap.update).toHaveBeenCalledTimes(1);
+    expect(swap.update).toHaveBeenCalledWith({
+      failureReason: 'invoice could not be paid',
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+    });
+  });
+
+  test('should hold the payment without paying or failing when the send approval hook holds', async () => {
+    sendApprovalHook.hook.mockResolvedValue(SendApprovalAction.Hold);
+
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
+
+    expect(sendApprovalHook.hook).toHaveBeenCalledTimes(1);
+    expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
+    expect(swap.update).not.toHaveBeenCalled();
+    expect(SendApprovalHoldRepository.create).toHaveBeenCalledWith({
+      swapId: swap.id,
+      type: SwapType.Submarine,
+    });
+  });
+
+  test('should ask with a hold fallback and not release a held payment', async () => {
+    (SendApprovalHoldRepository.exists as jest.Mock).mockResolvedValue(true);
+    sendApprovalHook.hook.mockResolvedValue(SendApprovalAction.Hold);
+
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
+
+    expect(sendApprovalHook.hook).toHaveBeenCalledWith(
+      swap.id,
+      swap.pair,
+      'BTC',
+      expect.anything(),
+      SendApprovalAction.Hold,
+    );
+    expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
+    expect(SendApprovalHoldRepository.remove).not.toHaveBeenCalled();
+  });
+
+  test('should remove the hold and pay when accepted after being held', async () => {
+    (SendApprovalHoldRepository.exists as jest.Mock).mockResolvedValue(true);
+    sendApprovalHook.hook.mockResolvedValue(SendApprovalAction.Accept);
+
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
+
+    expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(swap.id);
+    expect(btcLndClient.sendPayment).toHaveBeenCalledTimes(1);
+  });
+
+  test('should remove the hold when a held payment is rejected', async () => {
+    (SendApprovalHoldRepository.exists as jest.Mock).mockResolvedValue(true);
+    sendApprovalHook.hook.mockResolvedValue(SendApprovalAction.Reject);
+
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
+
+    expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(swap.id);
+    expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
+    expect(swap.update).toHaveBeenCalledWith({
+      failureReason: 'invoice could not be paid',
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+    });
+  });
+
+  test('should clear any hold and pay on a normal accepted payment', async () => {
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
+
+    expect(sendApprovalHook.hook).toHaveBeenCalledWith(
+      swap.id,
+      swap.pair,
+      'BTC',
+      expect.anything(),
+      undefined,
+    );
+    expect(SendApprovalHoldRepository.create).not.toHaveBeenCalled();
+    expect(SendApprovalHoldRepository.remove).toHaveBeenCalledWith(swap.id);
+    expect(btcLndClient.sendPayment).toHaveBeenCalledTimes(1);
+  });
+
+  test('should pay once the send approval hook stops holding', async () => {
+    sendApprovalHook.hook
+      .mockResolvedValueOnce(SendApprovalAction.Hold)
+      .mockResolvedValueOnce(SendApprovalAction.Accept);
+
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
+    expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
+
+    await handler.payInvoice(swap);
+
+    expect(sendApprovalHook.hook).toHaveBeenCalledTimes(2);
+    expect(btcLndClient.sendPayment).toHaveBeenCalledTimes(1);
+  });
+
+  test('should not ask the send approval hook when a payment is already in flight', async () => {
+    relevantPayments = [{ status: LightningPaymentStatus.Pending } as any];
+    sendApprovalHook.hook.mockResolvedValue(SendApprovalAction.Reject);
+
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
+
+    expect(sendApprovalHook.hook).not.toHaveBeenCalled();
+    expect(btcLndClient.sendPayment).toHaveBeenCalledTimes(1);
+    expect(swap.update).not.toHaveBeenCalled();
+  });
+
+  test('should ask the send approval hook on a retry after a temporary failure', async () => {
+    relevantPayments = [
+      { status: LightningPaymentStatus.TemporaryFailure } as any,
+    ];
+    sendApprovalHook.hook.mockResolvedValue(SendApprovalAction.Reject);
+
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
+
+    expect(sendApprovalHook.hook).toHaveBeenCalledTimes(1);
+    expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
+    expect(swap.update).toHaveBeenCalledWith({
+      failureReason: 'invoice could not be paid',
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+    });
+  });
+
+  test('should allow an in-flight payment to resolve when signer is disabled', async () => {
     await signerControlRegistry.disableSigners([
       Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
     ]);
-    relevantPayments = [{} as any];
+    relevantPayments = [{ status: LightningPaymentStatus.Pending } as any];
 
     await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
 
@@ -211,6 +367,24 @@ describe('PaymentHandler', () => {
     );
     expect(btcLndClient.sendPayment).toHaveBeenCalledTimes(1);
     expect(swap.update).not.toHaveBeenCalled();
+  });
+
+  test('should fail fast on a temporary-failure retry when signer is disabled', async () => {
+    await signerControlRegistry.disableSigners([
+      Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+    ]);
+    relevantPayments = [
+      { status: LightningPaymentStatus.TemporaryFailure } as any,
+    ];
+
+    await expect(handler.payInvoice(swap)).resolves.toEqual(undefined);
+
+    expect(sendApprovalHook.hook).not.toHaveBeenCalled();
+    expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
+    expect(swap.update).toHaveBeenCalledWith({
+      failureReason: 'invoice could not be paid',
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+    });
   });
 
   test.each`

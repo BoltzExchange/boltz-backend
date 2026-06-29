@@ -11,6 +11,7 @@ mod boltzr {
     tonic::include_proto!("boltzr");
 }
 
+#[allow(clippy::enum_variant_names)]
 mod boltz_rpc {
     tonic::include_proto!("boltzrpc");
 }

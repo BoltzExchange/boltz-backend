@@ -2,8 +2,13 @@ import Logger from '../../../../lib/Logger';
 import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
 import EthereumTransactionTracker from '../../../../lib/wallet/ethereum/EthereumTransactionTracker';
 import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import InjectedProvider from '../../../../lib/wallet/ethereum/InjectedProvider';
 import type { EthereumSetup } from '../EthereumTools';
-import { fundSignerWallet, getSigner } from '../EthereumTools';
+import {
+  fundSignerWallet,
+  getSigner,
+  providerEndpoint,
+} from '../EthereumTools';
 
 const mockAddTransaction = jest.fn().mockImplementation(async () => {});
 
@@ -22,14 +27,24 @@ jest.mock(
 
 describe('EthereumTransactionTracker', () => {
   let setup: EthereumSetup;
+  let injectedProvider: InjectedProvider;
   let transactionTracker: EthereumTransactionTracker;
 
   beforeAll(async () => {
     setup = await getSigner();
+    injectedProvider = new InjectedProvider(
+      Logger.disabledLogger,
+      networks.Ethereum,
+      {
+        providerEndpoint,
+      },
+    );
+    await injectedProvider.init();
+
     transactionTracker = new EthereumTransactionTracker(
       Logger.disabledLogger,
       networks.Ethereum,
-      setup.provider,
+      injectedProvider,
       setup.signer,
     );
     await fundSignerWallet(setup.signer, setup.etherBase);
@@ -42,7 +57,8 @@ describe('EthereumTransactionTracker', () => {
     jest.clearAllMocks();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    await injectedProvider.destroy();
     setup.provider.destroy();
   });
 

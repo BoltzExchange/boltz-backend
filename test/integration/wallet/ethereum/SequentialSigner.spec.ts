@@ -17,6 +17,10 @@ describe('SequentialSigner', () => {
     PendingEthereumTransactionRepository.getTotalSent = jest
       .fn()
       .mockResolvedValue(0n);
+    // The signer now persists the row under its lock; keep this test DB-independent
+    PendingEthereumTransactionRepository.addTransaction = jest
+      .fn()
+      .mockResolvedValue(null as never);
   });
 
   test('should get address', async () => {

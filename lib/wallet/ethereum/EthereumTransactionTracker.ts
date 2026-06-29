@@ -1,13 +1,14 @@
-import type { Provider, Signer } from 'ethers';
+import type { Signer } from 'ethers';
 import type Logger from '../../Logger';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 import type { NetworkDetails } from './EvmNetworks';
+import type InjectedProvider from './InjectedProvider';
 
 class EthereumTransactionTracker {
   constructor(
     private readonly logger: Logger,
     private readonly networkDetails: NetworkDetails,
-    private readonly provider: Provider,
+    private readonly provider: InjectedProvider,
     private readonly wallet: Signer,
   ) {}
 
@@ -27,16 +28,33 @@ class EthereumTransactionTracker {
    * in that class already
    */
   public scanPendingTransactions = async (): Promise<void> => {
-    for (const transaction of await PendingEthereumTransactionRepository.getTransactions(
-      this.networkDetails.symbol,
-    )) {
+    const transactions =
+      await PendingEthereumTransactionRepository.getTransactions(
+        this.networkDetails.symbol,
+      );
+    if (transactions.length === 0) {
+      return;
+    }
+
+    // A pending row below the confirmed nonce is orphaned: its own hash never
+    // confirmed, so the nonce went to a different tx
+    const confirmedNonce = await this.provider.getConfirmedTransactionCount(
+      await this.wallet.getAddress(),
+    );
+
+    for (const transaction of transactions) {
       const receipt = await this.provider.getTransactionReceipt(
         transaction.hash,
       );
 
-      if (receipt) {
+      if (receipt !== null) {
         this.logger.silly(
           `Removing confirmed ${this.networkDetails.name} transaction: ${transaction.hash}`,
+        );
+        await transaction.destroy();
+      } else if (transaction.nonce < confirmedNonce) {
+        this.logger.warn(
+          `Pruning orphaned ${this.networkDetails.name} transaction ${transaction.hash} (nonce ${transaction.nonce} already settled on chain)`,
         );
         await transaction.destroy();
       }

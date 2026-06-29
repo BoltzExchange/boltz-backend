@@ -596,5 +596,35 @@ describe('TimeoutDeltaProvider', () => {
         usesLocktimeSeconds: false,
       } as any;
     });
+
+    test('should convert timestamp-based ARK locks with the lightning currency block time', async () => {
+      const currentTimestamp = 1_000_000;
+
+      const arkCurrency = currenciesMap.get(ArkClient.symbol)!;
+      arkCurrency.arkNode = {
+        usesLocktimeSeconds: true,
+        getBlockHeight: jest.fn().mockResolvedValue(500),
+        getBlockTimestamp: jest.fn().mockResolvedValue(currentTimestamp),
+      } as any;
+
+      const originalBlockTime = TimeoutDeltaProvider.blockTimes.get(
+        ArkClient.symbol,
+      )!;
+      TimeoutDeltaProvider.blockTimes.set(ArkClient.symbol, 5);
+
+      const swap = {
+        pair: `${ArkClient.symbol}/BTC`,
+        orderSide: OrderSide.SELL,
+        timeoutBlockHeight: currentTimestamp + 500 * 60,
+      } as Swap;
+
+      await expect(deltaProvider.getCltvLimit(swap)).resolves.toEqual(30);
+
+      TimeoutDeltaProvider.blockTimes.set(ArkClient.symbol, originalBlockTime);
+      arkCurrency.arkNode = {
+        getBlockHeight: jest.fn().mockResolvedValue(500),
+        usesLocktimeSeconds: false,
+      } as any;
+    });
   });
 });

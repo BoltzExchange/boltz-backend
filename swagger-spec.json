@@ -86,6 +86,17 @@
         "tags": [
           "Submarine Swap"
         ],
+        "parameters": [
+          {
+            "name": "referral",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional referral ID to receive referral-specific pairs and fees"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Dictionary of the from -> to currencies that can be used in a Submarine Swap",
@@ -192,6 +203,9 @@
                   },
                   "pairHash": {
                     "type": "string"
+                  },
+                  "extraFees": {
+                    "$ref": "#/components/schemas/ExtraFees"
                   }
                 }
               }
@@ -230,6 +244,16 @@
           },
           "400": {
             "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -297,6 +321,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -331,6 +365,16 @@
           },
           "400": {
             "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -439,6 +483,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -481,6 +535,16 @@
           },
           "400": {
             "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -669,6 +733,17 @@
         "tags": [
           "Reverse Swap"
         ],
+        "parameters": [
+          {
+            "name": "referral",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional referral ID to receive referral-specific pairs and fees"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Dictionary of the from -> to currencies that can be used in a Reverse Swap",
@@ -805,6 +880,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -849,6 +934,16 @@
           },
           "400": {
             "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -916,6 +1011,17 @@
         "description": "Possible pairs for Chain Swaps",
         "tags": [
           "Chain Swap"
+        ],
+        "parameters": [
+          {
+            "name": "referral",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional referral ID to receive referral-specific pairs and fees"
+          }
         ],
         "responses": {
           "200": {
@@ -1214,6 +1320,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -1256,6 +1372,16 @@
           },
           "400": {
             "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -1366,6 +1492,16 @@
               }
             }
           },
+          "404": {
+            "description": "When no Swap with the ID could be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "409": {
             "description": "The quote cannot be renegotiated because a refund was signed already",
             "content": {
@@ -1417,6 +1553,16 @@
           },
           "400": {
             "description": "When the Chain Swap is not eligible for a new quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -1477,6 +1623,16 @@
           },
           "400": {
             "description": "Invalid request (ids must be an array, contains non-strings, or too many ids)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When any of the queried Swap IDs could not be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -1798,7 +1954,7 @@
             "description": "Destination currency symbol"
           },
           {
-            "name": "Referral",
+            "name": "referral",
             "in": "header",
             "required": true,
             "schema": {
@@ -1947,16 +2103,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LightningChannelInfo"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Unprocessable request parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2238,6 +2384,16 @@
               }
             }
           },
+          "401": {
+            "description": "When the signature is invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "When the currency has no BOLT12 support or the offer was not found",
             "content": {
@@ -2277,69 +2433,63 @@
           }
         ],
         "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "offer",
-                  "signature"
-                ],
-                "properties": {
-                  "offer": {
-                    "type": "string",
-                    "description": "The BOLT12 offer"
-                  },
-                  "signature": {
-                    "type": "string",
-                    "description": "Schnorr signature of the SHA256 hash of \"DELETE\""
-                  }
-                }
-              }
-            }
-          }
+          "$ref": "#/components/requestBodies/Bolt12Delete"
         },
         "responses": {
           "200": {
-            "description": "BOLT12 offer deleted successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Bolt12DeleteSuccess"
           },
           "400": {
-            "description": "Invalid request parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Bolt12DeleteBadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Bolt12DeleteUnauthorized"
           },
           "404": {
-            "description": "When the currency has no BOLT12 support or the offer was not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Bolt12DeleteNotFound"
           },
           "422": {
-            "description": "When the signature is invalid hex",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Bolt12DeleteUnprocessable"
+          }
+        }
+      }
+    },
+    "/lightning/{currency}/bolt12/delete": {
+      "post": {
+        "tags": [
+          "Lightning"
+        ],
+        "deprecated": true,
+        "description": "Deletes a BOLT12 offer. Deprecated alias of DELETE /lightning/{currency}/bolt12",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the lightning network to use"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Bolt12Delete"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Bolt12DeleteSuccess"
+          },
+          "400": {
+            "$ref": "#/components/responses/Bolt12DeleteBadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Bolt12DeleteUnauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/Bolt12DeleteNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Bolt12DeleteUnprocessable"
           }
         }
       }
@@ -2386,16 +2536,6 @@
                       "description": "Minimum CLTV value"
                     }
                   }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2483,6 +2623,16 @@
           },
           "404": {
             "description": "When the currency has no BOLT12 support",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "When the amount is invalid (e.g. zero)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2871,7 +3021,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Raw transaction",
+            "description": "Network information and contract addresses on the chain",
             "content": {
               "application/json": {
                 "schema": {
@@ -2886,7 +3036,7 @@
             }
           },
           "400": {
-            "description": "Error that caused the query for the transaction to fail",
+            "description": "Error that caused the query for the contracts to fail",
             "content": {
               "application/json": {
                 "schema": {
@@ -2897,6 +3047,16 @@
           },
           "404": {
             "description": "Error when the currency is not on an EVM chain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "The Ethereum integration is not enabled",
             "content": {
               "application/json": {
                 "schema": {
@@ -3554,7 +3714,8 @@
                       "type": "object",
                       "description": "Fees collected in that month",
                       "additionalProperties": {
-                        "type": "string",
+                        "type": "integer",
+                        "format": "int64",
                         "description": "Fees collected in that currency in satoshis"
                       }
                     }
@@ -4026,6 +4187,20 @@
           "from",
           "to"
         ],
+        "anyOf": [
+          {
+            "title": "With invoice",
+            "required": [
+              "invoice"
+            ]
+          },
+          {
+            "title": "With preimage hash",
+            "required": [
+              "preimageHash"
+            ]
+          }
+        ],
         "properties": {
           "from": {
             "type": "string",
@@ -4037,11 +4212,11 @@
           },
           "invoice": {
             "type": "string",
-            "description": "BOLT11 invoice that should be paid"
+            "description": "BOLT11 invoice that should be paid. Either this or \"preimageHash\" has to be specified; takes precedence over \"preimageHash\" if both are set"
           },
           "preimageHash": {
             "type": "string",
-            "description": "Preimage hash of an invoice that will be set later"
+            "description": "Preimage hash of an invoice that will be set later. Either this or \"invoice\" has to be specified"
           },
           "refundPublicKey": {
             "type": "string",
@@ -4077,8 +4252,7 @@
       "SubmarineResponse": {
         "type": "object",
         "required": [
-          "id",
-          "expectedAmount"
+          "id"
         ],
         "properties": {
           "id": {
@@ -4087,7 +4261,7 @@
           },
           "bip21": {
             "type": "string",
-            "description": "BIP21 for the onchain payment request"
+            "description": "BIP21 for the onchain payment request. Only set when the swap was created with an invoice"
           },
           "address": {
             "type": "string",
@@ -4100,6 +4274,10 @@
             "type": "string",
             "description": "Public key of Boltz that will be used to sweep the onchain HTLC"
           },
+          "claimAddress": {
+            "type": "string",
+            "description": "EVM address of Boltz that will be used to claim the onchain HTLC. Only set for swaps to EVM based chains"
+          },
           "timeoutBlockHeight": {
             "type": "number",
             "description": "Timeout block height of the onchain HTLC"
@@ -4109,11 +4287,11 @@
           },
           "acceptZeroConf": {
             "type": "boolean",
-            "description": "Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee"
+            "description": "Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee. Only set when the swap was created with an invoice"
           },
           "expectedAmount": {
             "type": "number",
-            "description": "Amount that is expected to be sent to the onchain HTLC address in satoshis"
+            "description": "Amount that is expected to be sent to the onchain HTLC address in satoshis. Only set when the swap was created with an invoice"
           },
           "blindingKey": {
             "type": "string",
@@ -4332,8 +4510,21 @@
         "type": "object",
         "required": [
           "from",
-          "to",
-          "preimageHash"
+          "to"
+        ],
+        "oneOf": [
+          {
+            "title": "With preimage hash",
+            "required": [
+              "preimageHash"
+            ]
+          },
+          {
+            "title": "With BOLT12 invoice",
+            "required": [
+              "invoice"
+            ]
+          }
         ],
         "properties": {
           "from": {
@@ -4346,7 +4537,11 @@
           },
           "preimageHash": {
             "type": "string",
-            "description": "SHA-256 hash of the preimage of the Reverse Swap encoded as HEX"
+            "description": "SHA-256 hash of the preimage of the Reverse Swap encoded as HEX. Either this or \"invoice\" has to be specified"
+          },
+          "invoice": {
+            "type": "string",
+            "description": "BOLT12 invoice to be used for the Reverse Swap instead of a preimage hash. The amount of the invoice is used as the invoice amount; conflicts with \"preimageHash\", \"invoiceAmount\" and \"onchainAmount\""
           },
           "claimPublicKey": {
             "type": "string",
@@ -4358,11 +4553,11 @@
           },
           "invoiceAmount": {
             "type": "number",
-            "description": "Amount for which the invoice should be; conflicts with \"onchainAmount\""
+            "description": "Amount for which the invoice should be; conflicts with \"onchainAmount\" and \"invoice\""
           },
           "onchainAmount": {
             "type": "number",
-            "description": "Amount that should be locked in the onchain HTLC; conflicts with \"invoiceAmount\""
+            "description": "Amount that should be locked in the onchain HTLC; conflicts with \"invoiceAmount\" and \"invoice\""
           },
           "pairHash": {
             "type": "string",
@@ -4415,8 +4610,7 @@
       "ReverseResponse": {
         "type": "object",
         "required": [
-          "id",
-          "invoice"
+          "id"
         ],
         "properties": {
           "id": {
@@ -4425,7 +4619,7 @@
           },
           "invoice": {
             "type": "string",
-            "description": "Hold invoice of the Reverse Swap"
+            "description": "Hold invoice of the Reverse Swap. Not set when the Reverse Swap was created with a client-provided BOLT12 invoice"
           },
           "swapTree": {
             "$ref": "#/components/schemas/SwapTree"
@@ -4710,7 +4904,7 @@
             "type": "number",
             "description": "Timeout block height of the onchain HTLC"
           },
-          "timeoutBlockHeights": {
+          "timeouts": {
             "$ref": "#/components/schemas/ArkTimeouts"
           },
           "amount": {
@@ -4898,6 +5092,9 @@
           "transaction": {
             "type": "object",
             "description": "Details of the transaction relevant to the status update",
+            "required": [
+              "id"
+            ],
             "properties": {
               "id": {
                 "type": "string",
@@ -4907,9 +5104,35 @@
                 "type": "string",
                 "description": "Raw hex of the transaction"
               },
+              "eta": {
+                "type": "number",
+                "description": "Estimated time in blocks until the transaction is confirmed; only set while the transaction is still in the mempool"
+              },
               "confirmed": {
                 "type": "boolean",
                 "description": "Whether the transaction is confirmed; only set for `transaction.refunded`. Clients can only request cooperative refund signatures after this is `true`"
+              }
+            }
+          },
+          "failureReason": {
+            "type": "string",
+            "description": "Reason for the failure of the Swap; only set for failure statuses"
+          },
+          "failureDetails": {
+            "type": "object",
+            "description": "Details about the incorrect amount that caused the Swap to fail; only set for some failure statuses",
+            "required": [
+              "expected",
+              "actual"
+            ],
+            "properties": {
+              "expected": {
+                "type": "number",
+                "description": "Amount that was expected in satoshis"
+              },
+              "actual": {
+                "type": "number",
+                "description": "Amount that was actually received in satoshis"
               }
             }
           }
@@ -5084,6 +5307,10 @@
           "invoice": {
             "type": "string",
             "description": "Invoice of the swap, if set. Only returned for submarine swaps"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount of the swap in satoshis"
           },
           "timeoutBlockHeight": {
             "type": "number",
@@ -5462,16 +5689,7 @@
             "items": {
               "type": "array",
               "items": {
-                "oneOf": [
-                  {
-                    "type": "integer",
-                    "description": "UNIX timestamp"
-                  },
-                  {
-                    "type": "number",
-                    "description": "Fee value"
-                  }
-                ]
+                "type": "number"
               },
               "minItems": 2,
               "maxItems": 2
@@ -5483,16 +5701,7 @@
             "items": {
               "type": "array",
               "items": {
-                "oneOf": [
-                  {
-                    "type": "integer",
-                    "description": "UNIX timestamp"
-                  },
-                  {
-                    "type": "number",
-                    "description": "Maximal Lightning routing fee percentage"
-                  }
-                ]
+                "type": "number"
               },
               "minItems": 2,
               "maxItems": 2
@@ -5559,7 +5768,9 @@
         "type": "object",
         "required": [
           "source",
-          "shortChannelId"
+          "shortChannelId",
+          "active",
+          "info"
         ],
         "properties": {
           "source": {
@@ -5582,11 +5793,29 @@
           }
         }
       },
+      "LightningChannelSide": {
+        "description": "One channel partner's policy together with its node",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LightningChannelPolicy"
+          },
+          {
+            "type": "object",
+            "required": [
+              "node"
+            ],
+            "properties": {
+              "node": {
+                "$ref": "#/components/schemas/LightningNode"
+              }
+            }
+          }
+        ]
+      },
       "LightningChannelInfo": {
         "type": "object",
         "required": [
           "shortChannelId",
-          "capacity",
           "policies"
         ],
         "properties": {
@@ -5602,7 +5831,7 @@
             "type": "array",
             "description": "Policies of the channel partners",
             "items": {
-              "$ref": "#/components/schemas/LightningChannelPolicy"
+              "$ref": "#/components/schemas/LightningChannelSide"
             }
           }
         }
@@ -5757,8 +5986,7 @@
         "required": [
           "capacity",
           "channels",
-          "peers",
-          "oldestChannel"
+          "peers"
         ],
         "properties": {
           "capacity": {
@@ -5807,6 +6035,84 @@
           "error": {
             "type": "string",
             "description": "Description of the error that caused the request to fail"
+          }
+        }
+      }
+    },
+    "requestBodies": {
+      "Bolt12Delete": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "offer",
+                "signature"
+              ],
+              "properties": {
+                "offer": {
+                  "type": "string",
+                  "description": "The BOLT12 offer"
+                },
+                "signature": {
+                  "type": "string",
+                  "description": "Schnorr signature of the SHA256 hash of \"DELETE\""
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Bolt12DeleteSuccess": {
+        "description": "BOLT12 offer deleted successfully",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "Bolt12DeleteBadRequest": {
+        "description": "Invalid request parameters",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Bolt12DeleteUnauthorized": {
+        "description": "When the signature is invalid",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Bolt12DeleteNotFound": {
+        "description": "When the currency has no BOLT12 support or the offer was not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Bolt12DeleteUnprocessable": {
+        "description": "When the signature is invalid hex",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
           }
         }
       }

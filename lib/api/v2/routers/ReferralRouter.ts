@@ -110,7 +110,8 @@ class ReferralRouter extends RouterBase {
      *                   type: object
      *                   description: Fees collected in that month
      *                   additionalProperties:
-     *                     type: string
+     *                     type: integer
+     *                     format: int64
      *                     description: Fees collected in that currency in satoshis
      *             examples:
      *               json:

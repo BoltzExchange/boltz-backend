@@ -6,6 +6,7 @@ pub mod chain_swap;
 pub mod chain_tip;
 pub mod keys;
 pub mod offer;
+pub mod payjoin;
 pub mod preimage_hash_triggers;
 pub mod referral;
 pub mod refund_transaction;

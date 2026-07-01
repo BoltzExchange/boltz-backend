@@ -163,5 +163,42 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    #[allow(non_snake_case)]
+    payjoinReceiverSessions (id) {
+        id -> BigInt,
+        swapId -> Nullable<Text>,
+        address -> Text,
+        amountSats -> Nullable<BigInt>,
+        label -> Nullable<Text>,
+        createdAt -> Timestamptz,
+        completedAt -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    #[allow(non_snake_case)]
+    payjoinReceiverSessionEvents (id) {
+        id -> BigInt,
+        sessionId -> BigInt,
+        eventData -> Text,
+        createdAt -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    #[allow(non_snake_case)]
+    payjoinReceiverSeenInputs (outpoint) {
+        outpoint -> Text,
+        createdAt -> Timestamptz,
+    }
+}
+
 joinable!(chainSwapData -> chainSwaps (swapId));
+joinable!(payjoinReceiverSessionEvents -> payjoinReceiverSessions (sessionId));
 allow_tables_to_appear_in_same_query!(chainSwaps, chainSwapData);
+allow_tables_to_appear_in_same_query!(
+    payjoinReceiverSessions,
+    payjoinReceiverSessionEvents,
+    payjoinReceiverSeenInputs
+);

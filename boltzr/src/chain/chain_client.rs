@@ -1,8 +1,9 @@
 use crate::chain::mempool_client::{MempoolSpace, Thresholds};
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
-    BlockInfo, BlockchainInfo, NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam,
-    SignRawTransactionResponse, SmartFeeEstimate, Type, UnspentOutput, ZmqNotification,
+    AddressInfo, BlockInfo, BlockchainInfo, NetworkInfo, ProcessPsbtResponse, RawMempool,
+    RawTransactionVerbose, RpcParam, SignRawTransactionResponse, SmartFeeEstimate,
+    TestMempoolAccept, Type, UnspentOutput, WalletTransaction, ZmqNotification,
 };
 use crate::chain::utils::{Block, Outpoint, Transaction};
 use crate::chain::zmq_client::{ZMQ_BLOCK_CHANNEL_SIZE, ZMQ_TX_CHANNEL_SIZE, ZmqClient};
@@ -674,15 +675,43 @@ impl Client for ChainClient {
             .await
     }
 
+    async fn wallet_transaction_hex(&self, tx_id: &str) -> anyhow::Result<String> {
+        Ok(self
+            .client
+            .request_wallet::<WalletTransaction>(
+                None,
+                "gettransaction",
+                Some(&[RpcParam::Str(tx_id)]),
+            )
+            .await?
+            .hex)
+    }
+
     async fn send_raw_transaction(&self, tx: &str) -> anyhow::Result<String> {
         self.client
             .request::<String>("sendrawtransaction", Some(&[RpcParam::Str(tx)]))
             .await
     }
 
+    async fn test_mempool_accept(&self, txs: &[String]) -> anyhow::Result<Vec<TestMempoolAccept>> {
+        let tx_refs = txs.iter().map(String::as_str).collect::<Vec<_>>();
+        self.client
+            .request::<Vec<TestMempoolAccept>>(
+                "testmempoolaccept",
+                Some(&[RpcParam::StrArray(&tx_refs)]),
+            )
+            .await
+    }
+
     async fn list_unspent(&self, wallet: Option<&str>) -> anyhow::Result<Vec<UnspentOutput>> {
         self.client
             .request_wallet::<Vec<UnspentOutput>>(wallet, "listunspent", None)
+            .await
+    }
+
+    async fn address_info(&self, address: &str) -> anyhow::Result<AddressInfo> {
+        self.client
+            .request_wallet::<AddressInfo>(None, "getaddressinfo", Some(&[RpcParam::Str(address)]))
             .await
     }
 
@@ -731,6 +760,16 @@ impl Client for ChainClient {
                 wallet,
                 "signrawtransactionwithwallet",
                 Some(&[RpcParam::Str(tx)]),
+            )
+            .await
+    }
+
+    async fn process_psbt(&self, psbt: &str) -> anyhow::Result<ProcessPsbtResponse> {
+        self.client
+            .request_wallet::<ProcessPsbtResponse>(
+                None,
+                "walletprocesspsbt",
+                Some(&[RpcParam::Str(psbt)]),
             )
             .await
     }

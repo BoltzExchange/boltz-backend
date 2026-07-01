@@ -30,11 +30,24 @@ service BoltzR {
 
   rpc BlockAdded (BlockAddedRequest) returns (stream Block);
   rpc TransactionFound (RelevantTransactionRequest) returns (stream RelevantTransaction);
+
+  rpc GetPayjoinUri (GetPayjoinUriRequest) returns (GetPayjoinUriResponse);
 }
 
 message GetInfoRequest {}
 message GetInfoResponse {
   string version = 1;
+}
+
+message GetPayjoinUriRequest {
+  string address = 1;
+  optional uint64 satoshis = 2;
+  optional string label = 3;
+  optional string swap_id = 4;
+}
+
+message GetPayjoinUriResponse {
+  string uri = 1;
 }
 
 enum LogLevel {

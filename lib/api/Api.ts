@@ -9,6 +9,29 @@ import SwapInfos from './SwapInfos';
 import { errorResponse } from './Utils';
 import ApiV2 from './v2/ApiV2';
 
+// Catches errors that skip the try/catch in route handlers, e.g. sendFile
+// (used for static files) rejecting requests with a bogus Range header
+export const handleUnhandledError = (
+  logger: Logger,
+  error: any,
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (res.headersSent) {
+    next(error);
+    return;
+  }
+
+  errorResponse(
+    logger,
+    req,
+    res,
+    error,
+    error.status || error.statusCode || 500,
+  );
+};
+
 class Api {
   public readonly swapInfos: SwapInfos;
   public readonly controller: Controller;
@@ -53,6 +76,11 @@ class Api {
 
     new ApiV2(this.logger, service, this.swapInfos).registerRoutes(this.app);
     this.registerRoutes(this.controller);
+
+    this.app.use(
+      (error: any, req: Request, res: Response, next: NextFunction) =>
+        handleUnhandledError(logger, error, req, res, next),
+    );
   }
 
   public init = async (): Promise<void> => {

@@ -104,7 +104,7 @@ class NodesRouter extends RouterBase {
      *   schemas:
      *     NodeStats:
      *       type: object
-     *       required: ["capacity", "channels", "peers", "oldestChannel"]
+     *       required: ["capacity", "channels", "peers"]
      *       properties:
      *         capacity:
      *           type: integer

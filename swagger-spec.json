@@ -159,12 +159,12 @@
         }
       }
     },
-    "/swap/submarine/{id}/metadata": {
+    "/swap/{id}/metadata": {
       "patch": {
         "tags": [
-          "Submarine Swap"
+          "Swap"
         ],
-        "description": "Set or replace the metadata stored alongside a Submarine Swap",
+        "description": "Set or replace the metadata stored alongside a Swap",
         "parameters": [
           {
             "in": "path",
@@ -173,7 +173,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "ID of the Submarine Swap"
+            "description": "ID of the Swap"
           }
         ],
         "requestBody": {
@@ -803,67 +803,6 @@
         }
       }
     },
-    "/swap/reverse/{id}/metadata": {
-      "patch": {
-        "tags": [
-          "Reverse Swap"
-        ],
-        "description": "Set or replace the metadata stored alongside a Reverse Swap",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "ID of the Reverse Swap"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MetadataRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Metadata was stored successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Error that caused the request to fail",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No swap with the provided ID exists",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/swap/reverse/expiry": {
       "get": {
         "description": "Allowed invoice expiry range in seconds per Reverse Swap pair",
@@ -1101,67 +1040,6 @@
           },
           "409": {
             "description": "A swap with that preimage hash exists already",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/swap/chain/{id}/metadata": {
-      "patch": {
-        "tags": [
-          "Chain Swap"
-        ],
-        "description": "Set or replace the metadata stored alongside a Chain Swap",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "ID of the Chain Swap"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MetadataRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Metadata was stored successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Error that caused the request to fail",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No swap with the provided ID exists",
             "content": {
               "application/json": {
                 "schema": {

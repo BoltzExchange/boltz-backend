@@ -364,17 +364,17 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
-     * /swap/submarine/{id}/metadata:
+     * /swap/{id}/metadata:
      *   patch:
-     *     tags: [Submarine Swap]
-     *     description: Set or replace the metadata stored alongside a Submarine Swap
+     *     tags: [Swap]
+     *     description: Set or replace the metadata stored alongside a Swap
      *     parameters:
      *       - in: path
      *         name: id
      *         required: true
      *         schema:
      *           type: string
-     *         description: ID of the Submarine Swap
+     *         description: ID of the Swap
      *     requestBody:
      *       required: true
      *       content:
@@ -401,10 +401,7 @@ class SwapRouter extends RouterBase {
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
      */
-    router.patch(
-      '/submarine/:id/metadata',
-      this.handleError(this.patchSubmarineMetadata),
-    );
+    router.patch('/:id/metadata', this.handleError(this.patchMetadata));
 
     /**
      * @openapi
@@ -1113,50 +1110,6 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
-     * /swap/reverse/{id}/metadata:
-     *   patch:
-     *     tags: [Reverse Swap]
-     *     description: Set or replace the metadata stored alongside a Reverse Swap
-     *     parameters:
-     *       - in: path
-     *         name: id
-     *         required: true
-     *         schema:
-     *           type: string
-     *         description: ID of the Reverse Swap
-     *     requestBody:
-     *       required: true
-     *       content:
-     *         application/json:
-     *           schema:
-     *             $ref: '#/components/schemas/MetadataRequest'
-     *     responses:
-     *       '200':
-     *         description: Metadata was stored successfully
-     *         content:
-     *           application/json:
-     *             schema:
-     *               type: object
-     *       '400':
-     *         description: Error that caused the request to fail
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
-     *       '404':
-     *         description: No swap with the provided ID exists
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
-     */
-    router.patch(
-      '/reverse/:id/metadata',
-      this.handleError(this.patchReverseMetadata),
-    );
-
-    /**
-     * @openapi
      * components:
      *   schemas:
      *     InvoiceExpiryRange:
@@ -1578,50 +1531,6 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/chain', this.handleError(this.createChain));
-
-    /**
-     * @openapi
-     * /swap/chain/{id}/metadata:
-     *   patch:
-     *     tags: [Chain Swap]
-     *     description: Set or replace the metadata stored alongside a Chain Swap
-     *     parameters:
-     *       - in: path
-     *         name: id
-     *         required: true
-     *         schema:
-     *           type: string
-     *         description: ID of the Chain Swap
-     *     requestBody:
-     *       required: true
-     *       content:
-     *         application/json:
-     *           schema:
-     *             $ref: '#/components/schemas/MetadataRequest'
-     *     responses:
-     *       '200':
-     *         description: Metadata was stored successfully
-     *         content:
-     *           application/json:
-     *             schema:
-     *               type: object
-     *       '400':
-     *         description: Error that caused the request to fail
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
-     *       '404':
-     *         description: No swap with the provided ID exists
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
-     */
-    router.patch(
-      '/chain/:id/metadata',
-      this.handleError(this.patchChainMetadata),
-    );
 
     /**
      * @openapi
@@ -3610,24 +3519,12 @@ class SwapRouter extends RouterBase {
     await SwapMetadataRepository.add(swapId, data);
   };
 
-  private patchSubmarineMetadata = async (req: Request, res: Response) =>
-    this.patchMetadata(req, res, async (id) => SwapRepository.getSwap({ id }));
+  private findSwapForMetadata = async (id: string) =>
+    (await SwapRepository.getSwap({ id })) ??
+    (await ReverseSwapRepository.getReverseSwap({ id })) ??
+    (await ChainSwapRepository.getChainSwap({ id }));
 
-  private patchReverseMetadata = async (req: Request, res: Response) =>
-    this.patchMetadata(req, res, async (id) =>
-      ReverseSwapRepository.getReverseSwap({ id }),
-    );
-
-  private patchChainMetadata = async (req: Request, res: Response) =>
-    this.patchMetadata(req, res, async (id) =>
-      ChainSwapRepository.getChainSwap({ id }),
-    );
-
-  private patchMetadata = async (
-    req: Request,
-    res: Response,
-    findSwap: (id: string) => Promise<unknown>,
-  ) => {
+  private patchMetadata = async (req: Request, res: Response) => {
     const { id } = validateRequest(req.params, [
       { name: 'id', type: 'string' },
     ]);
@@ -3646,7 +3543,7 @@ class SwapRouter extends RouterBase {
       throw ApiErrors.INVALID_PARAMETER('metadata');
     }
 
-    const swap = await findSwap(id);
+    const swap = await this.findSwapForMetadata(id);
     if (swap === null || swap === undefined) {
       errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
       return;

@@ -37,10 +37,11 @@ runs:
         cache: 'npm'
 
     - name: Use Rust toolchain
+      id: rust-toolchain
       shell: bash
-      run:
-        rustup update ${{ inputs.rust-version }} && rustup default ${{
-        inputs.rust-version }}
+      run: |
+        rustup update ${{ inputs.rust-version }} && rustup default ${{ inputs.rust-version }}
+        echo "version=$(rustc --version | cut -d ' ' -f 2)" >> "$GITHUB_OUTPUT"
 
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
@@ -59,7 +60,8 @@ runs:
           ~/.cargo/git/db/
           target/
         key:
-          ${{ runner.os }}-${{ inputs.cache-prefix }}-${{ inputs.rust-version
-          }}-${{ hashFiles('**/Cargo.lock') }}
+          ${{ runner.os }}-${{ inputs.cache-prefix }}-${{
+          steps.rust-toolchain.outputs.version }}-${{ hashFiles('**/Cargo.lock')
+          }}
         restore-keys: |
-          ${{ runner.os }}-${{ inputs.cache-prefix }}-${{ inputs.rust-version }}-
+          ${{ runner.os }}-${{ inputs.cache-prefix }}-${{ steps.rust-toolchain.outputs.version }}-

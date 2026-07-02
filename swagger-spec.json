@@ -4132,7 +4132,7 @@
                 "$ref": "#/components/schemas/MetadataHex"
               }
             ],
-            "description": "Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint"
+            "description": "Metadata the client wants to store alongside the swap encoded as HEX. Returned in the restore endpoint"
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
@@ -4488,7 +4488,7 @@
                 "$ref": "#/components/schemas/MetadataHex"
               }
             ],
-            "description": "Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint"
+            "description": "Metadata the client wants to store alongside the swap encoded as HEX. Returned in the restore endpoint"
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
@@ -4766,7 +4766,7 @@
                 "$ref": "#/components/schemas/MetadataHex"
               }
             ],
-            "description": "Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint"
+            "description": "Metadata the client wants to store alongside the swap encoded as HEX. Returned in the restore endpoint"
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"

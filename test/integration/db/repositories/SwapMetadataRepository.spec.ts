@@ -21,11 +21,11 @@ describe('SwapMetadataRepository', () => {
     await database.close();
   });
 
-  test('should add and get metadata', async () => {
+  test('should set and get metadata', async () => {
     const swapId = 'swapId';
     const data = randomBytes(32);
 
-    await SwapMetadataRepository.add(swapId, data);
+    await SwapMetadataRepository.set(swapId, data);
     const metadata = await SwapMetadataRepository.get(swapId);
 
     expect(metadata).not.toBeNull();
@@ -34,7 +34,7 @@ describe('SwapMetadataRepository', () => {
     expect(metadata!.createdAt).toBeInstanceOf(Date);
   });
 
-  test('should set metadata', async () => {
+  test('should overwrite metadata', async () => {
     const swapId = 'swapId';
     const first = randomBytes(32);
     const second = randomBytes(32);

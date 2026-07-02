@@ -265,7 +265,7 @@ class SwapRouter extends RouterBase {
      *         metadata:
      *           allOf:
      *             - $ref: '#/components/schemas/MetadataHex'
-     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
+     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the restore endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -1027,7 +1027,7 @@ class SwapRouter extends RouterBase {
      *         metadata:
      *           allOf:
      *             - $ref: '#/components/schemas/MetadataHex'
-     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
+     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the restore endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -1433,7 +1433,7 @@ class SwapRouter extends RouterBase {
      *         metadata:
      *           allOf:
      *             - $ref: '#/components/schemas/MetadataHex'
-     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
+     *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the restore endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
@@ -3516,13 +3516,17 @@ class SwapRouter extends RouterBase {
       return;
     }
 
-    await SwapMetadataRepository.add(swapId, data);
+    await SwapMetadataRepository.set(swapId, data);
   };
 
-  private findSwapForMetadata = async (id: string) =>
-    (await SwapRepository.getSwap({ id })) ??
-    (await ReverseSwapRepository.getReverseSwap({ id })) ??
-    (await ChainSwapRepository.getChainSwap({ id }));
+  private findSwapForMetadata = async (id: string) => {
+    const [swap, reverseSwap, chainSwap] = await Promise.all([
+      SwapRepository.getSwap({ id }),
+      ReverseSwapRepository.getReverseSwap({ id }),
+      ChainSwapRepository.getChainSwap({ id }),
+    ]);
+    return swap ?? reverseSwap ?? chainSwap;
+  };
 
   private patchMetadata = async (req: Request, res: Response) => {
     const { id } = validateRequest(req.params, [
@@ -3538,13 +3542,10 @@ class SwapRouter extends RouterBase {
     const { metadata } = validateRequest(body, [
       { name: 'metadata', type: 'string' },
     ]);
-    const data = this.parseMetadata(metadata);
-    if (data === undefined) {
-      throw ApiErrors.INVALID_PARAMETER('metadata');
-    }
+    const data = this.parseMetadata(metadata)!;
 
     const swap = await this.findSwapForMetadata(id);
-    if (swap === null || swap === undefined) {
+    if (swap === null) {
       errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
       return;
     }

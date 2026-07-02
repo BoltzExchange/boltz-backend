@@ -45,7 +45,6 @@ jest.mock('../../../../../lib/db/repositories/MarkedSwapRepository', () => ({
 }));
 
 jest.mock('../../../../../lib/db/repositories/SwapMetadataRepository', () => ({
-  add: jest.fn().mockResolvedValue(undefined),
   set: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -192,12 +191,6 @@ describe('SwapRouter', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
-      swap: 'details',
-    });
-    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
-      swap: 'details',
-    });
   });
 
   test('should get route prefix', () => {
@@ -335,6 +328,15 @@ describe('SwapRouter', () => {
   });
 
   describe('patch swap metadata', () => {
+    beforeEach(() => {
+      ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
+        swap: 'details',
+      });
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+        swap: 'details',
+      });
+    });
+
     const callPatchMetadata = async (id: string, body: any) => {
       const res = mockResponse();
       await (swapRouter as any).patchMetadata(
@@ -351,8 +353,6 @@ describe('SwapRouter', () => {
       });
 
       expect(SwapRepository.getSwap).toHaveBeenCalledWith({ id: 'swapId' });
-      expect(ReverseSwapRepository.getReverseSwap).not.toHaveBeenCalled();
-      expect(ChainSwapRepository.getChainSwap).not.toHaveBeenCalled();
       expect(SwapMetadataRepository.set).toHaveBeenCalledWith(
         'swapId',
         validMetadataBuffer,
@@ -371,7 +371,6 @@ describe('SwapRouter', () => {
       expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
         id: 'reverseId',
       });
-      expect(ChainSwapRepository.getChainSwap).not.toHaveBeenCalled();
       expect(SwapMetadataRepository.set).toHaveBeenCalledWith(
         'reverseId',
         validMetadataBuffer,
@@ -692,8 +691,8 @@ describe('SwapRouter', () => {
 
     await swapRouter['createSubmarine'](mockRequest(reqBody), res);
 
-    expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
-    expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
+    expect(SwapMetadataRepository.set).toHaveBeenCalledTimes(1);
+    expect(SwapMetadataRepository.set).toHaveBeenCalledWith(
       'randomId',
       validMetadataBuffer,
     );
@@ -702,7 +701,7 @@ describe('SwapRouter', () => {
 
   test('should fail submarine swap creation when metadata cannot be persisted', async () => {
     const error = new Error('could not persist metadata');
-    (SwapMetadataRepository.add as jest.Mock).mockRejectedValueOnce(error);
+    (SwapMetadataRepository.set as jest.Mock).mockRejectedValueOnce(error);
 
     await expect(
       swapRouter['createSubmarine'](
@@ -1588,8 +1587,8 @@ describe('SwapRouter', () => {
 
     await swapRouter['createReverse'](mockRequest(reqBody), res);
 
-    expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
-    expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
+    expect(SwapMetadataRepository.set).toHaveBeenCalledTimes(1);
+    expect(SwapMetadataRepository.set).toHaveBeenCalledWith(
       'reverseId',
       validMetadataBuffer,
     );
@@ -2274,8 +2273,8 @@ describe('SwapRouter', () => {
 
     await swapRouter['createChain'](mockRequest(reqBody), res);
 
-    expect(SwapMetadataRepository.add).toHaveBeenCalledTimes(1);
-    expect(SwapMetadataRepository.add).toHaveBeenCalledWith(
+    expect(SwapMetadataRepository.set).toHaveBeenCalledTimes(1);
+    expect(SwapMetadataRepository.set).toHaveBeenCalledWith(
       'chainId',
       validMetadataBuffer,
     );

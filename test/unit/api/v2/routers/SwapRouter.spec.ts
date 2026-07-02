@@ -9,6 +9,7 @@ import { OrderSide, SwapVersion } from '../../../../../lib/consts/Enums';
 import ChainSwapRepository from '../../../../../lib/db/repositories/ChainSwapRepository';
 import MarkedSwapRepository from '../../../../../lib/db/repositories/MarkedSwapRepository';
 import ReferralRepository from '../../../../../lib/db/repositories/ReferralRepository';
+import ReverseSwapRepository from '../../../../../lib/db/repositories/ReverseSwapRepository';
 import SwapMetadataRepository from '../../../../../lib/db/repositories/SwapMetadataRepository';
 import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../../../lib/service/Errors';
@@ -18,6 +19,7 @@ import { mockRequest, mockResponse } from '../../Utils';
 const mockedRouter = {
   get: jest.fn(),
   post: jest.fn(),
+  patch: jest.fn(),
 };
 
 jest.mock('express', () => {
@@ -44,6 +46,7 @@ jest.mock('../../../../../lib/db/repositories/MarkedSwapRepository', () => ({
 
 jest.mock('../../../../../lib/db/repositories/SwapMetadataRepository', () => ({
   add: jest.fn().mockResolvedValue(undefined),
+  set: jest.fn().mockResolvedValue(undefined),
 }));
 
 describe('SwapRouter', () => {
@@ -189,6 +192,12 @@ describe('SwapRouter', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
+      swap: 'details',
+    });
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+      swap: 'details',
+    });
   });
 
   test('should get route prefix', () => {
@@ -317,6 +326,93 @@ describe('SwapRouter', () => {
       '/chain/:id/quote',
       expect.anything(),
     );
+
+    expect(mockedRouter.patch).toHaveBeenCalledTimes(3);
+    expect(mockedRouter.patch).toHaveBeenCalledWith(
+      '/submarine/:id/metadata',
+      expect.anything(),
+    );
+    expect(mockedRouter.patch).toHaveBeenCalledWith(
+      '/reverse/:id/metadata',
+      expect.anything(),
+    );
+    expect(mockedRouter.patch).toHaveBeenCalledWith(
+      '/chain/:id/metadata',
+      expect.anything(),
+    );
+  });
+
+  describe('patch swap metadata', () => {
+    const cases = [
+      {
+        name: 'submarine',
+        handler: 'patchSubmarineMetadata',
+        repository: SwapRepository,
+        method: 'getSwap',
+      },
+      {
+        name: 'reverse',
+        handler: 'patchReverseMetadata',
+        repository: ReverseSwapRepository,
+        method: 'getReverseSwap',
+      },
+      {
+        name: 'chain',
+        handler: 'patchChainMetadata',
+        repository: ChainSwapRepository,
+        method: 'getChainSwap',
+      },
+    ] as const;
+
+    test.each(cases)('should patch $name metadata', async ({ handler }) => {
+      const res = mockResponse();
+      await (swapRouter as any)[handler](
+        mockRequest({ metadata: validMetadata }, {}, { id: 'swapId' }),
+        res,
+      );
+
+      expect(SwapMetadataRepository.set).toHaveBeenCalledWith(
+        'swapId',
+        validMetadataBuffer,
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({});
+    });
+
+    test.each(cases)(
+      'should return 404 when $name swap is not found',
+      async ({ handler, repository, method }) => {
+        ((repository as any)[method] as jest.Mock).mockResolvedValueOnce(null);
+
+        const res = mockResponse();
+        await (swapRouter as any)[handler](
+          mockRequest({ metadata: validMetadata }, {}, { id: 'notFound' }),
+          res,
+        );
+
+        expect(SwapMetadataRepository.set).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(404);
+      },
+    );
+
+    test.each`
+      error                           | body
+      ${'undefined parameter: metadata'} | ${{}}
+      ${'invalid parameter: metadata'}   | ${{ metadata: 123 }}
+      ${'invalid parameter: metadata'}   | ${{ metadata: '' }}
+      ${'invalid parameter: metadata'}   | ${{ metadata: 'notHex' }}
+      ${'invalid parameter: metadata'}   | ${{ metadata: oversizedMetadata }}
+      ${'invalid parameter: status'}     | ${{ metadata: validMetadata, status: 'swap.created' }}
+    `('should reject $error', async ({ error, body }) => {
+      await expect(
+        (swapRouter as any).patchSubmarineMetadata(
+          mockRequest(body, {}, { id: 'swapId' }),
+          mockResponse(),
+        ),
+      ).rejects.toEqual(error);
+
+      expect(SwapMetadataRepository.set).not.toHaveBeenCalled();
+    });
   });
 
   describe('getSwapStatusMultiple', () => {

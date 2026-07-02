@@ -34,6 +34,18 @@ describe('SwapMetadataRepository', () => {
     expect(metadata!.createdAt).toBeInstanceOf(Date);
   });
 
+  test('should set metadata', async () => {
+    const swapId = 'swapId';
+    const first = randomBytes(32);
+    const second = randomBytes(32);
+
+    await SwapMetadataRepository.set(swapId, first);
+    expect((await SwapMetadataRepository.get(swapId))!.data).toEqual(first);
+
+    await SwapMetadataRepository.set(swapId, second);
+    expect((await SwapMetadataRepository.get(swapId))!.data).toEqual(second);
+  });
+
   test('should return null when no metadata exists', async () => {
     await expect(SwapMetadataRepository.get('notFound')).resolves.toBeNull();
   });

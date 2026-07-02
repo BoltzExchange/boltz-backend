@@ -6,6 +6,7 @@ import { SwapUpdateEvent, SwapVersion } from '../../../consts/Enums';
 import { unsafeKeys } from '../../../data/Utils';
 import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
 import ReferralRepository from '../../../db/repositories/ReferralRepository';
+import ReverseSwapRepository from '../../../db/repositories/ReverseSwapRepository';
 import SwapMetadataRepository from '../../../db/repositories/SwapMetadataRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
@@ -228,6 +229,11 @@ class SwapRouter extends RouterBase {
      * @openapi
      * components:
      *   schemas:
+     *     MetadataHex:
+     *       type: string
+     *       pattern: '^(?:[0-9a-fA-F]{2})+$'
+     *       minLength: 2
+     *       maxLength: 2048
      *     SubmarineRequest:
      *       type: object
      *       required: ["from", "to"]
@@ -257,10 +263,8 @@ class SwapRouter extends RouterBase {
      *           type: number
      *           description: Payment timeout in seconds
      *         metadata:
-     *           type: string
-     *           pattern: '^(?:[0-9a-fA-F]{2})+$'
-     *           minLength: 2
-     *           maxLength: 2048
+     *           allOf:
+     *             - $ref: '#/components/schemas/MetadataHex'
      *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
@@ -342,6 +346,65 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/submarine', this.handleError(this.createSubmarine));
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     MetadataRequest:
+     *       type: object
+     *       required: ["metadata"]
+     *       additionalProperties: false
+     *       properties:
+     *         metadata:
+     *           allOf:
+     *             - $ref: '#/components/schemas/MetadataHex'
+     *           description: Metadata to store alongside the swap encoded as HEX, replacing any metadata set previously. Returned in the restore endpoint
+     */
+
+    /**
+     * @openapi
+     * /swap/submarine/{id}/metadata:
+     *   patch:
+     *     tags: [Submarine Swap]
+     *     description: Set or replace the metadata stored alongside a Submarine Swap
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Submarine Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/MetadataRequest'
+     *     responses:
+     *       '200':
+     *         description: Metadata was stored successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: No swap with the provided ID exists
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.patch(
+      '/submarine/:id/metadata',
+      this.handleError(this.patchSubmarineMetadata),
+    );
 
     /**
      * @openapi
@@ -965,10 +1028,8 @@ class SwapRouter extends RouterBase {
      *           type: number
      *           description: Expiry of the invoice in seconds
      *         metadata:
-     *           type: string
-     *           pattern: '^(?:[0-9a-fA-F]{2})+$'
-     *           minLength: 2
-     *           maxLength: 2048
+     *           allOf:
+     *             - $ref: '#/components/schemas/MetadataHex'
      *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
@@ -1049,6 +1110,50 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/reverse', this.handleError(this.createReverse));
+
+    /**
+     * @openapi
+     * /swap/reverse/{id}/metadata:
+     *   patch:
+     *     tags: [Reverse Swap]
+     *     description: Set or replace the metadata stored alongside a Reverse Swap
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Reverse Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/MetadataRequest'
+     *     responses:
+     *       '200':
+     *         description: Metadata was stored successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: No swap with the provided ID exists
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.patch(
+      '/reverse/:id/metadata',
+      this.handleError(this.patchReverseMetadata),
+    );
 
     /**
      * @openapi
@@ -1373,10 +1478,8 @@ class SwapRouter extends RouterBase {
      *           type: string
      *           description: Referral ID to be used for the Chain Swap
      *         metadata:
-     *           type: string
-     *           pattern: '^(?:[0-9a-fA-F]{2})+$'
-     *           minLength: 2
-     *           maxLength: 2048
+     *           allOf:
+     *             - $ref: '#/components/schemas/MetadataHex'
      *           description: Metadata the client wants to store alongside the swap encoded as HEX. Returned in the rescue endpoint
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
@@ -1475,6 +1578,50 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/chain', this.handleError(this.createChain));
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/metadata:
+     *   patch:
+     *     tags: [Chain Swap]
+     *     description: Set or replace the metadata stored alongside a Chain Swap
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Chain Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/MetadataRequest'
+     *     responses:
+     *       '200':
+     *         description: Metadata was stored successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: No swap with the provided ID exists
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.patch(
+      '/chain/:id/metadata',
+      this.handleError(this.patchChainMetadata),
+    );
 
     /**
      * @openapi
@@ -2292,10 +2439,8 @@ class SwapRouter extends RouterBase {
      *         refundDetails:
      *           $ref: '#/components/schemas/RestoreRefundDetails'
      *         metadata:
-     *           type: string
-     *           pattern: '^(?:[0-9a-fA-F]{2})+$'
-     *           minLength: 2
-     *           maxLength: 2048
+     *           allOf:
+     *             - $ref: '#/components/schemas/MetadataHex'
      *           description: Metadata stored alongside the swap encoded as HEX, if available
      */
 
@@ -3463,6 +3608,52 @@ class SwapRouter extends RouterBase {
     }
 
     await SwapMetadataRepository.add(swapId, data);
+  };
+
+  private patchSubmarineMetadata = async (req: Request, res: Response) =>
+    this.patchMetadata(req, res, async (id) => SwapRepository.getSwap({ id }));
+
+  private patchReverseMetadata = async (req: Request, res: Response) =>
+    this.patchMetadata(req, res, async (id) =>
+      ReverseSwapRepository.getReverseSwap({ id }),
+    );
+
+  private patchChainMetadata = async (req: Request, res: Response) =>
+    this.patchMetadata(req, res, async (id) =>
+      ChainSwapRepository.getChainSwap({ id }),
+    );
+
+  private patchMetadata = async (
+    req: Request,
+    res: Response,
+    findSwap: (id: string) => Promise<unknown>,
+  ) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    const body = req.body ?? {};
+    const unknownKey = Object.keys(body).find((key) => key !== 'metadata');
+    if (unknownKey !== undefined) {
+      throw ApiErrors.INVALID_PARAMETER(unknownKey);
+    }
+
+    const { metadata } = validateRequest(body, [
+      { name: 'metadata', type: 'string' },
+    ]);
+    const data = this.parseMetadata(metadata);
+    if (data === undefined) {
+      throw ApiErrors.INVALID_PARAMETER('metadata');
+    }
+
+    const swap = await findSwap(id);
+    if (swap === null || swap === undefined) {
+      errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
+      return;
+    }
+
+    await SwapMetadataRepository.set(id, data);
+    successResponse(res, {});
   };
 
   private getReferralFromHeader = async (req: Request) => {

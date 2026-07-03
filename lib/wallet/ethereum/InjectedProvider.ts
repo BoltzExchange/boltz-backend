@@ -54,7 +54,7 @@ class InjectedProvider implements Provider {
   private static readonly blockPollIntervalMs = 2_500;
 
   constructor(
-    private readonly logger: Logger,
+    protected readonly logger: Logger,
     private readonly networkDetails: NetworkDetails,
     config: Pick<EthereumConfig, 'providers' | 'providerEndpoint'>,
   ) {
@@ -680,9 +680,8 @@ class InjectedProvider implements Provider {
       );
     });
 
-    return Promise.race([promise, timeoutPromise]).then((result) => {
+    return Promise.race([promise, timeoutPromise]).finally(() => {
       clearTimeout(timeoutHandle);
-      return result;
     });
   };
 

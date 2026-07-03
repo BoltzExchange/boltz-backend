@@ -126,7 +126,8 @@ type EthereumConfig = {
 };
 
 type ArbitrumConfig = EthereumConfig & {
-  l1Providers: ProviderConfig[];
+  // Allows falling back to the L2 block number when l1BlockNumber is missing
+  regtest?: boolean;
 };
 
 type ApiConfig = {

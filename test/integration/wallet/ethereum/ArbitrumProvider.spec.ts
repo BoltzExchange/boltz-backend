@@ -11,7 +11,6 @@ jest.mock(
 );
 
 const arbitrumEndpoint = 'https://arb1.arbitrum.io/rpc';
-const ethereumEndpoint = 'https://ethereum-rpc.publicnode.com';
 
 describe('ArbitrumProvider (integration)', () => {
   jest.setTimeout(60_000);
@@ -21,7 +20,6 @@ describe('ArbitrumProvider (integration)', () => {
   beforeAll(async () => {
     provider = new ArbitrumProvider(Logger.disabledLogger, networks.Arbitrum, {
       providers: [{ name: 'arb1', endpoint: arbitrumEndpoint }],
-      l1Providers: [{ name: 'eth', endpoint: ethereumEndpoint }],
     } as never);
     await provider.init();
   });
@@ -38,14 +36,6 @@ describe('ArbitrumProvider (integration)', () => {
       expect(blk.number).toBeGreaterThan(0);
       expect(typeof blk.l1BlockNumber).toEqual('number');
       expect(blk.l1BlockNumber).toBeGreaterThan(0);
-    });
-
-    test('l1BlockNumber never exceeds the live L1 tip', async () => {
-      const blk = await provider['getLatestBlock']();
-      const liveL1 = await provider['l1Provider'].getBlockNumber();
-
-      expect(blk.l1BlockNumber).toBeLessThanOrEqual(liveL1);
-      expect(liveL1 - (blk.l1BlockNumber as number)).toBeGreaterThanOrEqual(0);
     });
 
     test('agrees with the L1 ref reported by a separate eth_getBlockByNumber call', async () => {
@@ -79,9 +69,6 @@ describe('ArbitrumProvider (integration)', () => {
 
       expect(block.number).toBeGreaterThan(0);
       expect(block.l1BlockNumber).toBeGreaterThan(0);
-
-      const liveL1 = await provider['l1Provider'].getBlockNumber();
-      expect(block.l1BlockNumber as number).toBeLessThanOrEqual(liveL1);
     });
   });
 });

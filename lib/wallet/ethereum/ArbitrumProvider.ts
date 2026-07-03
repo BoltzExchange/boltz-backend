@@ -1,11 +1,12 @@
+import { getNumber } from 'ethers';
 import type { ArbitrumConfig } from '../../Config';
 import type Logger from '../../Logger';
-import { type NetworkDetails, networks } from './EvmNetworks';
+import type { NetworkDetails } from './EvmNetworks';
 import InjectedProvider from './InjectedProvider';
 import type { BlockEvent } from './WebSocketProvider';
 
 class ArbitrumProvider extends InjectedProvider {
-  private l1Provider: InjectedProvider;
+  private readonly regtest: boolean;
 
   constructor(
     logger: Logger,
@@ -14,37 +15,42 @@ class ArbitrumProvider extends InjectedProvider {
   ) {
     super(logger, networkDetails, config);
 
-    this.l1Provider = new InjectedProvider(logger, networks.Ethereum, {
-      providers: config.l1Providers,
-    });
+    this.regtest = config.regtest === true;
   }
 
   public override async init(): Promise<void> {
     await super.init();
-    await this.l1Provider.init();
-  }
 
-  public override async destroy(): Promise<void> {
-    await this.l1Provider.destroy();
-    await super.destroy();
+    // The block poller swallows getLatestBlock errors; fail at startup instead
+    await this.getLatestBlock();
   }
 
   public getLocktimeHeight = async (): Promise<number> => {
-    return await this.l1Provider.getBlockNumber();
+    // Arbitrum contracts read block.number as the L1 height (l1BlockNumber)
+    const { number, l1BlockNumber } = await this.getLatestBlock();
+    return l1BlockNumber ?? number;
   };
 
   protected override getLatestBlock = async (): Promise<BlockEvent> => {
     const raw = await this.forwardMethod<{
-      number: string;
-      l1BlockNumber?: string;
+      number: string | number;
+      l1BlockNumber?: string | number | null;
     }>('send', 'eth_getBlockByNumber', ['latest', false]);
 
+    if (raw.l1BlockNumber == null && !this.regtest) {
+      const message =
+        'Arbitrum RPC returned no l1BlockNumber for the latest block; ' +
+        'refusing to fall back to the L2 block number. Check the Arbitrum RPC ' +
+        'endpoint (set arbitrum.regtest = true only for regtest).';
+      this.logger.error(message);
+      throw new Error(message);
+    }
+
+    // getNumber also handles the decimal l1BlockNumber anvil forks return
     return {
-      number: parseInt(raw.number, 16),
+      number: getNumber(raw.number),
       l1BlockNumber:
-        raw.l1BlockNumber !== undefined
-          ? parseInt(raw.l1BlockNumber, 16)
-          : undefined,
+        raw.l1BlockNumber != null ? getNumber(raw.l1BlockNumber) : undefined,
     };
   };
 }

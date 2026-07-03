@@ -71,6 +71,18 @@ class SwapRouter extends RouterBase {
     /**
      * @openapi
      * components:
+     *   responses:
+     *     SwapNotFound:
+     *       description: When no Swap with the ID could be found
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/ErrorResponse'
+     */
+
+    /**
+     * @openapi
+     * components:
      *   schemas:
      *     SwapTreeLeaf:
      *       type: object
@@ -185,6 +197,13 @@ class SwapRouter extends RouterBase {
      *   get:
      *     description: Possible pairs for Submarine Swaps
      *     tags: [Submarine Swap]
+     *     parameters:
+     *       - name: referral
+     *         in: header
+     *         required: false
+     *         schema:
+     *           type: string
+     *         description: Optional referral ID to receive referral-specific pairs and fees
      *     responses:
      *       '200':
      *         description: Dictionary of the from -> to currencies that can be used in a Submarine Swap
@@ -237,6 +256,11 @@ class SwapRouter extends RouterBase {
      *     SubmarineRequest:
      *       type: object
      *       required: ["from", "to"]
+     *       anyOf:
+     *         - title: With invoice
+     *           required: ["invoice"]
+     *         - title: With preimage hash
+     *           required: ["preimageHash"]
      *       properties:
      *         from:
      *           type: string
@@ -246,10 +270,10 @@ class SwapRouter extends RouterBase {
      *           description: The asset that is received on lightning
      *         invoice:
      *           type: string
-     *           description: BOLT11 invoice that should be paid
+     *           description: BOLT11 invoice that should be paid. Either this or "preimageHash" has to be specified; takes precedence over "preimageHash" if both are set
      *         preimageHash:
      *           type: string
-     *           description: Preimage hash of an invoice that will be set later
+     *           description: Preimage hash of an invoice that will be set later. Either this or "invoice" has to be specified
      *         refundPublicKey:
      *           type: string
      *           description: Public key with which the Submarine Swap can be refunded encoded as HEX
@@ -278,14 +302,14 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     SubmarineResponse:
      *       type: object
-     *       required: ["id", "expectedAmount"]
+     *       required: ["id"]
      *       properties:
      *         id:
      *           type: string
      *           description: ID of the created Submarine Swap
      *         bip21:
      *           type: string
-     *           description: BIP21 for the onchain payment request
+     *           description: BIP21 for the onchain payment request. Only set when the swap was created with an invoice
      *         address:
      *           type: string
      *           description: Onchain HTLC address
@@ -294,6 +318,9 @@ class SwapRouter extends RouterBase {
      *         claimPublicKey:
      *           type: string
      *           description: Public key of Boltz that will be used to sweep the onchain HTLC
+     *         claimAddress:
+     *           type: string
+     *           description: EVM address of Boltz that will be used to claim the onchain HTLC. Only set for swaps to EVM based chains
      *         timeoutBlockHeight:
      *           type: number
      *           description: Timeout block height of the onchain HTLC
@@ -301,10 +328,10 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/ArkTimeouts'
      *         acceptZeroConf:
      *           type: boolean
-     *           description: Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee
+     *           description: Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee. Only set when the swap was created with an invoice
      *         expectedAmount:
      *           type: number
-     *           description: Amount that is expected to be sent to the onchain HTLC address in satoshis
+     *           description: Amount that is expected to be sent to the onchain HTLC address in satoshis. Only set when the swap was created with an invoice
      *         blindingKey:
      *           type: string
      *           description: Liquid blinding private key encoded as HEX
@@ -429,6 +456,8 @@ class SwapRouter extends RouterBase {
      *                 description: BOLT11 invoice that should be paid. The preimage hash has to match the one specified when creating the swap
      *               pairHash:
      *                 type: string
+     *               extraFees:
+     *                 $ref: '#/components/schemas/ExtraFees'
      *     responses:
      *       '200':
      *         description: Information about the onchain part of the Submarine Swap
@@ -453,6 +482,8 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         $ref: '#/components/responses/SwapNotFound'
      *       '409':
      *         description: That swap has an invoice already
      *         content:
@@ -496,6 +527,8 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         $ref: '#/components/responses/SwapNotFound'
      */
     router.get(
       '/submarine/:id/invoice/amount',
@@ -550,6 +583,8 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         $ref: '#/components/responses/SwapNotFound'
      */
     router.get(
       '/submarine/:id/transaction',
@@ -638,6 +673,8 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         $ref: '#/components/responses/SwapNotFound'
      */
     router.get('/submarine/:id/refund', this.handleError(this.refundEvm));
 
@@ -740,6 +777,8 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         $ref: '#/components/responses/SwapNotFound'
      */
     router.post(
       '/submarine/:id/refund',
@@ -845,11 +884,7 @@ class SwapRouter extends RouterBase {
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
      *       '404':
-     *         description: When no Swap with the ID could be found
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
+     *         $ref: '#/components/responses/SwapNotFound'
      */
     router.get(
       '/submarine/:id/claim',
@@ -889,11 +924,7 @@ class SwapRouter extends RouterBase {
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
      *       '404':
-     *         description: When no Swap with the ID could be found
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
+     *         $ref: '#/components/responses/SwapNotFound'
      */
     router.post('/submarine/:id/claim', this.handleError(this.claimSubmarine));
 
@@ -953,6 +984,13 @@ class SwapRouter extends RouterBase {
      *   get:
      *     description: Possible pairs for Reverse Swaps
      *     tags: [Reverse Swap]
+     *     parameters:
+     *       - name: referral
+     *         in: header
+     *         required: false
+     *         schema:
+     *           type: string
+     *         description: Optional referral ID to receive referral-specific pairs and fees
      *     responses:
      *       '200':
      *         description: Dictionary of the from -> to currencies that can be used in a Reverse Swap
@@ -976,7 +1014,12 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ReverseRequest:
      *       type: object
-     *       required: ["from", "to", "preimageHash"]
+     *       required: ["from", "to"]
+     *       oneOf:
+     *         - title: With preimage hash
+     *           required: ["preimageHash"]
+     *         - title: With BOLT12 invoice
+     *           required: ["invoice"]
      *       properties:
      *         from:
      *           type: string
@@ -986,7 +1029,10 @@ class SwapRouter extends RouterBase {
      *           description: The asset that is received onchain
      *         preimageHash:
      *           type: string
-     *           description: SHA-256 hash of the preimage of the Reverse Swap encoded as HEX
+     *           description: SHA-256 hash of the preimage of the Reverse Swap encoded as HEX. Either this or "invoice" has to be specified
+     *         invoice:
+     *           type: string
+     *           description: BOLT12 invoice to be used for the Reverse Swap instead of a preimage hash. The amount of the invoice is used as the invoice amount; conflicts with "preimageHash", "invoiceAmount" and "onchainAmount"
      *         claimPublicKey:
      *           type: string
      *           description: Public key with which the Reverse Swap can be claimed encoded as HEX
@@ -995,10 +1041,10 @@ class SwapRouter extends RouterBase {
      *           description: EVM address with which the Reverse Swap can be claimed
      *         invoiceAmount:
      *           type: number
-     *           description: Amount for which the invoice should be; conflicts with "onchainAmount"
+     *           description: Amount for which the invoice should be; conflicts with "onchainAmount" and "invoice"
      *         onchainAmount:
      *           type: number
-     *           description: Amount that should be locked in the onchain HTLC; conflicts with "invoiceAmount"
+     *           description: Amount that should be locked in the onchain HTLC; conflicts with "invoiceAmount" and "invoice"
      *         pairHash:
      *           type: string
      *           description: Pair hash from the pair information for the client to check if their fee data is up-to-date
@@ -1039,14 +1085,14 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ReverseResponse:
      *       type: object
-     *       required: ["id", "invoice"]
+     *       required: ["id"]
      *       properties:
      *         id:
      *           type: string
      *           description: ID of the created Reverse Swap
      *         invoice:
      *           type: string
-     *           description: Hold invoice of the Reverse Swap
+     *           description: Hold invoice of the Reverse Swap. Not set when the Reverse Swap was created with a client-provided BOLT12 invoice
      *         swapTree:
      *           $ref: '#/components/schemas/SwapTree'
      *         lockupAddress:
@@ -1189,6 +1235,8 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         $ref: '#/components/responses/SwapNotFound'
      */
     router.get(
       '/reverse/:id/transaction',
@@ -1249,6 +1297,8 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         $ref: '#/components/responses/SwapNotFound'
      */
     router.post('/reverse/:id/claim', this.handleError(this.claimReverse));
 
@@ -1375,6 +1425,13 @@ class SwapRouter extends RouterBase {
      *   get:
      *     description: Possible pairs for Chain Swaps
      *     tags: [Chain Swap]
+     *     parameters:
+     *       - name: referral
+     *         in: header
+     *         required: false
+     *         schema:
+     *           type: string
+     *         description: Optional referral ID to receive referral-specific pairs and fees
      *     responses:
      *       '200':
      *         description: Dictionary of the from -> to currencies that can be used in a Chain Swap
@@ -1459,7 +1516,7 @@ class SwapRouter extends RouterBase {
      *         timeoutBlockHeight:
      *           type: number
      *           description: Timeout block height of the onchain HTLC
-     *         timeoutBlockHeights:
+     *         timeouts:
      *           $ref: '#/components/schemas/ArkTimeouts'
      *         amount:
      *           type: number
@@ -1772,6 +1829,8 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         $ref: '#/components/responses/SwapNotFound'
      */
     router.get(
       '/chain/:id/refund',
@@ -1811,6 +1870,8 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         $ref: '#/components/responses/SwapNotFound'
      */
     router.post(
       '/chain/:id/refund',
@@ -1904,6 +1965,8 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         $ref: '#/components/responses/SwapNotFound'
      *       '409':
      *         description: The quote cannot be renegotiated because a refund was signed already
      *         content:
@@ -1953,6 +2016,8 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         $ref: '#/components/responses/SwapNotFound'
      *       '409':
      *         description: The quote cannot be renegotiated because a refund was signed already
      *         content:
@@ -1989,6 +2054,7 @@ class SwapRouter extends RouterBase {
      *         transaction:
      *           type: object
      *           description: Details of the transaction relevant to the status update
+     *           required: ["id"]
      *           properties:
      *             id:
      *               type: string
@@ -1996,9 +2062,26 @@ class SwapRouter extends RouterBase {
      *             hex:
      *               type: string
      *               description: Raw hex of the transaction
+     *             eta:
+     *               type: number
+     *               description: Estimated time in blocks until the transaction is confirmed; only set while the transaction is still in the mempool
      *             confirmed:
      *               type: boolean
      *               description: Whether the transaction is confirmed; only set for `transaction.refunded`. Clients can only request cooperative refund signatures after this is `true`
+     *         failureReason:
+     *           type: string
+     *           description: Reason for the failure of the Swap; only set for failure statuses
+     *         failureDetails:
+     *           type: object
+     *           description: Details about the incorrect amount that caused the Swap to fail; only set for some failure statuses
+     *           required: ["expected", "actual"]
+     *           properties:
+     *             expected:
+     *               type: number
+     *               description: Amount that was expected in satoshis
+     *             actual:
+     *               type: number
+     *               description: Amount that was actually received in satoshis
      */
 
     /**
@@ -2034,6 +2117,12 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: When any of the queried Swap IDs could not be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.get('/status', this.handleError(this.getSwapStatusMultiple));
 
@@ -2058,11 +2147,7 @@ class SwapRouter extends RouterBase {
      *             schema:
      *               $ref: '#/components/schemas/SwapStatus'
      *       '404':
-     *         description: When no Swap with the ID could be found
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
+     *         $ref: '#/components/responses/SwapNotFound'
      */
     router.get('/:id', this.handleError(this.getSwapStatus));
 
@@ -2188,6 +2273,9 @@ class SwapRouter extends RouterBase {
      *         invoice:
      *           type: string
      *           description: Invoice of the swap, if set. Only returned for submarine swaps
+     *         amount:
+     *           type: number
+     *           description: Amount of the swap in satoshis
      *         timeoutBlockHeight:
      *           type: number
      *           description: Block height at which the rescuable onchain HTLCs will time out
@@ -2626,11 +2714,7 @@ class SwapRouter extends RouterBase {
      *           items:
      *             type: array
      *             items:
-     *               oneOf:
-     *                 - type: integer
-     *                   description: UNIX timestamp
-     *                 - type: number
-     *                   description: Fee value
+     *               type: number
      *             minItems: 2
      *             maxItems: 2
      *         maximalRoutingFee:
@@ -2639,11 +2723,7 @@ class SwapRouter extends RouterBase {
      *           items:
      *             type: array
      *             items:
-     *               oneOf:
-     *                 - type: integer
-     *                   description: UNIX timestamp
-     *                 - type: number
-     *                   description: Maximal Lightning routing fee percentage
+     *               type: number
      *             minItems: 2
      *             maxItems: 2
      */
@@ -2674,7 +2754,7 @@ class SwapRouter extends RouterBase {
      *         schema:
      *           type: string
      *         description: Destination currency symbol
-     *       - name: Referral
+     *       - name: referral
      *         in: header
      *         required: true
      *         schema:

@@ -52,7 +52,7 @@
  *
  *     LightningChannel:
  *       type: object
- *       required: ["source", "shortChannelId"]
+ *       required: ["source", "shortChannelId", "active", "info"]
  *       properties:
  *         source:
  *           $ref: '#/components/schemas/LightningNode'
@@ -68,9 +68,19 @@
  *         info:
  *           $ref: '#/components/schemas/LightningChannelPolicy'
  *
+ *     LightningChannelSide:
+ *       description: One channel partner's policy together with its node
+ *       allOf:
+ *         - $ref: '#/components/schemas/LightningChannelPolicy'
+ *         - type: object
+ *           required: ["node"]
+ *           properties:
+ *             node:
+ *               $ref: '#/components/schemas/LightningNode'
+ *
  *     LightningChannelInfo:
  *       type: object
- *       required: ["shortChannelId", "capacity", "policies"]
+ *       required: ["shortChannelId", "policies"]
  *       properties:
  *         shortChannelId:
  *           type: string
@@ -82,7 +92,7 @@
  *           type: array
  *           description: Policies of the channel partners
  *           items:
- *             $ref: '#/components/schemas/LightningChannelPolicy'
+ *             $ref: '#/components/schemas/LightningChannelSide'
  */
 
 /**
@@ -151,12 +161,6 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/LightningChannelInfo'
- *       '400':
- *         description: Unprocessable request parameters
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       '404':
  *         description: When the channel cannot be found or the currency is not supported
  *         content:
@@ -334,23 +338,67 @@
  *             schema:
  *               type: object
  *       '400':
- *         description: Invalid request parameters
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/BadRequest'
  *       '404':
- *         description: When the currency has no BOLT12 support or the offer was not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/Bolt12NotFound'
+ *       '401':
+ *         $ref: '#/components/responses/InvalidSignature'
  *       '422':
- *         description: When the signature is invalid hex
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/InvalidSignatureHex'
+ */
+
+/**
+ * @openapi
+ * components:
+ *   requestBodies:
+ *     Bolt12Delete:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - offer
+ *               - signature
+ *             properties:
+ *               offer:
+ *                 type: string
+ *                 description: The BOLT12 offer
+ *               signature:
+ *                 type: string
+ *                 description: Schnorr signature of the SHA256 hash of "DELETE"
+ *
+ *   responses:
+ *     Bolt12DeleteSuccess:
+ *       description: BOLT12 offer deleted successfully
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     BadRequest:
+ *       description: Invalid request parameters
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *     InvalidSignature:
+ *       description: When the signature is invalid
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *     Bolt12NotFound:
+ *       description: When the currency has no BOLT12 support or the offer was not found
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *     InvalidSignatureHex:
+ *       description: When the signature is invalid hex
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
  */
 
 /**
@@ -367,46 +415,47 @@
  *           type: string
  *         description: Currency of the lightning network to use
  *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - offer
- *               - signature
- *             properties:
- *               offer:
- *                 type: string
- *                 description: The BOLT12 offer
- *               signature:
- *                 type: string
- *                 description: Schnorr signature of the SHA256 hash of "DELETE"
+ *       $ref: '#/components/requestBodies/Bolt12Delete'
  *     responses:
  *       '200':
- *         description: BOLT12 offer deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
+ *         $ref: '#/components/responses/Bolt12DeleteSuccess'
  *       '400':
- *         description: Invalid request parameters
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/InvalidSignature'
  *       '404':
- *         description: When the currency has no BOLT12 support or the offer was not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/Bolt12NotFound'
  *       '422':
- *         description: When the signature is invalid hex
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         $ref: '#/components/responses/InvalidSignatureHex'
+ */
+
+/**
+ * @openapi
+ * /lightning/{currency}/bolt12/delete:
+ *   post:
+ *     tags: [Lightning]
+ *     deprecated: true
+ *     description: Deletes a BOLT12 offer. Deprecated alias of DELETE /lightning/{currency}/bolt12
+ *     parameters:
+ *       - in: path
+ *         name: currency
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Currency of the lightning network to use
+ *     requestBody:
+ *       $ref: '#/components/requestBodies/Bolt12Delete'
+ *     responses:
+ *       '200':
+ *         $ref: '#/components/responses/Bolt12DeleteSuccess'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/InvalidSignature'
+ *       '404':
+ *         $ref: '#/components/responses/Bolt12NotFound'
+ *       '422':
+ *         $ref: '#/components/responses/InvalidSignatureHex'
  */
 
 /**
@@ -440,12 +489,6 @@
  *                 minCltv:
  *                   type: integer
  *                   description: Minimum CLTV value
- *       '400':
- *         description: Invalid request parameters
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       '404':
  *         description: BOLT12 Reverse Swaps not available for the sending symbol
  *         content:
@@ -500,6 +543,12 @@
  *                   $ref: '#/components/schemas/ReverseBip21'
  *       '404':
  *         description: When the currency has no BOLT12 support
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '422':
+ *         description: When the amount is invalid (e.g. zero)
  *         content:
  *           application/json:
  *             schema:

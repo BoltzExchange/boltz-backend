@@ -74,6 +74,8 @@ import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import type PaymentRequestUtils from '../service/PaymentRequestUtils';
 import Renegotiator from '../service/Renegotiator';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import type { SwapAttestation } from '../service/attestation/SwapAttestation';
+import { createSwapAttestation } from '../service/attestation/SwapAttestation';
 import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import DeferredClaimer from '../service/cooperative/DeferredClaimer';
 import EipSigner from '../service/cooperative/EipSigner';
@@ -156,6 +158,12 @@ type CreatedReverseSwap = {
 
   // Only set for Bitcoin like, UTXO based, chains
   redeemScript: string | undefined;
+
+  // Signed commitment to the on-chain HTLC parameters under the LN
+  // node key. Only set for UTXO-based reverse swaps where a client
+  // `claimPublicKey` was supplied. See
+  // `lib/service/attestation/SwapAttestation.ts`.
+  attestation: SwapAttestation | undefined;
 } & CreatedOnchainSwap;
 
 type CreatedChainSwapDetails = Omit<CreatedOnchainSwap, 'refundPublicKey'> & {
@@ -1176,6 +1184,31 @@ class SwapManager {
         minerFeeInvoicePreimage: minerFeeInvoicePreimage,
         minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
       });
+    }
+
+    // Sign the swap-response attestation for UTXO-based reverse swaps.
+    // See `lib/service/attestation/SwapAttestation.ts` for the design.
+    // EVM reverse swaps use a claim address rather than a claim pubkey,
+    // so the attestation model doesn't apply there (the on-chain
+    // custody surface is different).
+    if (
+      isBitcoinLike &&
+      args.claimPublicKey !== undefined &&
+      result.lockupAddress !== undefined &&
+      result.timeoutBlockHeight !== undefined
+    ) {
+      result.attestation = await createSwapAttestation(
+        lightningClient,
+        'reverse',
+        {
+          swapId: id,
+          paymentHash: args.preimageHash,
+          clientPubkey: args.claimPublicKey,
+          lockupAddress: result.lockupAddress,
+          timeoutBlockHeight: result.timeoutBlockHeight,
+          onchainAmountSat: args.onchainAmount,
+        },
+      );
     }
 
     return result as CreatedReverseSwap;

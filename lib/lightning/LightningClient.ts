@@ -159,6 +159,28 @@ interface LightningClient extends BalancerFetcher, BaseClient<EventTypes> {
     finalCltvDelta?: number,
     routingHints?: HopHint[][],
   ): Promise<Route[]>;
+
+  /**
+   * Sign an arbitrary message with the LN node's identity key using the
+   * "Lightning Signed Message" convention (double-sha256 of
+   * `"Lightning Signed Message:" || message`, ECDSA-with-recovery signed
+   * under the node key). Returns the zbase32-encoded compact signature
+   * (the canonical format both LND `lnrpc.SignMessage` and CLN
+   * `signmessage` emit natively).
+   *
+   * `message` must be a valid UTF-8 string — callers with binary data
+   * are expected to hex-encode it. This constraint comes from CLN's
+   * `signmessage` proto, which types its input as a string; hex is the
+   * conventional choice for cross-implementation portability.
+   *
+   * Used by swap-response attestations (see
+   * `lib/service/attestation/SwapAttestation.ts`) so that a client whose
+   * signer sits behind an untrusted coordinator can cryptographically
+   * verify the swap's on-chain parameters against the same node key that
+   * signs the Bolt11 invoice. This is the primary defense-in-depth
+   * mechanism for signer-vs-coordinator custody splits.
+   */
+  signMessage(message: string): Promise<string>;
 }
 
 interface RoutingHintsProvider {

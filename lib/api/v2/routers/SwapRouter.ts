@@ -1118,6 +1118,41 @@ class SwapRouter extends RouterBase {
      *         referralId:
      *           type: string
      *           description: Referral ID used for the swap
+     *         attestation:
+     *           $ref: '#/components/schemas/SwapAttestation'
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     SwapAttestation:
+     *       type: object
+     *       required: ["version", "signature"]
+     *       description: |
+     *         Signed commitment to the on-chain HTLC parameters under
+     *         the Boltz LN node key. Present on UTXO-based reverse
+     *         swap responses where a client `claimPublicKey` was
+     *         supplied. Lets a client whose signer sits behind a
+     *         separate coordinator process (e.g. a routing-node
+     *         control plane, a signer-in-enclave setup) verify that
+     *         the swap's `claimPublicKey`, `lockupAddress`,
+     *         `timeoutBlockHeight` and `onchainAmount` weren't
+     *         tampered with by the coordinator on the way to the
+     *         signer. Commitment layout is documented in
+     *         `lib/service/attestation/SwapAttestation.ts`.
+     *       properties:
+     *         version:
+     *           type: number
+     *           description: Attestation format version — currently 1
+     *         signature:
+     *           type: string
+     *           description: |
+     *             zbase32-encoded compact ECDSA-with-recovery signature
+     *             from the LN node's identity key over
+     *             `sha256d("Lightning Signed Message:" || commitment_hex)`.
+     *             Verify by recovering the pubkey and matching against
+     *             the invoice's payee node.
      */
 
     /**

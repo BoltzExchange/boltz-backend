@@ -296,6 +296,10 @@ const mockSubscribeSingleInvoice = jest.fn().mockResolvedValue(undefined);
 const mockServiceName = jest.fn().mockReturnValue('LND');
 const mockGetInfo = jest.fn().mockResolvedValue({ pubkey: 'me' });
 
+const mockSignMessage = jest
+  .fn()
+  .mockResolvedValue('zbase-signature-placeholder');
+
 jest.mock('../../../lib/lightning/LndClient', () => {
   const mockedImplementation = jest.fn().mockImplementation(() => {
     return {
@@ -303,6 +307,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
       on: () => {},
       isConnected: () => true,
       getInfo: mockGetInfo,
+      signMessage: mockSignMessage,
       queryRoutes: mockQueryRoutes,
       serviceName: mockServiceName,
       listChannels: mockListChannels,
@@ -1599,6 +1604,7 @@ describe('SwapManager', () => {
       type: NodeType.CLN,
       injectHoldInvoice,
       serviceName: jest.fn().mockReturnValue('CLN'),
+      signMessage: mockSignMessage,
     } as any;
 
     const invoiceCreationHook = jest.spyOn(manager.invoiceCreationHook, 'hook');

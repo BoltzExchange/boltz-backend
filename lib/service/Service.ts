@@ -2052,6 +2052,7 @@ class Service {
       minerFeeInvoice,
       timeoutBlockHeight,
       timeoutBlockHeights,
+      attestation,
     } = await this.swapManager.createReverseSwap({
       referralId,
       percentageFee,
@@ -2116,6 +2117,10 @@ class Service {
 
     if (invoiceAmountDefined) {
       response.onchainAmount = onchainAmount;
+    }
+
+    if (attestation !== undefined) {
+      response.attestation = attestation;
     }
 
     return response;

@@ -288,6 +288,24 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
   };
 
   /**
+   * Sign an arbitrary message with the node's identity key using the
+   * standard "Lightning Signed Message" convention. LND's SignMessage
+   * emits a zbase32-encoded 65-byte compact ECDSA-with-recovery
+   * signature over `sha256d("Lightning Signed Message:" || message)`.
+   * See `LightningClient.signMessage` for the wider design rationale.
+   */
+  public signMessage = async (message: string): Promise<string> => {
+    const response = await this.unaryLightningCall<
+      lndrpc.SignMessageRequest,
+      lndrpc.SignMessageResponse
+    >('signMessage', {
+      msg: Buffer.from(message, 'utf8'),
+      singleHash: false,
+    });
+    return response.signature;
+  };
+
+  /**
    * Creates an invoice
    */
   public addInvoice = (

@@ -243,6 +243,21 @@ class ClnClient
     };
   };
 
+  /**
+   * Sign an arbitrary message with the CLN node's identity key using
+   * the standard "Lightning Signed Message" convention. CLN's
+   * `signmessage` RPC natively emits a zbase32-encoded signature over
+   * `sha256d("Lightning Signed Message:" || message)`. See
+   * `LightningClient.signMessage` for the wider design rationale.
+   */
+  public signMessage = async (message: string): Promise<string> => {
+    const response = await this.unaryNodeCall<
+      noderpc.SignmessageRequest,
+      noderpc.SignmessageResponse
+    >('signMessage', { message });
+    return response.zbase;
+  };
+
   public getBalance = async (): Promise<WalletBalance> => {
     const sumOutputs = (
       outs: noderpc.ListfundsOutputs[],

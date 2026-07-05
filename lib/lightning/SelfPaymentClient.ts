@@ -223,6 +223,10 @@ class SelfPaymentClient
     throw SelfPaymentClient.notImplementedError;
   };
 
+  public signMessage = (): Promise<string> => {
+    throw SelfPaymentClient.notImplementedError;
+  };
+
   public listChannels = (): Promise<ChannelInfo[]> => {
     throw SelfPaymentClient.notImplementedError;
   };

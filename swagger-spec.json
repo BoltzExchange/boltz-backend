@@ -4614,6 +4614,27 @@
           "referralId": {
             "type": "string",
             "description": "Referral ID used for the swap"
+          },
+          "attestation": {
+            "$ref": "#/components/schemas/SwapAttestation"
+          }
+        }
+      },
+      "SwapAttestation": {
+        "type": "object",
+        "required": [
+          "version",
+          "signature"
+        ],
+        "description": "Signed commitment to the on-chain HTLC parameters under\nthe Boltz LN node key. Present on UTXO-based reverse\nswap responses where a client `claimPublicKey` was\nsupplied. Lets a client whose signer sits behind a\nseparate coordinator process (e.g. a routing-node\ncontrol plane, a signer-in-enclave setup) verify that\nthe swap's `claimPublicKey`, `lockupAddress`,\n`timeoutBlockHeight` and `onchainAmount` weren't\ntampered with by the coordinator on the way to the\nsigner. Commitment layout is documented in\n`lib/service/attestation/SwapAttestation.ts`.\n",
+        "properties": {
+          "version": {
+            "type": "number",
+            "description": "Attestation format version — currently 1"
+          },
+          "signature": {
+            "type": "string",
+            "description": "zbase32-encoded compact ECDSA-with-recovery signature\nfrom the LN node's identity key over\n`sha256d(\"Lightning Signed Message:\" || commitment_hex)`.\nVerify by recovering the pubkey and matching against\nthe invoice's payee node.\n"
           }
         }
       },

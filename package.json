@@ -24,7 +24,7 @@
     "start": "node bin/boltzd",
     "dev": "npm run compile && npm run start",
     "lint": "eslint --max-warnings 0 --concurrency auto --cache --cache-location node_modules/.cache/eslint/ .",
-    "prettier": "npx prettier --cache --cache-location node_modules/.cache/prettier/cache '{lib,test}/**/*.ts' lib/api/static bin docs boltzr/migrations/**/*.sql .github",
+    "prettier": "npx prettier --cache --cache-location node_modules/.cache/prettier/cache '{lib,test}/**/*.ts' lib/api/static bin docs boltzr/migrations/**/*.sql .github README.md '*/README.md'",
     "prettier:write": "npm run prettier -- --write",
     "prettier:check": "npm run prettier -- --check",
     "regtest:start:ci": "sh -c 'cd \"$1\" && COMPOSE_PROFILES=backend-dev ./start.sh' -- \"${BOLTZ_REGTEST:-regtest}\" && npm run regtest:db:setup && npm run regtest:solidity:deploy",

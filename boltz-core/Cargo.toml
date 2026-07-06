@@ -1,9 +1,11 @@
 [package]
 name = "boltz-core"
 version = "0.1.0"
-license.workspace = true
+description = "Atomic swap primitives for Bitcoin and Liquid used by Boltz"
+license = "MIT"
 authors.workspace = true
 edition.workspace = true
+repository.workspace = true
 
 [features]
 default = ["musig", "bitcoin", "elements"]

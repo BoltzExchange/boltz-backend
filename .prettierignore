@@ -1,2 +1,6 @@
 tools/
 lib/proto/**/*.d.ts
+
+# Submodules
+hold/
+regtest/

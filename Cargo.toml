@@ -13,9 +13,10 @@ exclude = ["hold"]
 
 [workspace.package]
 version = "3.13.0"
-license = "AGPL-3"
+license = "AGPL-3.0-only"
 authors = ["michael1011"]
 edition = "2024"
+repository = "https://github.com/BoltzExchange/boltz-backend"
 
 [profile.release]
 opt-level = 2

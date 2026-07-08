@@ -1,5 +1,6 @@
 pub mod caller;
 pub mod invoice_caller;
+mod resolver;
 pub mod status_caller;
 mod types;
 

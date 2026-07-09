@@ -419,10 +419,7 @@ message RelativeLocktime {
 
 message NonInteractiveClaim {
   string claim_receiver_address = 1; // fulmine will use it to compute the ArkadeScript (ark address)
-  string introspector_pubkey = 2; // tweaked by ArkadeScript (33 bytes compressed public key)
-  // solver may require extra packet to be set when the VHTLC is funded
-  // if set, the funding tx should include an extension output with the extra_packet
-  optional string extra_packet = 3; // hex encoded
+  string emulator_pubkey = 2; // tweaked by ArkadeScript (33 bytes compressed public key)
 }
 
 message Tapscripts {

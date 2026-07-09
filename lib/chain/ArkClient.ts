@@ -82,8 +82,7 @@ type ArkAddress = {
 
 export type NonInteractiveClaim = {
   claimReceiverAddress: string;
-  introspectorPublicKey: Buffer;
-  extraPacket?: Buffer;
+  emulatorPublicKey: Buffer;
 };
 
 enum ArkBlockEventKind {
@@ -532,13 +531,7 @@ class ArkClient extends BaseClient<
     if (nonInteractiveClaim) {
       req.nonInteractiveClaim = {
         claimReceiverAddress: nonInteractiveClaim.claimReceiverAddress,
-        introspectorPubkey: getHexString(
-          nonInteractiveClaim.introspectorPublicKey,
-        ),
-        extraPacket:
-          nonInteractiveClaim.extraPacket !== undefined
-            ? getHexString(nonInteractiveClaim.extraPacket)
-            : undefined,
+        emulatorPubkey: getHexString(nonInteractiveClaim.emulatorPublicKey),
       };
     }
 

@@ -962,18 +962,15 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/NonInteractiveClaim'
      *     NonInteractiveClaim:
      *       type: object
-     *       required: ["claimReceiverAddress", "introspectorPublicKey"]
+     *       required: ["claimReceiverAddress", "emulatorPublicKey"]
      *       description: Enables a non-interactive solver claim on the VHTLC (Ark Reverse Swaps only)
      *       properties:
      *         claimReceiverAddress:
      *           type: string
      *           description: Ark address the solver must pay when claiming
-     *         introspectorPublicKey:
+     *         emulatorPublicKey:
      *           type: string
      *           description: Compressed (33 bytes) secp256k1 public key tweaked by the arkade EnforcePayTo script encoded as HEX
-     *         extraPacket:
-     *           type: string
-     *           description: Optional hex encoded extension to attach to the VHTLC funding tx
      */
     /**
      * @openapi
@@ -3316,17 +3313,15 @@ class SwapRouter extends RouterBase {
     const res = validateRequest(data, [
       { name: 'claimReceiverAddress', type: 'string' },
       {
-        name: 'introspectorPublicKey',
+        name: 'emulatorPublicKey',
         type: 'string',
         hex: true,
       },
-      { name: 'extraPacket', type: 'string', hex: true, optional: true },
     ]);
 
     return {
       claimReceiverAddress: res.claimReceiverAddress,
-      introspectorPublicKey: res.introspectorPublicKey,
-      extraPacket: res.extraPacket,
+      emulatorPublicKey: res.emulatorPublicKey,
     };
   };
 

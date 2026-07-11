@@ -33,6 +33,15 @@ class RefundTransactionRepository {
     await RefundTransaction.update({ status }, { where: { swapId } });
   };
 
+  public static setStatusConfirmedIfPending = async (swapId: string) => {
+    const [updated] = await RefundTransaction.update(
+      { status: RefundStatus.Confirmed },
+      { where: { swapId, status: RefundStatus.Pending } },
+    );
+
+    return updated > 0;
+  };
+
   public static getTransactionForSwap = async (swapId: string) => {
     return await RefundTransaction.findOne({ where: { swapId } });
   };

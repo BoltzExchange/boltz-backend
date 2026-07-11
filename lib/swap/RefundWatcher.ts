@@ -4,7 +4,6 @@ import { formatError } from '../Utils';
 import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type RefundTransaction from '../db/models/RefundTransaction';
-import { RefundStatus } from '../db/models/RefundTransaction';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
@@ -52,16 +51,23 @@ class RefundWatcher extends TypedEventEmitter<{
         const txs = await RefundTransactionRepository.getPendingTransactions();
 
         for (const { tx, swap } of txs) {
-          try {
-            await this.checkRefund(tx, swap);
-          } catch (error) {
-            this.logger.error(
-              `Error checking refund transaction of ${swapTypeToPrettyString(swap.type)} ${swap.id}: ${formatError(error)}`,
-            );
-          }
+          await this.checkTransaction(tx, swap);
         }
       },
     );
+  };
+
+  public checkTransaction = async (
+    tx: RefundTransaction,
+    swap: ReverseSwap | ChainSwapInfo,
+  ) => {
+    try {
+      await this.checkRefund(tx, swap);
+    } catch (error) {
+      this.logger.error(
+        `Error checking refund transaction of ${swapTypeToPrettyString(swap.type)} ${swap.id}: ${formatError(error)}`,
+      );
+    }
   };
 
   private checkRefund = async (
@@ -81,14 +87,16 @@ class RefundWatcher extends TypedEventEmitter<{
       return;
     }
 
+    const confirmed =
+      await RefundTransactionRepository.setStatusConfirmedIfPending(swap.id);
+    if (!confirmed) {
+      return;
+    }
+
     this.logger.debug(
       `Refund transaction of ${swapTypeToPrettyString(swap.type)} swap ${swap.id} confirmed: ${tx.id}`,
     );
 
-    await RefundTransactionRepository.setStatus(
-      swap.id,
-      RefundStatus.Confirmed,
-    );
     this.emit('refund.confirmed', {
       swap,
       refundTransaction: tx.id,

@@ -53,7 +53,6 @@ import type {
   ERC20SwapValues,
   EtherSwapValues,
 } from '../consts/Types';
-import { RefundStatus } from '../db/models/RefundTransaction';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type SendApprovalHold from '../db/models/SendApprovalHold';
 import type Swap from '../db/models/Swap';
@@ -2536,24 +2535,31 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       } in: ${txId}`,
     );
 
-    await RefundTransactionRepository.addTransaction({
+    const refundTransaction = await RefundTransactionRepository.addTransaction({
       swapId: swap.id,
       symbol: chainCurrency.symbol,
       id: txId,
       vin: null,
-      status: RefundStatus.Confirmed,
     });
 
+    const refundedSwap = await WrappedSwapRepository.setTransactionRefunded(
+      swap,
+      0,
+      Errors.REFUNDED_COINS(txId).message,
+    );
+
     this.emit('refund', {
-      confirmed: true,
+      confirmed: false,
       emitFailure: true,
       refundTransaction: txId,
-      swap: await WrappedSwapRepository.setTransactionRefunded(
-        swap,
-        0,
-        Errors.REFUNDED_COINS(txId).message,
-      ),
+      swap: refundedSwap,
     });
+
+    // Ark transactions are final instantly, so confirm via the watcher directly
+    // instead of waiting on the global pending sweep. The refund must still flow
+    // through RefundWatcher so downstream handlers (e.g. invoice cancellation on
+    // refund.confirmed) run on the same path as other chains.
+    await this.refundWatcher.checkTransaction(refundTransaction, refundedSwap);
   };
 
   private refundEther = async (

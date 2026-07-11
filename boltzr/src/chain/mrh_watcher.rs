@@ -38,7 +38,7 @@ impl MrhWatcher {
         // Spawn one task for each currency and collect their handles
         let mut handles = Vec::new();
 
-        for (_, currency) in currencies.iter() {
+        for currency in currencies.values() {
             if let Some(chain_client) = currency.chain.as_ref() {
                 if chain_client.symbol() != elements_client::SYMBOL {
                     continue;

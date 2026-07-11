@@ -1944,6 +1944,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1a121ccf1177a09084bd6ce97c52119919aac08ea3649967958eae41beceebf"
 dependencies = [
  "base58ck",
+ "base64 0.21.7",
  "bech32 0.11.1",
  "bitcoin-io",
  "bitcoin-units",

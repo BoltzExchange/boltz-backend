@@ -83,7 +83,11 @@ jest.mock('../../../lib/swap/PaymentHandler', () =>
   jest.fn().mockImplementation(() => ({ selfPaymentClient: {} })),
 );
 jest.mock('../../../lib/swap/RefundWatcher', () =>
-  jest.fn().mockImplementation(() => ({ on: jest.fn(), init: jest.fn() })),
+  jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    init: jest.fn(),
+    checkTransaction: jest.fn().mockResolvedValue(undefined),
+  })),
 );
 
 jest.mock('../../../lib/swap/LightningNursery', () => {
@@ -2424,6 +2428,235 @@ describe('SwapNursery', () => {
       expect(swapNursery.emit).not.toHaveBeenCalledWith(
         'claim',
         expect.anything(),
+      );
+    });
+  });
+
+  describe('refundVtxo', () => {
+    const refundTxId = 'ark-refund-tx';
+
+    const mockArkClient = {
+      refundVHtlc: jest.fn().mockResolvedValue('ark-refund-tx'),
+      pubkey: Buffer.from('03'.repeat(33), 'hex'),
+      symbol: 'ARK',
+    } as any;
+
+    const mockArkCurrency = {
+      symbol: 'ARK',
+      arkNode: mockArkClient,
+    } as any;
+
+    beforeEach(() => {
+      (
+        WrappedSwapRepository.setTransactionRefunded as jest.Mock
+      ).mockImplementation(async (swap) => swap);
+      (
+        RefundTransactionRepository.addTransaction as jest.Mock
+      ).mockImplementation(async (transaction) => transaction);
+      jest.spyOn(swapNursery, 'emit');
+    });
+
+    test('should refund reverse ARK swaps and let the RefundWatcher confirm', async () => {
+      const swap = {
+        id: 'reverse-ark-swap',
+        type: SwapType.ReverseSubmarine,
+        preimageHash: 'aa'.repeat(32),
+        claimPublicKey: '02'.repeat(33),
+        transactionId: 'reverse-lockup-tx',
+        transactionVout: 2,
+      } as any;
+
+      await (swapNursery as any).refundVtxo(mockArkCurrency, swap);
+
+      expect(mockArkClient.refundVHtlc).toHaveBeenCalledWith(
+        Buffer.from('aa'.repeat(32), 'hex'),
+        mockArkClient.pubkey,
+        Buffer.from('02'.repeat(33), 'hex'),
+        {
+          txId: 'reverse-lockup-tx',
+          vout: 2,
+        },
+        expect.any(String),
+      );
+
+      expect(RefundTransactionRepository.addTransaction).toHaveBeenCalledWith({
+        swapId: swap.id,
+        symbol: 'ARK',
+        id: refundTxId,
+        vin: null,
+      });
+
+      expect(swapNursery.emit).toHaveBeenCalledWith('refund', {
+        swap,
+        confirmed: false,
+        emitFailure: true,
+        refundTransaction: refundTxId,
+      });
+
+      const pendingEmitOrder = (swapNursery.emit as jest.Mock).mock
+        .invocationCallOrder[0];
+      const addTransactionOrder = (
+        RefundTransactionRepository.addTransaction as jest.Mock
+      ).mock.invocationCallOrder[0];
+      expect(addTransactionOrder).toBeLessThan(pendingEmitOrder);
+
+      expect(
+        (swapNursery as any).refundWatcher.checkTransaction,
+      ).toHaveBeenCalledWith(
+        {
+          swapId: swap.id,
+          symbol: 'ARK',
+          id: refundTxId,
+          vin: null,
+        },
+        swap,
+      );
+    });
+
+    test('should not persist or emit anything when the ARK refund fails', async () => {
+      mockArkClient.refundVHtlc.mockRejectedValueOnce(
+        new Error('refund failed'),
+      );
+
+      const swap = {
+        id: 'reverse-ark-swap',
+        type: SwapType.ReverseSubmarine,
+        preimageHash: 'aa'.repeat(32),
+        claimPublicKey: '02'.repeat(33),
+        transactionId: 'reverse-lockup-tx',
+        transactionVout: 2,
+      } as any;
+
+      await expect(
+        (swapNursery as any).refundVtxo(mockArkCurrency, swap),
+      ).rejects.toThrow('refund failed');
+
+      expect(
+        WrappedSwapRepository.setTransactionRefunded,
+      ).not.toHaveBeenCalled();
+      expect(RefundTransactionRepository.addTransaction).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalled();
+      expect(
+        (swapNursery as any).refundWatcher.checkTransaction,
+      ).not.toHaveBeenCalled();
+    });
+
+    test('should propagate errors when persisting the refund transaction fails', async () => {
+      (
+        RefundTransactionRepository.addTransaction as jest.Mock
+      ).mockRejectedValueOnce(new Error('database error'));
+
+      const swap = {
+        id: 'reverse-ark-swap',
+        type: SwapType.ReverseSubmarine,
+        preimageHash: 'aa'.repeat(32),
+        claimPublicKey: '02'.repeat(33),
+        transactionId: 'reverse-lockup-tx',
+        transactionVout: 2,
+      } as any;
+
+      await expect(
+        (swapNursery as any).refundVtxo(mockArkCurrency, swap),
+      ).rejects.toThrow('database error');
+
+      // The swap is not marked as refunded before the refund transaction is
+      // persisted, so a failure here leaves the swap eligible for a retry
+      // instead of stuck in a terminal state without a refund transaction
+      expect(
+        WrappedSwapRepository.setTransactionRefunded,
+      ).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalled();
+      expect(
+        (swapNursery as any).refundWatcher.checkTransaction,
+      ).not.toHaveBeenCalled();
+    });
+
+    test('should emit the pending refund before the watcher confirms it', async () => {
+      await swapNursery.init([]);
+
+      const refundWatcher = (swapNursery as any).refundWatcher;
+      const confirmedHandler = (refundWatcher.on as jest.Mock).mock.calls.find(
+        ([event]) => event === 'refund.confirmed',
+      )![1];
+      (refundWatcher.checkTransaction as jest.Mock).mockImplementation(
+        async (tx, checkedSwap) => {
+          await confirmedHandler({
+            swap: checkedSwap,
+            refundTransaction: tx.id,
+          });
+        },
+      );
+
+      const emittedConfirmations: boolean[] = [];
+      swapNursery.on('refund', ({ confirmed }) => {
+        emittedConfirmations.push(confirmed);
+      });
+
+      const swap = {
+        id: 'chain-ark-swap',
+        type: SwapType.Chain,
+        refundCurrency: 'ARK',
+        preimageHash: 'bb'.repeat(32),
+        sendingData: {
+          theirPublicKey: '02'.repeat(33),
+          transactionId: 'chain-lockup-tx',
+          transactionVout: 5,
+        },
+      } as unknown as ChainSwapInfo;
+
+      await (swapNursery as any).refundVtxo(mockArkCurrency, swap);
+
+      expect(emittedConfirmations).toEqual([false, true]);
+      expect(swapNursery.emit).toHaveBeenCalledWith('refund', {
+        swap,
+        confirmed: true,
+        emitFailure: false,
+        refundTransaction: refundTxId,
+      });
+    });
+
+    test('should refund chain ARK swaps with the sending data outpoint', async () => {
+      const swap = {
+        id: 'chain-ark-swap',
+        type: SwapType.Chain,
+        preimageHash: 'bb'.repeat(32),
+        sendingData: {
+          theirPublicKey: '02'.repeat(33),
+          transactionId: 'chain-lockup-tx',
+          transactionVout: 5,
+        },
+      } as unknown as ChainSwapInfo;
+
+      await (swapNursery as any).refundVtxo(mockArkCurrency, swap);
+
+      expect(mockArkClient.refundVHtlc).toHaveBeenCalledWith(
+        Buffer.from('bb'.repeat(32), 'hex'),
+        mockArkClient.pubkey,
+        Buffer.from('02'.repeat(33), 'hex'),
+        {
+          txId: 'chain-lockup-tx',
+          vout: 5,
+        },
+        expect.any(String),
+      );
+
+      expect(RefundTransactionRepository.addTransaction).toHaveBeenCalledWith({
+        swapId: swap.id,
+        symbol: 'ARK',
+        id: refundTxId,
+        vin: null,
+      });
+
+      expect(
+        (swapNursery as any).refundWatcher.checkTransaction,
+      ).toHaveBeenCalledWith(
+        {
+          swapId: swap.id,
+          symbol: 'ARK',
+          id: refundTxId,
+          vin: null,
+        },
+        swap,
       );
     });
   });

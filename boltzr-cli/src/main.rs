@@ -260,6 +260,11 @@ enum ArkCommands {
         #[arg(long, value_parser = parsers::parse_bitcoin_outpoint)]
         outpoint: Option<bitcoin::OutPoint>,
     },
+    #[command(about = "Decodes an ARK virtual transaction")]
+    Decode {
+        #[arg(help = "Base64 encoded PSBT or path to a file containing it")]
+        transaction: String,
+    },
 }
 
 #[derive(Clone, Subcommand)]
@@ -813,6 +818,14 @@ async fn run_command(cli: Cli) -> Result<()> {
                     )
                     .await?;
                 println!("{}", response);
+            }
+            ArkCommands::Decode { transaction } => {
+                let transaction = if std::path::Path::new(transaction).is_file() {
+                    std::fs::read_to_string(transaction)?
+                } else {
+                    transaction.clone()
+                };
+                print_pretty(&ark::decode::decode_transaction(&transaction)?)?;
             }
         },
         Commands::Tools { ref command } => match command {

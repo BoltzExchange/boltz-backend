@@ -376,7 +376,7 @@ where
     }
 
     fn format_auth_header(&self) -> String {
-        format!("{} {}", HEADER_BEARER, &self.token)
+        format!("{} {}", HEADER_BEARER, self.token)
     }
 
     fn find_channel<'a>(name: &str, channels: &'a [Channel]) -> Option<&'a Channel> {

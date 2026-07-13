@@ -28,7 +28,9 @@ const mockedExitHandler = jest.requireMock('../../../lib/ExitHandler') as {
   shutdownSignal: { aborted: boolean };
 };
 
-RefundTransactionRepository.setStatus = jest.fn();
+RefundTransactionRepository.setStatusConfirmedIfPending = jest
+  .fn()
+  .mockResolvedValue(true);
 RefundTransactionRepository.getPendingTransactions = jest
   .fn()
   .mockResolvedValue([]);
@@ -85,6 +87,9 @@ describe('RefundWatcher', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (
+      RefundTransactionRepository.setStatusConfirmedIfPending as jest.Mock
+    ).mockResolvedValue(true);
     mockedExitHandler.shutdownSignal.aborted = false;
     bitcoinClient.getRawTransactionVerbose = jest.fn();
     currencies.get('RBTC')!.requiredConfirmations = undefined;
@@ -146,10 +151,9 @@ describe('RefundWatcher', () => {
       expect(swap.id).toEqual(swapId);
       expect(refundTransaction).toEqual(btcRefundTxId);
 
-      expect(RefundTransactionRepository.setStatus).toHaveBeenCalledWith(
-        swapId,
-        RefundStatus.Confirmed,
-      );
+      expect(
+        RefundTransactionRepository.setStatusConfirmedIfPending,
+      ).toHaveBeenCalledWith(swapId);
     });
   });
 
@@ -172,7 +176,9 @@ describe('RefundWatcher', () => {
         } as unknown as ReverseSwap,
       );
 
-      expect(RefundTransactionRepository.setStatus).not.toHaveBeenCalled();
+      expect(
+        RefundTransactionRepository.setStatusConfirmedIfPending,
+      ).not.toHaveBeenCalled();
     });
 
     test('should handle confirmed refund transactions', async () => {
@@ -208,10 +214,124 @@ describe('RefundWatcher', () => {
       expect(swap.id).toEqual(swapId);
       expect(refundTransaction).toEqual(btcRefundTxId);
 
-      expect(RefundTransactionRepository.setStatus).toHaveBeenCalledWith(
-        swapId,
-        RefundStatus.Confirmed,
+      expect(
+        RefundTransactionRepository.setStatusConfirmedIfPending,
+      ).toHaveBeenCalledWith(swapId);
+    });
+
+    test('should confirm ARK refunds on the first check', async () => {
+      const swapId = 'ark-refund';
+      const refundTxId = 'ark-refund-tx';
+
+      const emitPromise = new Promise<{
+        swap: ReverseSwap | ChainSwapInfo;
+        refundTransaction: string;
+      }>((resolve) => {
+        watcher.on('refund.confirmed', (args) => {
+          resolve(args);
+          watcher.removeAllListeners('refund.confirmed');
+        });
+      });
+
+      await watcher.checkTransaction(
+        {
+          id: refundTxId,
+          status: RefundStatus.Pending,
+        } as unknown as RefundTransaction,
+        {
+          id: swapId,
+          type: SwapType.ReverseSubmarine,
+          refundCurrency: ArkClient.symbol,
+        } as unknown as ReverseSwap,
       );
+
+      await expect(emitPromise).resolves.toMatchObject({
+        swap: { id: swapId },
+        refundTransaction: refundTxId,
+      });
+      expect(
+        RefundTransactionRepository.setStatusConfirmedIfPending,
+      ).toHaveBeenCalledWith(swapId);
+      expect(
+        RefundTransactionRepository.getPendingTransactions,
+      ).not.toHaveBeenCalled();
+    });
+
+    test('should not emit confirmation when another check confirmed it first', async () => {
+      (
+        RefundTransactionRepository.setStatusConfirmedIfPending as jest.Mock
+      ).mockResolvedValue(false);
+      const confirmedListener = jest.fn();
+      watcher.on('refund.confirmed', confirmedListener);
+
+      await watcher.checkTransaction(
+        {
+          id: 'ark-refund-tx',
+          status: RefundStatus.Pending,
+        } as unknown as RefundTransaction,
+        {
+          id: 'ark-refund',
+          type: SwapType.ReverseSubmarine,
+          refundCurrency: ArkClient.symbol,
+        } as unknown as ReverseSwap,
+      );
+
+      expect(confirmedListener).not.toHaveBeenCalled();
+      watcher.removeListener('refund.confirmed', confirmedListener);
+    });
+
+    test('should not wait for an unrelated pending transaction check', async () => {
+      const btcSwap = {
+        id: 'slow-btc-refund',
+        type: SwapType.ReverseSubmarine,
+        refundCurrency: 'BTC',
+      } as unknown as ReverseSwap;
+      RefundTransactionRepository.getPendingTransactions = jest
+        .fn()
+        .mockResolvedValue([
+          {
+            tx: {
+              id: btcRefundTxId,
+              status: RefundStatus.Pending,
+            } as unknown as RefundTransaction,
+            swap: btcSwap,
+          },
+        ]);
+
+      let resolveRpcStarted!: () => void;
+      const rpcStarted = new Promise<void>((resolve) => {
+        resolveRpcStarted = resolve;
+      });
+      let resolveRpc!: (result: { confirmations: number }) => void;
+      bitcoinClient.getRawTransactionVerbose = jest.fn().mockImplementation(
+        () =>
+          new Promise<{ confirmations: number }>((resolve) => {
+            resolveRpc = resolve;
+            resolveRpcStarted();
+          }),
+      );
+
+      const pendingCheck = watcher['checkPendingTransactions']();
+      await rpcStarted;
+
+      await watcher.checkTransaction(
+        {
+          id: 'ark-refund-tx',
+          status: RefundStatus.Pending,
+        } as unknown as RefundTransaction,
+        {
+          id: 'ark-refund',
+          type: SwapType.ReverseSubmarine,
+          refundCurrency: ArkClient.symbol,
+        } as unknown as ReverseSwap,
+      );
+
+      expect(
+        RefundTransactionRepository.setStatusConfirmedIfPending,
+      ).toHaveBeenCalledWith('ark-refund');
+
+      resolveRpc({ confirmations: 0 });
+      await pendingCheck;
     });
 
     test('should use configured required confirmations for EVM refunds', async () => {
@@ -242,7 +362,9 @@ describe('RefundWatcher', () => {
 
       await checkRefund(refundTx, swap);
 
-      expect(RefundTransactionRepository.setStatus).not.toHaveBeenCalled();
+      expect(
+        RefundTransactionRepository.setStatusConfirmedIfPending,
+      ).not.toHaveBeenCalled();
 
       const emitPromise = new Promise<{
         swap: ReverseSwap | ChainSwapInfo;
@@ -260,12 +382,84 @@ describe('RefundWatcher', () => {
         swap: { id: swap.id },
         refundTransaction: refundTx.id,
       });
-      expect(RefundTransactionRepository.setStatus).toHaveBeenCalledWith(
-        swap.id,
-        RefundStatus.Confirmed,
-      );
+      expect(
+        RefundTransactionRepository.setStatusConfirmedIfPending,
+      ).toHaveBeenCalledWith(swap.id);
 
       getConfirmationsSpy.mockRestore();
+    });
+  });
+
+  describe('checkTransaction', () => {
+    test('should swallow errors when checking a transaction', async () => {
+      const errorLogger = jest.spyOn(watcher['logger'], 'error');
+
+      await expect(
+        watcher.checkTransaction(
+          {
+            id: 'unknown-currency-tx',
+            status: RefundStatus.Pending,
+          } as unknown as RefundTransaction,
+          {
+            id: 'unknown-currency-swap',
+            type: SwapType.ReverseSubmarine,
+            refundCurrency: 'NOT_A_CURRENCY',
+          } as unknown as ReverseSwap,
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(errorLogger).toHaveBeenCalledTimes(1);
+      expect(
+        RefundTransactionRepository.setStatusConfirmedIfPending,
+      ).not.toHaveBeenCalled();
+
+      errorLogger.mockRestore();
+    });
+
+    test('should keep checking pending transactions when one check fails', async () => {
+      const btcSwapId = 'btc-after-failure';
+      bitcoinClient.getRawTransactionVerbose = jest.fn().mockResolvedValue({
+        confirmations: 1,
+      });
+      RefundTransactionRepository.getPendingTransactions = jest
+        .fn()
+        .mockResolvedValue([
+          {
+            tx: {
+              id: 'failing-tx',
+              status: RefundStatus.Pending,
+            } as unknown as RefundTransaction,
+            swap: {
+              id: 'failing-swap',
+              type: SwapType.ReverseSubmarine,
+              refundCurrency: 'NOT_A_CURRENCY',
+            } as unknown as ReverseSwap,
+          },
+          {
+            tx: {
+              id: btcRefundTxId,
+              status: RefundStatus.Pending,
+            } as unknown as RefundTransaction,
+            swap: {
+              id: btcSwapId,
+              type: SwapType.ReverseSubmarine,
+              refundCurrency: 'BTC',
+            } as unknown as ReverseSwap,
+          },
+        ]);
+
+      await watcher['checkPendingTransactions']();
+
+      expect(
+        RefundTransactionRepository.setStatusConfirmedIfPending,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        RefundTransactionRepository.setStatusConfirmedIfPending,
+      ).toHaveBeenCalledWith(btcSwapId);
+
+      RefundTransactionRepository.getPendingTransactions = jest
+        .fn()
+        .mockResolvedValue([]);
     });
   });
 

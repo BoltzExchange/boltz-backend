@@ -95,6 +95,29 @@ describe('RefundTransactionRepository', () => {
     expect(tx!.status).toEqual(RefundStatus.Confirmed);
   });
 
+  test('should only confirm a pending refund transaction once', async () => {
+    const swapId = 'swapId';
+    await RefundTransactionRepository.addTransaction({
+      symbol: 'BTC',
+      id: 'test',
+      vin: 123,
+      swapId,
+    });
+
+    await expect(
+      RefundTransactionRepository.setStatusConfirmedIfPending(swapId),
+    ).resolves.toEqual(true);
+    await expect(
+      RefundTransactionRepository.setStatusConfirmedIfPending(swapId),
+    ).resolves.toEqual(false);
+  });
+
+  test('should not confirm a refund transaction that does not exist', async () => {
+    await expect(
+      RefundTransactionRepository.setStatusConfirmedIfPending('does-not-exist'),
+    ).resolves.toEqual(false);
+  });
+
   describe('getTransactionForSwap', () => {
     test('should get transaction for swap', async () => {
       const swapId = 'swapId';

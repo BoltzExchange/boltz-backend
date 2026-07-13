@@ -9,7 +9,7 @@ edition.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 alloy = { workspace = true }
-bitcoin = { workspace = true }
+bitcoin = { workspace = true, features = ["base64"] }
 bitcoin_hashes = { workspace = true }
 boltz-core = { path = "../boltz-core" }
 boltz-evm = { path = "../boltz-evm" }

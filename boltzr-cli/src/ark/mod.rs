@@ -6,6 +6,8 @@ use tonic::metadata::MetadataValue;
 use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
 
+pub mod decode;
+
 #[allow(dead_code)]
 #[allow(clippy::enum_variant_names)]
 mod ark_rpc {

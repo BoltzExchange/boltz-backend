@@ -60,7 +60,7 @@ impl UtxoNursery {
     pub async fn start(self) {
         let mut handles = Vec::new();
 
-        for (_, currency) in self.currencies.iter() {
+        for currency in self.currencies.values() {
             if let Some(chain_client) = currency.chain.as_ref() {
                 let nursery = self.clone();
                 let chain_client = chain_client.clone();

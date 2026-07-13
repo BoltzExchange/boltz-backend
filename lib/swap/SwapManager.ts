@@ -1198,6 +1198,8 @@ class SwapManager {
     sendingTimeoutBlockDelta: number;
     receivingTimeoutBlockDelta: number;
 
+    nonInteractiveClaim?: NonInteractiveClaim;
+
     referralId?: string;
   }): Promise<CreatedChainSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
@@ -1303,6 +1305,7 @@ class SwapManager {
           timeoutBlockDelta,
           isSending ? theirPublicKey : undefined,
           isSending ? undefined : theirPublicKey,
+          isSending ? args.nonInteractiveClaim : undefined,
         );
         await currency.arkNode!.subscription.subscribeAddresses([
           {

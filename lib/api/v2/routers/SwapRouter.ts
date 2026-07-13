@@ -962,15 +962,12 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/NonInteractiveClaim'
      *     NonInteractiveClaim:
      *       type: object
-     *       required: ["claimReceiverAddress", "emulatorPublicKey"]
-     *       description: Enables a non-interactive solver claim on the VHTLC (Ark Reverse Swaps only)
+     *       required: ["claimReceiverAddress"]
+     *       description: Enables a non-interactive solver claim on the VHTLC (Ark Reverse and Chain Swaps to Ark)
      *       properties:
      *         claimReceiverAddress:
      *           type: string
      *           description: Ark address the solver must pay when claiming
-     *         emulatorPublicKey:
-     *           type: string
-     *           description: Compressed (33 bytes) secp256k1 public key tweaked by the arkade EnforcePayTo script encoded as HEX
      */
     /**
      * @openapi
@@ -1373,6 +1370,8 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
      *           $ref: '#/components/schemas/ExtraFees'
+     *         nonInteractiveClaim:
+     *           $ref: '#/components/schemas/NonInteractiveClaim'
      */
 
     /**
@@ -2970,6 +2969,7 @@ class SwapRouter extends RouterBase {
       userLockAmount,
       refundPublicKey,
       serverLockAmount,
+      nonInteractiveClaim,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
@@ -2982,12 +2982,15 @@ class SwapRouter extends RouterBase {
       { name: 'serverLockAmount', type: 'number', optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'nonInteractiveClaim', type: 'object', optional: true },
     ]);
     const referralId = parseReferralId(req);
 
     checkPreimageHashLength(preimageHash);
     const webHookData = this.parseWebHook(webhook);
     const extraFeesData = this.parseExtraFees(extraFees);
+    const nonInteractiveClaimData =
+      this.parseNonInteractiveClaim(nonInteractiveClaim);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const response = await this.service.createChainSwap({
@@ -3003,6 +3006,7 @@ class SwapRouter extends RouterBase {
       serverLockAmount,
       webHook: webHookData,
       extraFees: extraFeesData,
+      nonInteractiveClaim: nonInteractiveClaimData,
     });
 
     await markSwap(this.service.sidecar, req.ip, response.id);
@@ -3312,16 +3316,10 @@ class SwapRouter extends RouterBase {
 
     const res = validateRequest(data, [
       { name: 'claimReceiverAddress', type: 'string' },
-      {
-        name: 'emulatorPublicKey',
-        type: 'string',
-        hex: true,
-      },
     ]);
 
     return {
       claimReceiverAddress: res.claimReceiverAddress,
-      emulatorPublicKey: res.emulatorPublicKey,
     };
   };
 

@@ -2251,6 +2251,8 @@ class Service {
 
     webHook?: WebHookData;
     extraFees?: ExtraFees;
+
+    nonInteractiveClaim?: NonInteractiveClaim;
   }) => {
     await this.checkSwapWithPreimageExists(SwapType.Chain, args.preimageHash);
 
@@ -2321,6 +2323,15 @@ class Service {
       if (args.refundPublicKey === undefined) {
         throw ApiErrors.UNDEFINED_PARAMETER('refundPublicKey');
       }
+    }
+
+    // The non-interactive claim leaf lives on the server-locked Ark VHTLC, so
+    // it is only valid when the server sends Ark (e.g. BTC -> ARK).
+    if (
+      args.nonInteractiveClaim !== undefined &&
+      sendingCurrency.type !== CurrencyType.Ark
+    ) {
+      throw ApiErrors.UNSUPPORTED_PARAMETER(sending, 'nonInteractiveClaim');
     }
 
     const sendingTimeoutBlockDelta = (
@@ -2440,6 +2451,7 @@ class Service {
       claimPublicKey: args.claimPublicKey,
       refundPublicKey: args.refundPublicKey,
       serverLockAmount: args.serverLockAmount,
+      nonInteractiveClaim: args.nonInteractiveClaim,
       acceptZeroConf: this.rateProvider.acceptZeroConf(
         receivingCurrency.symbol,
         args.userLockAmount,

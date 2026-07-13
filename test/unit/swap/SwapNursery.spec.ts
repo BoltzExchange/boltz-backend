@@ -648,6 +648,12 @@ describe('SwapNursery', () => {
       nodeId: mockLndClient.id,
     } as ReverseSwap;
 
+    beforeEach(() => {
+      (ReverseSwapRepository.getReverseSwap as jest.Mock).mockResolvedValue(
+        mockReverseSwap,
+      );
+    });
+
     test('should settle hold invoice when no matching submarine swap exists', async () => {
       mockGetSwapResult = null;
 
@@ -927,6 +933,40 @@ describe('SwapNursery', () => {
       }
 
       expect(timeoutCallback!).toBeDefined();
+    });
+
+    test('should skip settlement when the invoice was settled already', async () => {
+      (ReverseSwapRepository.getReverseSwap as jest.Mock).mockResolvedValueOnce(
+        {
+          ...mockReverseSwap,
+          status: SwapUpdateEvent.InvoiceSettled,
+        },
+      );
+
+      await swapNursery.settleReverseSwapInvoice(mockReverseSwap, mockPreimage);
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Skipping invoice settlement of Reverse Swap ${mockReverseSwap.id}: already settled`,
+      );
+      expect(mockRaceCall).not.toHaveBeenCalled();
+      expect(mockSettleHoldInvoice).not.toHaveBeenCalled();
+      expect(LightningNursery.cancelReverseInvoices).not.toHaveBeenCalled();
+      expect(ReverseSwapRepository.setInvoiceSettled).not.toHaveBeenCalled();
+      expect(mockNotifications.sendMessage).not.toHaveBeenCalled();
+    });
+
+    test('should skip settlement when the reverse swap cannot be found anymore', async () => {
+      (ReverseSwapRepository.getReverseSwap as jest.Mock).mockResolvedValueOnce(
+        null,
+      );
+
+      await swapNursery.settleReverseSwapInvoice(mockReverseSwap, mockPreimage);
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        `Could not find swap with id: ${mockReverseSwap.id}`,
+      );
+      expect(mockRaceCall).not.toHaveBeenCalled();
+      expect(ReverseSwapRepository.setInvoiceSettled).not.toHaveBeenCalled();
     });
   });
 
@@ -2273,6 +2313,152 @@ describe('SwapNursery', () => {
         'transaction',
         expect.anything(),
       );
+    });
+  });
+
+  describe('attemptSettleSwap idempotency', () => {
+    const mockPreimage = Buffer.from('preimage');
+
+    beforeEach(() => {
+      (swapNursery as any).claimer = {
+        deferClaim: jest.fn().mockResolvedValue(true),
+      };
+      jest.spyOn(swapNursery, 'emit');
+    });
+
+    test('should skip settlement when the chain swap was claimed already', async () => {
+      const staleChainSwap = {
+        id: 'settled-chain-swap',
+        type: SwapType.Chain,
+        status: SwapUpdateEvent.TransactionServerConfirmed,
+        receivingData: { symbol: 'BTC' },
+      } as unknown as ChainSwapInfo;
+      mockGetChainSwapResult = {
+        ...staleChainSwap,
+        status: SwapUpdateEvent.TransactionClaimed,
+      };
+
+      await swapNursery.attemptSettleSwap(
+        mockCurrency,
+        staleChainSwap,
+        mockPreimage,
+      );
+
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+        id: staleChainSwap.id,
+      });
+      expect((swapNursery as any).claimer.deferClaim).not.toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Skipping claim of Chain Swap ${staleChainSwap.id}: already settled`,
+      );
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'claim.failure',
+        expect.anything(),
+      );
+    });
+
+    test('should skip settlement when the submarine swap was claimed already', async () => {
+      const staleSwap = {
+        id: 'settled-submarine-swap',
+        type: SwapType.Submarine,
+      } as unknown as Swap;
+      mockGetSwapResult = {
+        ...staleSwap,
+        status: SwapUpdateEvent.TransactionClaimed,
+      };
+      const payInvoiceSpy = jest.spyOn(swapNursery as any, 'payInvoice');
+
+      await swapNursery.attemptSettleSwap(mockCurrency, staleSwap);
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+        id: staleSwap.id,
+      });
+      expect(payInvoiceSpy).not.toHaveBeenCalled();
+    });
+
+    test('should skip settlement when the swap cannot be found anymore', async () => {
+      mockGetChainSwapResult = null;
+      const staleChainSwap = {
+        id: 'gone-chain-swap',
+        type: SwapType.Chain,
+      } as unknown as ChainSwapInfo;
+
+      await swapNursery.attemptSettleSwap(
+        mockCurrency,
+        staleChainSwap,
+        mockPreimage,
+      );
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        `Could not find swap with id: ${staleChainSwap.id}`,
+      );
+      expect((swapNursery as any).claimer.deferClaim).not.toHaveBeenCalled();
+    });
+
+    test('should settle with the re-fetched swap instead of the stale one', async () => {
+      const staleChainSwap = {
+        id: 'fresh-chain-swap',
+        type: SwapType.Chain,
+        status: SwapUpdateEvent.TransactionServerMempool,
+      } as unknown as ChainSwapInfo;
+      const fetchedChainSwap = {
+        ...staleChainSwap,
+        status: SwapUpdateEvent.TransactionServerConfirmed,
+      };
+      mockGetChainSwapResult = fetchedChainSwap;
+
+      await swapNursery.attemptSettleSwap(
+        mockCurrency,
+        staleChainSwap,
+        mockPreimage,
+      );
+
+      expect((swapNursery as any).claimer.deferClaim).toHaveBeenCalledWith(
+        fetchedChainSwap,
+        mockPreimage,
+      );
+      expect(swapNursery.emit).toHaveBeenCalledWith(
+        'claim.pending',
+        fetchedChainSwap,
+      );
+    });
+
+    test('should claim only once when a duplicate EVM claim event arrives', async () => {
+      const listeners: Record<string, (...args: any[]) => Promise<void>> = {};
+      const ethereumNursery = {
+        on: jest.fn(
+          (event: string, callback: (...args: any[]) => Promise<void>) => {
+            listeners[event] = callback;
+          },
+        ),
+        init: jest.fn().mockResolvedValue(undefined),
+      } as any;
+
+      const chainSwap = {
+        id: 'duplicate-claim-swap',
+        type: SwapType.Chain,
+        status: SwapUpdateEvent.TransactionServerConfirmed,
+        receivingData: { symbol: 'BTC' },
+      } as unknown as ChainSwapInfo;
+      mockGetChainSwapResult = chainSwap;
+
+      await (swapNursery as any).listenEthereumNursery(ethereumNursery);
+
+      await listeners['claim']({ swap: chainSwap, preimage: mockPreimage });
+      mockGetChainSwapResult = {
+        ...chainSwap,
+        status: SwapUpdateEvent.TransactionClaimPending,
+      };
+      await listeners['claim']({ swap: chainSwap, preimage: mockPreimage });
+      mockGetChainSwapResult = {
+        ...chainSwap,
+        status: SwapUpdateEvent.TransactionClaimed,
+      };
+      await listeners['claim']({ swap: chainSwap, preimage: mockPreimage });
+
+      expect((swapNursery as any).claimer.deferClaim).toHaveBeenCalledTimes(1);
+      expect(swapNursery.emit).toHaveBeenCalledTimes(1);
+      expect(swapNursery.emit).toHaveBeenCalledWith('claim.pending', chainSwap);
     });
   });
 

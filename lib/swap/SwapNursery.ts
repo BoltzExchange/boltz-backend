@@ -923,11 +923,45 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
   };
 
+  private fetchSwapForSettlement = async (
+    swap: Swap | ChainSwapInfo,
+  ): Promise<Swap | ChainSwapInfo | undefined> => {
+    const fetched =
+      swap.type === SwapType.Submarine
+        ? await SwapRepository.getSwap({ id: swap.id })
+        : await ChainSwapRepository.getChainSwap({ id: swap.id });
+
+    if (fetched === null || fetched === undefined) {
+      this.logger.warn(`Could not find swap with id: ${swap.id}`);
+      return undefined;
+    }
+
+    if (
+      fetched.status === SwapUpdateEvent.TransactionClaimPending ||
+      SuccessSwapUpdateEvents.includes(fetched.status as SwapUpdateEvent)
+    ) {
+      this.logger.debug(
+        `Skipping claim of ${swapTypeToPrettyString(fetched.type)} Swap ${fetched.id}: already settled`,
+      );
+      return undefined;
+    }
+
+    return fetched;
+  };
+
   public attemptSettleSwap = async (
     currency: Currency,
     swap: Swap | ChainSwapInfo,
     preimage?: Buffer,
   ): Promise<void> => {
+    // Duplicate claim events (reorgs, rescan overlaps) can arrive with a stale
+    // swap object; re-fetch so an already settled swap is not claimed again
+    const fetchedSwap = await this.fetchSwapForSettlement(swap);
+    if (fetchedSwap === undefined) {
+      return;
+    }
+    swap = fetchedSwap;
+
     let payRes: PaidSwapInvoice | undefined;
 
     if (swap.type === SwapType.Submarine) {
@@ -1028,6 +1062,21 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     reverseSwap: ReverseSwap,
     preimage: Buffer,
   ) => {
+    const fetchedSwap = await ReverseSwapRepository.getReverseSwap({
+      id: reverseSwap.id,
+    });
+    if (fetchedSwap === null || fetchedSwap === undefined) {
+      this.logger.warn(`Could not find swap with id: ${reverseSwap.id}`);
+      return;
+    }
+    if (fetchedSwap.status === SwapUpdateEvent.InvoiceSettled) {
+      this.logger.debug(
+        `Skipping invoice settlement of Reverse Swap ${reverseSwap.id}: already settled`,
+      );
+      return;
+    }
+    reverseSwap = fetchedSwap;
+
     const { base, quote } = splitPairId(reverseSwap.pair);
     const lightningCurrency = getLightningCurrency(
       base,

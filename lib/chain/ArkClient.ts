@@ -529,7 +529,7 @@ class ArkClient extends BaseClient<
 
     if (nonInteractiveClaim) {
       req.nonInteractiveClaim = {
-        claimReceiverAddress: nonInteractiveClaim.claimReceiverAddress,
+        claimAddress: nonInteractiveClaim.claimReceiverAddress,
       };
     }
 

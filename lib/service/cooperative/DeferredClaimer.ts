@@ -66,6 +66,7 @@ class DeferredClaimer extends CoopSignerBase<{
   'batch.claim.failure': {
     symbol: string;
     error: string;
+    batchSize: number;
   };
 }> {
   private static readonly batchClaimLock = 'batchClaim';
@@ -448,6 +449,7 @@ class DeferredClaimer extends CoopSignerBase<{
         this.emit('batch.claim.failure', {
           symbol,
           error: formatError(e),
+          batchSize: toClaimChunk.length,
         });
 
         await this.lock.acquire(

@@ -1437,6 +1437,7 @@ describe('DeferredClaimer', () => {
       expect(emittedEvents[0]).toEqual({
         symbol: 'BTC',
         error: expect.stringContaining('bad-txns-inputs-missingorspent'),
+        batchSize: 1,
       });
 
       expect(claimer['swapsToClaim'].get('BTC')!.has(swap.id)).toBe(true);

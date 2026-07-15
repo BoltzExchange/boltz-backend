@@ -47,6 +47,29 @@ struct CachedFees {
 }
 
 #[derive(Debug, Clone, Copy)]
+enum FeeStaleness {
+    Stale { age: Duration, max_age: Duration },
+    Missing { since: Duration, max_age: Duration },
+}
+
+impl std::fmt::Display for FeeStaleness {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stale { age, max_age } => {
+                write!(f, "fees are stale: age {:?} exceeds max {:?}", age, max_age)
+            }
+            Self::Missing { since, max_age } => {
+                write!(
+                    f,
+                    "no fees received in {:?} since connecting (max {:?})",
+                    since, max_age
+                )
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Thresholds {
     pub max_block_lag: u64,
     pub max_fee_multiplier: f64,
@@ -85,6 +108,22 @@ pub struct Client {
 
     last_block: Arc<RwLock<Option<u64>>>,
     last_fees: Arc<RwLock<Option<CachedFees>>>,
+}
+
+/// Logs errors instead of propagating them, so callers continue or return
+/// according to their own flow after a failed or timed out write.
+async fn write_with_timeout(
+    fut: impl Future<Output = Result<(), async_tungstenite::tungstenite::Error>>,
+    action: &str,
+) {
+    match timeout(Duration::from_secs(WEBSOCKET_TIMEOUT_SECONDS), fut).await {
+        Ok(Ok(())) => {}
+        Ok(Err(err)) => warn!("{} failed: {}", action, err),
+        Err(_) => warn!(
+            "{} timed out after {} seconds",
+            action, WEBSOCKET_TIMEOUT_SECONDS
+        ),
+    }
 }
 
 impl Client {
@@ -146,12 +185,8 @@ impl Client {
             return Err(anyhow::anyhow!("no fees found"));
         };
 
-        if let Some((age, max_age)) = self.staleness(&cached) {
-            return Err(anyhow::anyhow!(
-                "fees are stale: age {:?} exceeds max {:?}",
-                age,
-                max_age
-            ));
+        if let Some((age, max_age)) = self.staleness(cached.at) {
+            return Err(anyhow::anyhow!(FeeStaleness::Stale { age, max_age }));
         }
 
         let block = self
@@ -165,19 +200,41 @@ impl Client {
         }
     }
 
-    /// Returns (age, max_age) if `cached` has exceeded `max_age`; `None` if fresh or no max set.
-    fn staleness(&self, cached: &CachedFees) -> Option<(Duration, Duration)> {
+    /// Returns (age, max_age) if `at` was more than `max_age` ago; `None` if fresh or no max set.
+    fn staleness(&self, at: Instant) -> Option<(Duration, Duration)> {
         let max_age = self.max_age?;
-        let age = cached.at.elapsed();
+        let age = at.elapsed();
         (age > max_age).then_some((age, max_age))
     }
 
-    fn has_stale_fees(&self) -> bool {
+    fn stale_fees(&self) -> Option<(Duration, Duration)> {
         self.last_fees
             .read()
             .ok()
             .and_then(|cached| *cached)
-            .is_some_and(|cached| self.staleness(&cached).is_some())
+            .and_then(|cached| self.staleness(cached.at))
+    }
+
+    fn stale_or_missing_fees_since(&self, connection_started_at: Instant) -> Option<FeeStaleness> {
+        let cached_at = self
+            .last_fees
+            .read()
+            .ok()
+            .and_then(|cached| *cached)
+            .map(|cached| cached.at);
+
+        match cached_at {
+            Some(at) => self
+                .staleness(at)
+                .map(|(age, max_age)| FeeStaleness::Stale { age, max_age }),
+            None => self
+                .staleness(connection_started_at)
+                .map(|(since, max_age)| FeeStaleness::Missing { since, max_age }),
+        }
+    }
+
+    fn has_stale_fees(&self) -> bool {
+        self.stale_fees().is_some()
     }
 
     async fn connect_websocket(&mut self, url: &str) -> anyhow::Result<()> {
@@ -197,6 +254,7 @@ impl Client {
 
         let (mut ws_stream, _) = async_tungstenite::tokio::connect_async(url).await?;
         debug!("Connected to WebSocket: {}", url);
+        let connection_started_at = Instant::now();
 
         ws_stream
             .send(
@@ -244,15 +302,25 @@ impl Client {
                     }
                 },
                 _ = ping_interval.tick() => {
-                    ws_stream.send(Message::Ping(vec![].into())).await.unwrap_or_else(|err| {
-                        warn!("Sending ping failed: {}", err);
-                    });
+                    // Pong replies to our pings keep resetting the read timeout,
+                    // so connections that stop sending fees, or never send them
+                    // at all, have to be reconnected based on fee staleness.
+                    if let Some(staleness) =
+                        self.stale_or_missing_fees_since(connection_started_at)
+                    {
+                        write_with_timeout(ws_stream.close(None), "Closing WebSocket").await;
+                        return Err(anyhow::anyhow!(staleness));
+                    }
+
+                    write_with_timeout(
+                        ws_stream.send(Message::Ping(vec![].into())),
+                        "Sending ping",
+                    )
+                    .await;
                 }
                 _ = self.cancellation_token.cancelled() => {
                     debug!("Stopping WebSocket");
-                    ws_stream.close(None).await.unwrap_or_else(|err| {
-                        warn!("Closing WebSocket failed: {}", err);
-                    });
+                    write_with_timeout(ws_stream.close(None), "Closing WebSocket").await;
                     return Ok(());
                 }
             }
@@ -740,6 +808,91 @@ pub mod test {
                 "expected stale error, got: {}",
                 err
             );
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn test_stale_fees() {
+            let max_age = Duration::from_secs(60);
+            let client = Client::new(
+                CancellationToken::new(),
+                Arc::new(Notify::new()),
+                "BTC".to_string(),
+                mempool_api(),
+                Some(max_age),
+            );
+
+            // No fees cached yet
+            assert!(client.stale_fees().is_none());
+
+            client.last_fees.write().unwrap().replace(CachedFees {
+                fees: Fees { fastest: 5.0 },
+                at: Instant::now(),
+            });
+            assert!(client.stale_fees().is_none());
+
+            tokio::time::advance(max_age + Duration::from_secs(1)).await;
+
+            let (age, max) = client.stale_fees().unwrap();
+            assert!(age > max_age);
+            assert_eq!(max, max_age);
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn test_missing_fees_become_stale() {
+            let max_age = Duration::from_secs(60);
+            let client = Client::new(
+                CancellationToken::new(),
+                Arc::new(Notify::new()),
+                "BTC".to_string(),
+                mempool_api(),
+                Some(max_age),
+            );
+            let connection_started_at = Instant::now();
+
+            assert!(
+                client
+                    .stale_or_missing_fees_since(connection_started_at)
+                    .is_none()
+            );
+
+            tokio::time::advance(max_age + Duration::from_secs(1)).await;
+
+            match client
+                .stale_or_missing_fees_since(connection_started_at)
+                .unwrap()
+            {
+                FeeStaleness::Missing {
+                    since,
+                    max_age: max,
+                } => {
+                    assert!(since > max_age);
+                    assert_eq!(max, max_age);
+                }
+                other => panic!("expected missing fees, got {:?}", other),
+            }
+
+            client.last_fees.write().unwrap().replace(CachedFees {
+                fees: Fees { fastest: 5.0 },
+                at: Instant::now(),
+            });
+            assert!(
+                client
+                    .stale_or_missing_fees_since(connection_started_at)
+                    .is_none()
+            );
+
+            tokio::time::advance(max_age + Duration::from_secs(1)).await;
+
+            match client
+                .stale_or_missing_fees_since(connection_started_at)
+                .unwrap()
+            {
+                FeeStaleness::Stale { age, max_age: max } => {
+                    assert!(age > max_age);
+                    assert_eq!(max, max_age);
+                }
+                other => panic!("expected stale fees, got {:?}", other),
+            }
         }
 
         #[tokio::test(start_paused = true)]

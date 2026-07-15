@@ -60,7 +60,7 @@ import type Sidecar from '../../../lib/sidecar/Sidecar';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import SwapManager from '../../../lib/swap/SwapManager';
-import { ClaimFailureType } from '../../../lib/swap/hooks/ClaimFailureHook';
+import { ClaimFailureType } from '../../../lib/swap/hooks/FailureHook';
 import type Wallet from '../../../lib/wallet/Wallet';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import WalletManager from '../../../lib/wallet/WalletManager';
@@ -900,7 +900,7 @@ describe('Service', () => {
   test('should forward immediate and batch claim failures to the hook', () => {
     const claimService = createService();
     const hook = jest
-      .spyOn(claimService.claimFailureHook, 'hook')
+      .spyOn(claimService.failureHook, 'claim')
       .mockResolvedValue(undefined);
 
     claimService.eventHandler.emit('claim.failure', {

@@ -9,38 +9,33 @@ enum ClaimFailureType {
   Batch,
 }
 
-class ClaimFailureHook extends Hook<
+class FailureHook extends Hook<
   void,
-  boltzrpc.ClaimFailureHookRequest,
-  boltzrpc.ClaimFailureHookResponse
+  boltzrpc.FailureHookRequest,
+  boltzrpc.FailureHookResponse
 > {
   constructor(logger: Logger, notificationClient?: NotificationClient) {
-    super(
-      logger,
-      'claim failure',
-      undefined,
-      undefined,
-      60_000,
-      notificationClient,
-    );
+    super(logger, 'failure', undefined, undefined, 60_000, notificationClient);
   }
 
-  public hook = (
+  public claim = (
     type: ClaimFailureType,
     symbol: string,
     swapId?: string,
     batchSize = 0,
   ): Promise<void> => {
     const id = randomUUID();
-    const msg: boltzrpc.ClaimFailureHookRequest = {
+    const msg: boltzrpc.FailureHookRequest = {
       id,
-      type:
-        type === ClaimFailureType.Immediate
-          ? boltzrpc.ClaimFailureType.CLAIM_FAILURE_IMMEDIATE
-          : boltzrpc.ClaimFailureType.CLAIM_FAILURE_BATCH,
-      symbol,
-      swapId,
-      batchSize,
+      claimFailure: {
+        type:
+          type === ClaimFailureType.Immediate
+            ? boltzrpc.ClaimFailureType.CLAIM_FAILURE_IMMEDIATE
+            : boltzrpc.ClaimFailureType.CLAIM_FAILURE_BATCH,
+        symbol,
+        swapId,
+        batchSize,
+      },
     };
 
     return this.sendHook(id, msg);
@@ -49,5 +44,5 @@ class ClaimFailureHook extends Hook<
   protected parseGrpcAction = (): void => undefined;
 }
 
-export default ClaimFailureHook;
+export default FailureHook;
 export { ClaimFailureType };

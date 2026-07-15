@@ -69,7 +69,7 @@ service Boltz {
   rpc TransactionHook (stream TransactionHookResponse) returns (stream TransactionHookRequest);
   rpc InvoicePaymentHook (stream InvoicePaymentHookResponse) returns (stream InvoicePaymentHookRequest);
   rpc SendApprovalHook (stream SendApprovalHookResponse) returns (stream SendApprovalHookRequest);
-  rpc ClaimFailureHook (stream ClaimFailureHookResponse) returns (stream ClaimFailureHookRequest);
+  rpc FailureHook (stream FailureHookResponse) returns (stream FailureHookRequest);
 
   rpc SetLogLevel (SetLogLevelRequest) returns (SetLogLevelResponse);
 
@@ -544,18 +544,25 @@ enum ClaimFailureType {
   CLAIM_FAILURE_BATCH = 2;
 }
 
-message ClaimFailureHookResponse {
+message ClaimFailure {
+  ClaimFailureType type = 1;
+  string symbol = 2;
+  optional string swap_id = 3;
+  uint32 batch_size = 4;
+}
+
+message FailureHookResponse {
   // Event ID
   string id = 1;
 }
 
-message ClaimFailureHookRequest {
+message FailureHookRequest {
   // Event ID
   string id = 1;
-  ClaimFailureType type = 2;
-  string symbol = 3;
-  optional string swap_id = 4;
-  uint32 batch_size = 5;
+
+  oneof failure {
+    ClaimFailure claim_failure = 2;
+  }
 }
 
 message SetLogLevelRequest {

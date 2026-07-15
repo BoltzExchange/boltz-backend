@@ -97,9 +97,7 @@ import type OverpaymentProtector from '../swap/OverpaymentProtector';
 import type { SwapNurseryEvents } from '../swap/PaymentHandler';
 import SwapManager from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
-import ClaimFailureHook, {
-  ClaimFailureType,
-} from '../swap/hooks/ClaimFailureHook';
+import FailureHook, { ClaimFailureType } from '../swap/hooks/FailureHook';
 import type Wallet from '../wallet/Wallet';
 import { type Currency, getLightningClients } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
@@ -171,7 +169,7 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
   public elementsService: ElementsService;
-  public readonly claimFailureHook: ClaimFailureHook;
+  public readonly failureHook: FailureHook;
 
   public readonly transactionFetcher: TransactionFetcher;
 
@@ -268,18 +266,14 @@ class Service {
     });
 
     this.eventHandler = new EventHandler(this.logger, this.swapManager.nursery);
-    this.claimFailureHook = new ClaimFailureHook(this.logger, notifications);
+    this.failureHook = new FailureHook(this.logger, notifications);
     this.eventHandler.on('claim.failure', ({ swap, symbol }) => {
-      void this.claimFailureHook.hook(
-        ClaimFailureType.Immediate,
-        symbol,
-        swap.id,
-      );
+      void this.failureHook.claim(ClaimFailureType.Immediate, symbol, swap.id);
     });
     this.swapManager.deferredClaimer.on(
       'batch.claim.failure',
       ({ symbol, batchSize }) => {
-        void this.claimFailureHook.hook(
+        void this.failureHook.claim(
           ClaimFailureType.Batch,
           symbol,
           undefined,

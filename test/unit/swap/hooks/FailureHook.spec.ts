@@ -1,12 +1,12 @@
 import { status } from '@grpc/grpc-js';
 import Logger from '../../../../lib/Logger';
 import * as boltzrpc from '../../../../lib/proto/boltzrpc';
-import ClaimFailureHook, {
+import FailureHook, {
   ClaimFailureType,
-} from '../../../../lib/swap/hooks/ClaimFailureHook';
+} from '../../../../lib/swap/hooks/FailureHook';
 
-describe('ClaimFailureHook', () => {
-  let hook: ClaimFailureHook;
+describe('FailureHook', () => {
+  let hook: FailureHook;
   let handlers: Record<string, (data?: any) => void>;
   let stream: any;
 
@@ -23,14 +23,33 @@ describe('ClaimFailureHook', () => {
       removeAllListeners: jest.fn(),
       emit: jest.fn(),
     };
-    hook = new ClaimFailureHook(Logger.disabledLogger);
+    hook = new FailureHook(Logger.disabledLogger);
   });
 
   test('does nothing when no stream is connected', async () => {
     await expect(
-      hook.hook(ClaimFailureType.Immediate, 'BTC', 'swap-id'),
+      hook.claim(ClaimFailureType.Immediate, 'BTC', 'swap-id'),
     ).resolves.toBeUndefined();
     expect(stream.write).not.toHaveBeenCalled();
+  });
+
+  test('uses a unique event id for every failure', async () => {
+    hook.connectToStream(stream);
+
+    const first = hook.claim(ClaimFailureType.Immediate, 'BTC', 'swap-id');
+    const second = hook.claim(ClaimFailureType.Batch, 'L-BTC', undefined, 2);
+    const [firstRequest, secondRequest] = stream.write.mock.calls.map(
+      ([request]) => request as boltzrpc.FailureHookRequest,
+    );
+
+    expect(firstRequest.id).not.toEqual(secondRequest.id);
+
+    handlers.data({ id: secondRequest.id });
+    handlers.data({ id: firstRequest.id });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      undefined,
+      undefined,
+    ]);
   });
 
   test.each`
@@ -42,19 +61,21 @@ describe('ClaimFailureHook', () => {
     async ({ type, symbol, swapId, batchSize, grpcType }) => {
       hook.connectToStream(stream);
 
-      const pending = hook.hook(type, symbol, swapId, batchSize);
+      const pending = hook.claim(type, symbol, swapId, batchSize);
       const request = stream.write.mock.calls[0][0];
       expect(request).toEqual({
         id: expect.any(String),
-        type: grpcType,
-        symbol,
-        swapId,
-        batchSize,
-      } satisfies boltzrpc.ClaimFailureHookRequest);
+        claimFailure: {
+          type: grpcType,
+          symbol,
+          swapId,
+          batchSize,
+        },
+      } satisfies boltzrpc.FailureHookRequest);
 
       handlers.data({
         id: request.id,
-      } satisfies boltzrpc.ClaimFailureHookResponse);
+      } satisfies boltzrpc.FailureHookResponse);
       await expect(pending).resolves.toBeUndefined();
     },
   );
@@ -65,7 +86,7 @@ describe('ClaimFailureHook', () => {
     ${'error'} | ${{ code: status.UNAVAILABLE, details: 'test' }}
   `('resolves pending events on stream $event', async ({ event, payload }) => {
     hook.connectToStream(stream);
-    const pending = hook.hook(ClaimFailureType.Batch, 'BTC', undefined, 2);
+    const pending = hook.claim(ClaimFailureType.Batch, 'BTC', undefined, 2);
 
     handlers[event](payload);
 

@@ -589,13 +589,13 @@ class GrpcService {
     this.service.swapManager.nursery.sendApprovalHook.connectToStream(call);
   };
 
-  public claimFailureHook = (
+  public failureHook = (
     call: ServerDuplexStream<
-      boltzrpc.ClaimFailureHookResponse,
-      boltzrpc.ClaimFailureHookRequest
+      boltzrpc.FailureHookResponse,
+      boltzrpc.FailureHookRequest
     >,
   ) => {
-    this.service.claimFailureHook.connectToStream(call);
+    this.service.failureHook.connectToStream(call);
   };
 
   public invoicePaymentHook = (

@@ -81,7 +81,7 @@ type ArkAddress = {
 };
 
 export type NonInteractiveClaim = {
-  claimReceiverAddress: string;
+  claimAddress: string;
 };
 
 enum ArkBlockEventKind {
@@ -529,7 +529,7 @@ class ArkClient extends BaseClient<
 
     if (nonInteractiveClaim) {
       req.nonInteractiveClaim = {
-        claimAddress: nonInteractiveClaim.claimReceiverAddress,
+        claimAddress: nonInteractiveClaim.claimAddress,
       };
     }
 

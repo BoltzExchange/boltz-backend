@@ -962,10 +962,10 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/NonInteractiveClaim'
      *     NonInteractiveClaim:
      *       type: object
-     *       required: ["claimReceiverAddress"]
+     *       required: ["claimAddress"]
      *       description: Enables a non-interactive solver claim on the VHTLC (Ark Reverse and Chain Swaps to Ark)
      *       properties:
-     *         claimReceiverAddress:
+     *         claimAddress:
      *           type: string
      *           description: Ark address the solver must pay when claiming
      */
@@ -3315,11 +3315,11 @@ class SwapRouter extends RouterBase {
     }
 
     const res = validateRequest(data, [
-      { name: 'claimReceiverAddress', type: 'string' },
+      { name: 'claimAddress', type: 'string' },
     ]);
 
     return {
-      claimReceiverAddress: res.claimReceiverAddress,
+      claimAddress: res.claimAddress,
     };
   };
 

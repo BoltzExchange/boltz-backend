@@ -840,7 +840,7 @@ describe('Service', () => {
       }),
   } as any as Sidecar;
 
-  const createService = () =>
+  const createService = (configOverrides: Record<string, any> = {}) =>
     new Service(
       Logger.disabledLogger,
       undefined,
@@ -851,6 +851,7 @@ describe('Service', () => {
         swap: {},
         pairs: [],
         currencies: [],
+        ...configOverrides,
       } as any as ConfigType,
       mockedWalletManager(),
       new NodeSwitch(Logger.disabledLogger),
@@ -4412,9 +4413,11 @@ describe('Service', () => {
       } as any;
     };
 
+    const enabledService = createService({ nonInteractiveClaims: true });
+
     test('should do nothing when no non-interactive claim is set', () => {
       expect(() =>
-        service['checkNonInteractiveClaimSupported'](
+        enabledService['checkNonInteractiveClaimSupported'](
           'BTC',
           currencies.get('BTC')!,
           undefined,
@@ -4424,7 +4427,7 @@ describe('Service', () => {
 
     test('should throw when the sending currency is not Ark', () => {
       expect(() =>
-        service['checkNonInteractiveClaimSupported'](
+        enabledService['checkNonInteractiveClaimSupported'](
           'BTC',
           currencies.get('BTC')!,
           { claimAddress },
@@ -4434,7 +4437,7 @@ describe('Service', () => {
 
     test('should accept addresses of the same network and server', () => {
       expect(() =>
-        service['checkNonInteractiveClaimSupported'](
+        enabledService['checkNonInteractiveClaimSupported'](
           ArkClient.symbol,
           createArkCurrency(serverPubKey, 'tark'),
           { claimAddress },
@@ -4444,7 +4447,7 @@ describe('Service', () => {
 
     test('should throw when the address cannot be decoded', () => {
       expect(() =>
-        service['checkNonInteractiveClaimSupported'](
+        enabledService['checkNonInteractiveClaimSupported'](
           ArkClient.symbol,
           createArkCurrency(serverPubKey, 'tark'),
           { claimAddress: 'notanaddress' },
@@ -4456,7 +4459,7 @@ describe('Service', () => {
 
     test('should throw when the address is for a different network', () => {
       expect(() =>
-        service['checkNonInteractiveClaimSupported'](
+        enabledService['checkNonInteractiveClaimSupported'](
           ArkClient.symbol,
           createArkCurrency(serverPubKey, 'ark'),
           { claimAddress },
@@ -4468,7 +4471,7 @@ describe('Service', () => {
 
     test('should throw when the address is for a different server', () => {
       expect(() =>
-        service['checkNonInteractiveClaimSupported'](
+        enabledService['checkNonInteractiveClaimSupported'](
           ArkClient.symbol,
           createArkCurrency(
             getHexBuffer(
@@ -4481,6 +4484,40 @@ describe('Service', () => {
       ).toThrow(
         ApiErrors.ARK_ADDRESS_WRONG_SERVER('nonInteractiveClaim.claimAddress'),
       );
+    });
+
+    describe('nonInteractiveClaims disabled', () => {
+      test('should throw when a non-interactive claim is set with the default config', () => {
+        expect(() =>
+          service['checkNonInteractiveClaimSupported'](
+            ArkClient.symbol,
+            createArkCurrency(serverPubKey, 'tark'),
+            { claimAddress },
+          ),
+        ).toThrow(Errors.NON_INTERACTIVE_CLAIMS_DISABLED().message);
+      });
+
+      test('should throw when a non-interactive claim is set with the flag disabled explicitly', () => {
+        const disabledService = createService({ nonInteractiveClaims: false });
+
+        expect(() =>
+          disabledService['checkNonInteractiveClaimSupported'](
+            ArkClient.symbol,
+            createArkCurrency(serverPubKey, 'tark'),
+            { claimAddress },
+          ),
+        ).toThrow(Errors.NON_INTERACTIVE_CLAIMS_DISABLED().message);
+      });
+
+      test('should do nothing when no non-interactive claim is set', () => {
+        expect(() =>
+          service['checkNonInteractiveClaimSupported'](
+            'BTC',
+            currencies.get('BTC')!,
+            undefined,
+          ),
+        ).not.toThrow();
+      });
     });
   });
 

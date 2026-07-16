@@ -182,6 +182,7 @@ class Service {
   public readonly lockupTransactionTracker: LockupTransactionTracker;
 
   private prepayMinerFee: boolean;
+  private readonly nonInteractiveClaims: boolean;
 
   private readonly balanceCheck: BalanceCheck;
   private readonly paymentRequestUtils: PaymentRequestUtils;
@@ -203,6 +204,13 @@ class Service {
     this.logger.debug(
       `Prepay miner fee for Reverse Swaps is ${
         this.prepayMinerFee ? 'enabled' : 'disabled'
+      }`,
+    );
+
+    this.nonInteractiveClaims = config.nonInteractiveClaims;
+    this.logger.debug(
+      `Non-interactive claims for Swaps to ${ArkClient.symbol} are ${
+        this.nonInteractiveClaims ? 'enabled' : 'disabled'
       }`,
     );
 
@@ -2659,6 +2667,10 @@ class Service {
   ) => {
     if (nonInteractiveClaim === undefined) {
       return;
+    }
+
+    if (!this.nonInteractiveClaims) {
+      throw Errors.NON_INTERACTIVE_CLAIMS_DISABLED();
     }
 
     if (sendingCurrency.type !== CurrencyType.Ark) {

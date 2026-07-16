@@ -547,8 +547,11 @@ enum ClaimFailureType {
 message ClaimFailure {
   ClaimFailureType type = 1;
   string symbol = 2;
-  optional string swap_id = 3;
-  uint32 batch_size = 4;
+
+  oneof details {
+    string swap_id = 3;
+    uint32 batch_size = 4;
+  }
 }
 
 message FailureHookResponse {

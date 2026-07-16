@@ -9,6 +9,20 @@ enum ClaimFailureType {
   Batch,
 }
 
+const claimFailureTypeToGrpc: Record<
+  ClaimFailureType,
+  boltzrpc.ClaimFailureType
+> = {
+  [ClaimFailureType.Immediate]:
+    boltzrpc.ClaimFailureType.CLAIM_FAILURE_IMMEDIATE,
+  [ClaimFailureType.Batch]: boltzrpc.ClaimFailureType.CLAIM_FAILURE_BATCH,
+};
+
+type ClaimFailureArgs = { symbol: string } & (
+  | { type: ClaimFailureType.Immediate; swapId: string }
+  | { type: ClaimFailureType.Batch; batchSize: number }
+);
+
 class FailureHook extends Hook<
   void,
   boltzrpc.FailureHookRequest,
@@ -18,23 +32,17 @@ class FailureHook extends Hook<
     super(logger, 'failure', undefined, undefined, 60_000, notificationClient);
   }
 
-  public claim = (
-    type: ClaimFailureType,
-    symbol: string,
-    swapId?: string,
-    batchSize = 0,
-  ): Promise<void> => {
+  public claim = (args: ClaimFailureArgs): Promise<void> => {
     const id = randomUUID();
     const msg: boltzrpc.FailureHookRequest = {
       id,
       claimFailure: {
-        type:
-          type === ClaimFailureType.Immediate
-            ? boltzrpc.ClaimFailureType.CLAIM_FAILURE_IMMEDIATE
-            : boltzrpc.ClaimFailureType.CLAIM_FAILURE_BATCH,
-        symbol,
-        swapId,
-        batchSize,
+        type: claimFailureTypeToGrpc[args.type],
+        symbol: args.symbol,
+        swapId:
+          args.type === ClaimFailureType.Immediate ? args.swapId : undefined,
+        batchSize:
+          args.type === ClaimFailureType.Batch ? args.batchSize : undefined,
       },
     };
 

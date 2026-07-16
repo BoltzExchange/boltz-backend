@@ -914,19 +914,16 @@ describe('Service', () => {
       batchSize: 3,
     });
 
-    expect(hook).toHaveBeenNthCalledWith(
-      1,
-      ClaimFailureType.Immediate,
-      'BTC',
-      'swap-id',
-    );
-    expect(hook).toHaveBeenNthCalledWith(
-      2,
-      ClaimFailureType.Batch,
-      'L-BTC',
-      undefined,
-      3,
-    );
+    expect(hook).toHaveBeenNthCalledWith(1, {
+      type: ClaimFailureType.Immediate,
+      symbol: 'BTC',
+      swapId: 'swap-id',
+    });
+    expect(hook).toHaveBeenNthCalledWith(2, {
+      type: ClaimFailureType.Batch,
+      symbol: 'L-BTC',
+      batchSize: 3,
+    });
 
     claimService['nodeInfo'].stopSchedule();
   });

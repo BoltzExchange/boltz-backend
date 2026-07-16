@@ -268,17 +268,20 @@ class Service {
     this.eventHandler = new EventHandler(this.logger, this.swapManager.nursery);
     this.failureHook = new FailureHook(this.logger, notifications);
     this.eventHandler.on('claim.failure', ({ swap, symbol }) => {
-      void this.failureHook.claim(ClaimFailureType.Immediate, symbol, swap.id);
+      void this.failureHook.claim({
+        type: ClaimFailureType.Immediate,
+        symbol,
+        swapId: swap.id,
+      });
     });
     this.swapManager.deferredClaimer.on(
       'batch.claim.failure',
       ({ symbol, batchSize }) => {
-        void this.failureHook.claim(
-          ClaimFailureType.Batch,
+        void this.failureHook.claim({
+          type: ClaimFailureType.Batch,
           symbol,
-          undefined,
           batchSize,
-        );
+        });
       },
     );
 

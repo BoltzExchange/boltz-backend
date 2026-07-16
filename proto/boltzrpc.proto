@@ -69,6 +69,7 @@ service Boltz {
   rpc TransactionHook (stream TransactionHookResponse) returns (stream TransactionHookRequest);
   rpc InvoicePaymentHook (stream InvoicePaymentHookResponse) returns (stream InvoicePaymentHookRequest);
   rpc SendApprovalHook (stream SendApprovalHookResponse) returns (stream SendApprovalHookRequest);
+  rpc FailureHook (stream FailureHookResponse) returns (stream FailureHookRequest);
 
   rpc SetLogLevel (SetLogLevelRequest) returns (SetLogLevelResponse);
 
@@ -535,6 +536,36 @@ message SendApprovalHookRequest {
   // Symbol of the asset being sent out
   string symbol = 3;
   uint64 amount = 4;
+}
+
+enum ClaimFailureType {
+  CLAIM_FAILURE_UNSPECIFIED = 0;
+  CLAIM_FAILURE_IMMEDIATE = 1;
+  CLAIM_FAILURE_BATCH = 2;
+}
+
+message ClaimFailure {
+  ClaimFailureType type = 1;
+  string symbol = 2;
+
+  oneof details {
+    string swap_id = 3;
+    uint32 batch_size = 4;
+  }
+}
+
+message FailureHookResponse {
+  // Event ID
+  string id = 1;
+}
+
+message FailureHookRequest {
+  // Event ID
+  string id = 1;
+
+  oneof failure {
+    ClaimFailure claim_failure = 2;
+  }
 }
 
 message SetLogLevelRequest {

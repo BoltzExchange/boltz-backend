@@ -1,6 +1,7 @@
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import bolt11 from 'bolt11';
 import { randomBytes } from 'crypto';
+import { EventEmitter } from 'events';
 import {
   Transaction as LiquidTransaction,
   networks as liquidNetworks,
@@ -59,6 +60,7 @@ import type Sidecar from '../../../lib/sidecar/Sidecar';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import SwapManager from '../../../lib/swap/SwapManager';
+import { ClaimFailureType } from '../../../lib/swap/hooks/FailureHook';
 import type Wallet from '../../../lib/wallet/Wallet';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import WalletManager from '../../../lib/wallet/WalletManager';
@@ -187,6 +189,7 @@ jest.mock('../../../lib/swap/SwapManager', () => {
     eipSigner: {
       refundSignatureLock: mockRefundSignatureLock,
     },
+    deferredClaimer: new EventEmitter(),
   }));
 });
 
@@ -892,6 +895,37 @@ describe('Service', () => {
 
   afterAll(() => {
     service['nodeInfo'].stopSchedule();
+  });
+
+  test('should forward immediate and batch claim failures to the hook', () => {
+    const claimService = createService();
+    const hook = jest
+      .spyOn(claimService.failureHook, 'claim')
+      .mockResolvedValue(undefined);
+
+    claimService.eventHandler.emit('claim.failure', {
+      swap: { id: 'swap-id' } as Swap,
+      symbol: 'BTC',
+      error: 'not forwarded',
+    });
+    claimService.swapManager.deferredClaimer.emit('batch.claim.failure', {
+      symbol: 'L-BTC',
+      error: 'not forwarded either',
+      batchSize: 3,
+    });
+
+    expect(hook).toHaveBeenNthCalledWith(1, {
+      type: ClaimFailureType.Immediate,
+      symbol: 'BTC',
+      swapId: 'swap-id',
+    });
+    expect(hook).toHaveBeenNthCalledWith(2, {
+      type: ClaimFailureType.Batch,
+      symbol: 'L-BTC',
+      batchSize: 3,
+    });
+
+    claimService['nodeInfo'].stopSchedule();
   });
 
   test('should not init if a currency of a pair cannot be found', async () => {

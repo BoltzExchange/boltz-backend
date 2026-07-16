@@ -20,6 +20,7 @@ import Service from '../../../lib/service/Service';
 import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
 import type NodeSwitch from '../../../lib/swap/NodeSwitch';
 import type CreationHook from '../../../lib/swap/hooks/CreationHook';
+import type FailureHook from '../../../lib/swap/hooks/FailureHook';
 import type InvoiceCreationHook from '../../../lib/swap/hooks/InvoiceCreationHook';
 import type EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
@@ -149,6 +150,9 @@ jest.mock('../../../lib/service/Service', () => {
           ),
           sweepSymbol: jest.fn().mockResolvedValue(['currency1', 'currency2']),
         },
+      },
+      failureHook: {
+        connectToStream: jest.fn(),
       },
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
@@ -1035,6 +1039,22 @@ describe('GrpcService', () => {
       expect(
         service.swapManager.invoiceCreationHook.connectToStream,
       ).toHaveBeenCalledWith(stream);
+    });
+  });
+
+  describe('failureHook', () => {
+    test('should set failure hook stream', () => {
+      (service.failureHook as any) = {
+        connectToStream: jest.fn(),
+      } as Partial<FailureHook>;
+
+      const stream = {
+        good: 'stream',
+      } as any;
+      grpcService.failureHook(stream);
+
+      expect(service.failureHook.connectToStream).toHaveBeenCalledTimes(1);
+      expect(service.failureHook.connectToStream).toHaveBeenCalledWith(stream);
     });
   });
 

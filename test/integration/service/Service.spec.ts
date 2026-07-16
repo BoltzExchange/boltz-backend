@@ -14,7 +14,9 @@ jest.mock('../../../lib/service/ElementsService', () => {
   return jest.fn().mockImplementation(() => ({}));
 });
 jest.mock('../../../lib/service/EventHandler', () => {
-  return jest.fn().mockImplementation(() => ({}));
+  return jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+  }));
 });
 jest.mock('../../../lib/service/NodeInfo', () => {
   return jest.fn().mockImplementation(() => ({}));
@@ -45,6 +47,9 @@ jest.mock('../../../lib/swap/SwapManager', () => {
       refundSignatureLock: jest.fn(),
     },
     nursery: {},
+    deferredClaimer: {
+      on: jest.fn(),
+    },
   }));
 });
 jest.mock('../../../lib/db/repositories/ChainTipRepository');

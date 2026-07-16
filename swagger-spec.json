@@ -4016,6 +4016,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "maxLength": 255,
             "description": "Identifier for the extra fee"
           },
           "percentage": {
@@ -4098,6 +4099,7 @@
         "properties": {
           "url": {
             "type": "string",
+            "maxLength": 1024,
             "description": "URL that should be called. Only HTTPS is allowed"
           },
           "hashSwapId": {
@@ -4464,6 +4466,18 @@
           }
         }
       },
+      "NonInteractiveClaim": {
+        "type": "object",
+        "required": [
+          "claimAddress"
+        ],
+        "properties": {
+          "claimAddress": {
+            "type": "string",
+            "description": "Ark address that has to be paid by the transaction claiming the VHTLC"
+          }
+        }
+      },
       "ReverseRequest": {
         "type": "object",
         "required": [
@@ -4563,6 +4577,14 @@
           },
           "extraFees": {
             "$ref": "#/components/schemas/ExtraFees"
+          },
+          "nonInteractiveClaim": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NonInteractiveClaim"
+              }
+            ],
+            "description": "Enables the non-interactive claim path of the VHTLC. Only allowed for swaps to ARK"
           }
         }
       },
@@ -4840,6 +4862,14 @@
           },
           "extraFees": {
             "$ref": "#/components/schemas/ExtraFees"
+          },
+          "nonInteractiveClaim": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NonInteractiveClaim"
+              }
+            ],
+            "description": "Enables the non-interactive claim path of the VHTLC. Only allowed for swaps to ARK"
           }
         }
       },

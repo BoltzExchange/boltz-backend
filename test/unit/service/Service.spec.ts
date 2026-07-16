@@ -4389,6 +4389,101 @@ describe('Service', () => {
     });
   });
 
+  describe('checkNonInteractiveClaimSupported', () => {
+    const claimAddress =
+      'tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndakjpdlzx4q6n5was20sqf5kff8999rupjsl2ptlz3nqtkl6hv27fvrc05ag';
+    const serverPubKey = getHexBuffer(
+      '02e35799157be4b37565bb5afe4d04e6a0fa0a4b6a4f4e48b0d904685d253cdbdb',
+    );
+
+    const createArkCurrency = (signerPubkey: Buffer, addrPrefix: string) => {
+      const arkNode = new ArkClient(
+        Logger.disabledLogger,
+        { host: '127.0.0.1', port: 9999 } as any,
+        {} as any,
+      );
+      arkNode.signerPubkey = signerPubkey;
+      arkNode.addrPrefix = addrPrefix;
+
+      return {
+        arkNode,
+        symbol: ArkClient.symbol,
+        type: CurrencyType.Ark,
+      } as any;
+    };
+
+    test('should do nothing when no non-interactive claim is set', () => {
+      expect(() =>
+        service['checkNonInteractiveClaimSupported'](
+          'BTC',
+          currencies.get('BTC')!,
+          undefined,
+        ),
+      ).not.toThrow();
+    });
+
+    test('should throw when the sending currency is not Ark', () => {
+      expect(() =>
+        service['checkNonInteractiveClaimSupported'](
+          'BTC',
+          currencies.get('BTC')!,
+          { claimAddress },
+        ),
+      ).toThrow(ApiErrors.UNSUPPORTED_PARAMETER('BTC', 'nonInteractiveClaim'));
+    });
+
+    test('should accept addresses of the same network and server', () => {
+      expect(() =>
+        service['checkNonInteractiveClaimSupported'](
+          ArkClient.symbol,
+          createArkCurrency(serverPubKey, 'tark'),
+          { claimAddress },
+        ),
+      ).not.toThrow();
+    });
+
+    test('should throw when the address cannot be decoded', () => {
+      expect(() =>
+        service['checkNonInteractiveClaimSupported'](
+          ArkClient.symbol,
+          createArkCurrency(serverPubKey, 'tark'),
+          { claimAddress: 'notanaddress' },
+        ),
+      ).toThrow(
+        ApiErrors.INVALID_PARAMETER('nonInteractiveClaim.claimAddress'),
+      );
+    });
+
+    test('should throw when the address is for a different network', () => {
+      expect(() =>
+        service['checkNonInteractiveClaimSupported'](
+          ArkClient.symbol,
+          createArkCurrency(serverPubKey, 'ark'),
+          { claimAddress },
+        ),
+      ).toThrow(
+        ApiErrors.ARK_ADDRESS_WRONG_NETWORK('nonInteractiveClaim.claimAddress'),
+      );
+    });
+
+    test('should throw when the address is for a different server', () => {
+      expect(() =>
+        service['checkNonInteractiveClaimSupported'](
+          ArkClient.symbol,
+          createArkCurrency(
+            getHexBuffer(
+              '02aa5799157be4b37565bb5afe4d04e6a0fa0a4b6a4f4e48b0d904685d253cdbdb',
+            ),
+            'tark',
+          ),
+          { claimAddress },
+        ),
+      ).toThrow(
+        ApiErrors.ARK_ADDRESS_WRONG_SERVER('nonInteractiveClaim.claimAddress'),
+      );
+    });
+  });
+
   describe('getPair', () => {
     const getPair = service['getPair'];
 

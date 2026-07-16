@@ -274,8 +274,8 @@ message SignTransactionResponse {
 
 message CreateVHTLCRequest {
   string preimage_hash = 1;
-  string sender_pubkey = 2; 
-  string receiver_pubkey = 3; 
+  string sender_pubkey = 2;
+  string receiver_pubkey = 3;
   // Optional absolute locktime for refund condition (in blocks)
   uint32 refund_locktime = 4;
   // Optional unilateral claim delay (relative timelock)
@@ -284,6 +284,8 @@ message CreateVHTLCRequest {
   RelativeLocktime unilateral_refund_delay = 6;
   // Optional unilateral refund without receiver delay (relative timelock)
   RelativeLocktime unilateral_refund_without_receiver_delay = 7;
+  // Optional non-interactive claim config
+  NonInteractiveClaim non_interactive_claim = 8;
 }
 message CreateVHTLCResponse {
   string id = 1;
@@ -413,6 +415,11 @@ message RelativeLocktime {
   }
   LocktimeType type = 1;
   uint32 value = 2;
+}
+
+message NonInteractiveClaim {
+  // ark address of the claim tx recipient
+  string claim_address = 1;
 }
 
 message Tapscripts {

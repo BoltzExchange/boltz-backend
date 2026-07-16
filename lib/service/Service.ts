@@ -32,8 +32,11 @@ import {
 } from '../Utils';
 import ApiErrors from '../api/Errors';
 import { checkPreimageHashLength, errorsNotToLog } from '../api/Utils';
-import type { Timeouts as ArkTimeouts } from '../chain/ArkClient';
-import type ArkClient from '../chain/ArkClient';
+import type {
+  Timeouts as ArkTimeouts,
+  NonInteractiveClaim,
+} from '../chain/ArkClient';
+import ArkClient from '../chain/ArkClient';
 import ElementsClient from '../chain/ElementsClient';
 import {
   etherDecimals,
@@ -1805,6 +1808,9 @@ class Service {
 
     claimCovenant?: boolean;
 
+    // Only used for Reverse Swaps to Ark
+    nonInteractiveClaim?: NonInteractiveClaim;
+
     // Description for the invoice and magic routing hint
     description?: string;
     descriptionHash?: Buffer;
@@ -1931,6 +1937,12 @@ class Service {
 
         break;
     }
+
+    this.checkNonInteractiveClaimSupported(
+      sending,
+      sendingCurrency,
+      args.nonInteractiveClaim,
+    );
 
     const [onchainTimeoutBlockDelta] =
       await this.timeoutDeltaProvider.getTimeout(
@@ -2112,6 +2124,7 @@ class Service {
         claimPublicKey: args.claimPublicKey,
         descriptionHash: args.descriptionHash,
         claimCovenant: args.claimCovenant || false,
+        nonInteractiveClaim: args.nonInteractiveClaim,
         userAddressSignature: args.userAddressSignature,
         invoice:
           args.invoice !== undefined && decodedInvoice !== undefined
@@ -2250,6 +2263,8 @@ class Service {
 
     webHook?: WebHookData;
     extraFees?: ExtraFees;
+
+    nonInteractiveClaim?: NonInteractiveClaim;
   }) => {
     await this.checkSwapWithPreimageExists(SwapType.Chain, args.preimageHash);
 
@@ -2321,6 +2336,12 @@ class Service {
         throw ApiErrors.UNDEFINED_PARAMETER('refundPublicKey');
       }
     }
+
+    this.checkNonInteractiveClaimSupported(
+      sending,
+      sendingCurrency,
+      args.nonInteractiveClaim,
+    );
 
     const sendingTimeoutBlockDelta = (
       await this.timeoutDeltaProvider.getTimeout(
@@ -2446,6 +2467,7 @@ class Service {
         claimPublicKey: args.claimPublicKey,
         refundPublicKey: args.refundPublicKey,
         serverLockAmount: args.serverLockAmount,
+        nonInteractiveClaim: args.nonInteractiveClaim,
         acceptZeroConf: this.rateProvider.acceptZeroConf(
           receivingCurrency.symbol,
           args.userLockAmount,
@@ -2625,6 +2647,45 @@ class Service {
           throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
         }
         break;
+    }
+  };
+
+  // The non-interactive claim leaf lives on the server-locked Ark VHTLC, so
+  // it is only valid when the server sends Ark (e.g. BTC -> ARK)
+  private checkNonInteractiveClaimSupported = (
+    sendingSymbol: string,
+    sendingCurrency: Currency,
+    nonInteractiveClaim?: NonInteractiveClaim,
+  ) => {
+    if (nonInteractiveClaim === undefined) {
+      return;
+    }
+
+    if (sendingCurrency.type !== CurrencyType.Ark) {
+      throw ApiErrors.UNSUPPORTED_PARAMETER(
+        sendingSymbol,
+        'nonInteractiveClaim',
+      );
+    }
+
+    let decoded: ReturnType<typeof ArkClient.decodeAddress>;
+    try {
+      decoded = ArkClient.decodeAddress(nonInteractiveClaim.claimAddress);
+    } catch {
+      throw ApiErrors.INVALID_PARAMETER('nonInteractiveClaim.claimAddress');
+    }
+
+    const arkNode = sendingCurrency.arkNode!;
+    if (decoded.prefix !== arkNode.addrPrefix) {
+      throw ApiErrors.ARK_ADDRESS_WRONG_NETWORK(
+        'nonInteractiveClaim.claimAddress',
+      );
+    }
+
+    if (!arkNode.isOwnServerKey(decoded.serverPubKey)) {
+      throw ApiErrors.ARK_ADDRESS_WRONG_SERVER(
+        'nonInteractiveClaim.claimAddress',
+      );
     }
   };
 

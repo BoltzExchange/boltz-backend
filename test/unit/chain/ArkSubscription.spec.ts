@@ -73,6 +73,7 @@ describe('ArkSubscription', () => {
         }
 
         return {
+          prefix: 'tark',
           serverPubKey: Buffer.alloc(32, 2),
           tweakedPubKey,
         };
@@ -246,6 +247,7 @@ describe('ArkSubscription', () => {
         }
 
         return {
+          prefix: 'tark',
           serverPubKey: Buffer.alloc(32, 2),
           tweakedPubKey,
         };

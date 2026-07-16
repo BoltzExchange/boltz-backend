@@ -75,7 +75,11 @@ export const validateRequest = (
     const value = body[arg.name];
 
     if (value !== undefined) {
-      if (typeof value === arg.type) {
+      // "typeof null" is "object", but null is never a valid value
+      if (
+        typeof value === arg.type &&
+        (arg.type !== 'object' || value !== null)
+      ) {
         if (arg.hex && value !== '') {
           const buffer = getHexBuffer(value);
 

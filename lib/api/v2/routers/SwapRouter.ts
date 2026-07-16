@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type Logger from '../../../Logger';
 import { getHexBuffer, getHexString, stringify } from '../../../Utils';
+import type { NonInteractiveClaim } from '../../../chain/ArkClient';
+import ArkClient from '../../../chain/ArkClient';
 import { SwapUpdateEvent, SwapVersion } from '../../../consts/Enums';
 import { unsafeKeys } from '../../../data/Utils';
 import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
@@ -35,6 +37,11 @@ import RouterBase from './RouterBase';
 const metadataMaxBytes = 1024;
 const metadataMaxHexLength = metadataMaxBytes * 2;
 const metadataHexRegex = /^(?:[0-9a-fA-F]{2})+$/;
+
+const webHookUrlMaxLength = 1024;
+
+// Size of the database column
+const extraFeesIdMaxLength = 255;
 
 class SwapRouter extends RouterBase {
   constructor(
@@ -130,6 +137,7 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         id:
      *           type: string
+     *           maxLength: 255
      *           description: Identifier for the extra fee
      *         percentage:
      *           type: number
@@ -231,6 +239,7 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         url:
      *           type: string
+     *           maxLength: 1024
      *           description: URL that should be called. Only HTTPS is allowed
      *         hashSwapId:
      *           type: boolean
@@ -1012,6 +1021,19 @@ class SwapRouter extends RouterBase {
      * @openapi
      * components:
      *   schemas:
+     *     NonInteractiveClaim:
+     *       type: object
+     *       required: ["claimAddress"]
+     *       properties:
+     *         claimAddress:
+     *           type: string
+     *           description: Ark address that has to be paid by the transaction claiming the VHTLC
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
      *     ReverseRequest:
      *       type: object
      *       required: ["from", "to"]
@@ -1078,7 +1100,12 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
      *           $ref: '#/components/schemas/ExtraFees'
+     *         nonInteractiveClaim:
+     *           allOf:
+     *             - $ref: '#/components/schemas/NonInteractiveClaim'
+     *           description: Enables the non-interactive claim path of the VHTLC. Only allowed for swaps to ARK
      */
+
     /**
      * @openapi
      * components:
@@ -1495,6 +1522,10 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/WebhookData'
      *         extraFees:
      *           $ref: '#/components/schemas/ExtraFees'
+     *         nonInteractiveClaim:
+     *           allOf:
+     *             - $ref: '#/components/schemas/NonInteractiveClaim'
+     *           description: Enables the non-interactive claim path of the VHTLC. Only allowed for swaps to ARK
      */
 
     /**
@@ -3072,6 +3103,7 @@ class SwapRouter extends RouterBase {
       descriptionHash,
       addressSignature,
       metadata,
+      nonInteractiveClaim,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
@@ -3087,6 +3119,7 @@ class SwapRouter extends RouterBase {
       { name: 'invoiceExpiry', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
       { name: 'claimCovenant', type: 'boolean', optional: true },
+      { name: 'nonInteractiveClaim', type: 'object', optional: true },
       { name: 'preimageHash', type: 'string', hex: true, optional: true },
       { name: 'descriptionHash', type: 'string', hex: true, optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
@@ -3099,6 +3132,8 @@ class SwapRouter extends RouterBase {
     const webHookData = this.parseWebHook(webhook);
     const extraFeesData = this.parseExtraFees(extraFees);
     const metadataData = this.parseMetadata(metadata);
+    const nonInteractiveClaimData =
+      this.parseNonInteractiveClaim(nonInteractiveClaim);
 
     const response = await this.service.createReverseSwap({
       pairId,
@@ -3122,6 +3157,7 @@ class SwapRouter extends RouterBase {
       extraFees: extraFeesData,
       version: SwapVersion.Taproot,
       userAddressSignature: addressSignature,
+      nonInteractiveClaim: nonInteractiveClaimData,
     });
 
     await this.persistMetadata(response.id, metadataData);
@@ -3241,6 +3277,7 @@ class SwapRouter extends RouterBase {
       refundPublicKey,
       serverLockAmount,
       metadata,
+      nonInteractiveClaim,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
@@ -3254,6 +3291,7 @@ class SwapRouter extends RouterBase {
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
       { name: 'metadata', type: 'string', optional: true },
+      { name: 'nonInteractiveClaim', type: 'object', optional: true },
     ]);
     const referralId = parseReferralId(req);
 
@@ -3261,6 +3299,8 @@ class SwapRouter extends RouterBase {
     const webHookData = this.parseWebHook(webhook);
     const extraFeesData = this.parseExtraFees(extraFees);
     const metadataData = this.parseMetadata(metadata);
+    const nonInteractiveClaimData =
+      this.parseNonInteractiveClaim(nonInteractiveClaim);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const response = await this.service.createChainSwap({
@@ -3276,6 +3316,7 @@ class SwapRouter extends RouterBase {
       serverLockAmount,
       webHook: webHookData,
       extraFees: extraFeesData,
+      nonInteractiveClaim: nonInteractiveClaimData,
     });
 
     await this.persistMetadata(response.id, metadataData);
@@ -3564,6 +3605,10 @@ class SwapRouter extends RouterBase {
       { name: 'hashSwapId', type: 'boolean', optional: true },
     ]);
 
+    if (res.url.length === 0 || res.url.length > webHookUrlMaxLength) {
+      throw ApiErrors.INVALID_PARAMETER('webhook.url');
+    }
+
     if (res.status) {
       validateArray('status', res.status, 'string', 21);
 
@@ -3578,6 +3623,28 @@ class SwapRouter extends RouterBase {
     return res;
   };
 
+  private parseNonInteractiveClaim = (
+    data: Record<string, any> | undefined,
+  ): NonInteractiveClaim | undefined => {
+    if (data === undefined) {
+      return undefined;
+    }
+
+    const res = validateRequest(data, [
+      { name: 'claimAddress', type: 'string' },
+    ]);
+
+    try {
+      ArkClient.decodeAddress(res.claimAddress);
+    } catch {
+      throw ApiErrors.INVALID_PARAMETER('nonInteractiveClaim.claimAddress');
+    }
+
+    return {
+      claimAddress: res.claimAddress,
+    };
+  };
+
   private parseExtraFees = (
     data: Record<string, any> | undefined,
   ): ExtraFees | undefined => {
@@ -3590,7 +3657,11 @@ class SwapRouter extends RouterBase {
       { name: 'percentage', type: 'number', optional: true },
     ]);
 
-    if (unsafeKeys.has(res.id)) {
+    if (
+      res.id.length === 0 ||
+      res.id.length > extraFeesIdMaxLength ||
+      unsafeKeys.has(res.id)
+    ) {
       throw ApiErrors.INVALID_EXTRA_FEES_ID(res.id);
     }
 

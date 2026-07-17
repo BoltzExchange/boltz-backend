@@ -402,6 +402,8 @@ class SwapManager {
 
     // Only required for UTXO based chains
     refundPublicKey?: Buffer;
+
+    refundAddress?: string;
   }): Promise<CreatedSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
@@ -592,6 +594,7 @@ class SwapManager {
         preimageHash: getHexString(args.preimageHash),
         timeoutBlockHeight: result.timeoutBlockHeight,
         createdRefundSignature: false,
+        refundAddress: args.refundAddress,
       });
     }
 

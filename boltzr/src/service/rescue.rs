@@ -589,12 +589,30 @@ impl SwapRescue {
         ))?;
 
         let chain_swaps = self.chain_swap_helper.get_by_data_nullable(Box::new(
-            crate::db::schema::chainSwapData::dsl::claimAddress.eq(address),
+            crate::db::schema::chainSwapData::dsl::claimAddress.eq(address.clone()),
+        ))?;
+
+        let submarine_swaps = self.swap_helper.get_all_nullable(Box::new(
+            crate::db::schema::swaps::dsl::refundAddress.eq(address),
         ))?;
 
         let keys_map = HashMap::new();
         let mut result = HashMap::new();
         for swap in self.process_restorable_swaps(&keys_map, vec![], chain_swaps, reverse_swaps)? {
+            result.insert(swap.id().to_string(), swap);
+        }
+
+        for submarine_swap in submarine_swaps {
+            let swap = RestorableSwap {
+                base: (&submarine_swap).into(),
+                from: submarine_swap.chain_symbol()?,
+                to: submarine_swap.lightning_symbol()?,
+                preimage_hash: submarine_swap.preimageHash.clone(),
+                invoice: submarine_swap.invoice.clone(),
+                claim_details: None,
+                refund_details: None,
+                metadata: None,
+            };
             result.insert(swap.id().to_string(), swap);
         }
 
@@ -2983,6 +3001,15 @@ swapTree: Some(tree),
         )
         .unwrap();
 
+        let swap_helper = {
+            let mut helper = MockSwapHelper::new();
+            helper
+                .expect_get_all_nullable()
+                .returning(|_| Ok(vec![]))
+                .times(1);
+            helper
+        };
+
         let chain_helper = {
             let chain_swap = chain_swap.clone();
             let mut helper = MockChainSwapHelper::new();
@@ -3004,7 +3031,7 @@ swapTree: Some(tree),
 
         let rescue = SwapRescue::new(
             Cache::Memory(MemCache::new()),
-            Arc::new(MockSwapHelper::new()),
+            Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(reverse_helper),
             Arc::new(HashMap::new()),
@@ -3046,6 +3073,15 @@ swapTree: Some(tree),
         reverse.lockupAddress = EVM_CONTRACT_ADDRESS.to_string();
         reverse.claimAddress = Some(EVM_CLAIM_ADDRESS.to_string());
 
+        let swap_helper = {
+            let mut helper = MockSwapHelper::new();
+            helper
+                .expect_get_all_nullable()
+                .returning(|_| Ok(vec![]))
+                .times(1);
+            helper
+        };
+
         let chain_helper = {
             let mut helper = MockChainSwapHelper::new();
             helper
@@ -3067,7 +3103,7 @@ swapTree: Some(tree),
 
         let rescue = SwapRescue::new(
             Cache::Memory(MemCache::new()),
-            Arc::new(MockSwapHelper::new()),
+            Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(reverse_helper),
             Arc::new(HashMap::new()),
@@ -3095,6 +3131,86 @@ swapTree: Some(tree),
                 amount: Some(reverse.onchainAmount),
                 timeout_block_height: reverse.timeoutBlockHeight as u64,
             }))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_restore_submarine_evm_by_refund_address() {
+        let swap = Swap {
+            id: "submarine evm".to_string(),
+            version: 1,
+            pair: "RBTC/BTC".to_string(),
+            orderSide: crate::utils::pair::OrderSide::Sell as i32,
+            status: "swap.created".to_string(),
+            invoice: Some("lnbc123evm".to_string()),
+            timeoutBlockHeight: 123,
+            preimageHash: "101a17e334bcaba40cbf8e3580b73d263c3b94ed65e86ff81317f95fe1346dd8"
+                .to_string(),
+            lockupAddress: EVM_CONTRACT_ADDRESS.to_string(),
+            refundAddress: Some(EVM_CLAIM_ADDRESS.to_string()),
+            createdAt: chrono::NaiveDateTime::from_str("2025-01-01T23:56:04").unwrap(),
+            ..Default::default()
+        };
+
+        let swap_helper = {
+            let swap = swap.clone();
+            let mut helper = MockSwapHelper::new();
+            helper
+                .expect_get_all_nullable()
+                .returning(move |_| Ok(vec![swap.clone()]))
+                .times(1);
+            helper
+        };
+
+        let chain_helper = {
+            let mut helper = MockChainSwapHelper::new();
+            helper
+                .expect_get_by_data_nullable()
+                .returning(|_| Ok(vec![]))
+                .times(1);
+            helper
+        };
+
+        let reverse_helper = {
+            let mut helper = MockReverseSwapHelper::new();
+            helper
+                .expect_get_all_nullable()
+                .returning(|_| Ok(vec![]))
+                .times(1);
+            helper
+        };
+
+        let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::new()),
+            Arc::new(empty_metadata_helper()),
+        );
+
+        let res = rescue
+            .restore(RestoreQuery::Address(EVM_CLAIM_ADDRESS.to_string()))
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(
+            res[0],
+            RestorableSwap {
+                base: SwapBase {
+                    id: swap.id,
+                    kind: SwapType::Submarine,
+                    status: swap.status,
+                    created_at: 1735775764,
+                },
+                from: "RBTC".to_string(),
+                to: "BTC".to_string(),
+                preimage_hash: swap.preimageHash,
+                invoice: swap.invoice,
+                claim_details: None,
+                refund_details: None,
+                metadata: None,
+            }
         );
     }
 }

@@ -64,7 +64,7 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 27;
+  private static latestSchemaVersion = 28;
   private static latestDeprecatedSchemaVersion = 11;
 
   private toBackFill: number[] = [];
@@ -806,6 +806,28 @@ class Migration {
             },
           },
         );
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 27: {
+        const queryInterface = this.sequelize.getQueryInterface();
+
+        this.logUpdatingTable(Swap.tableName);
+
+        await queryInterface.addColumn(Swap.tableName, 'refundAddress', {
+          type: new DataTypes.STRING(255),
+          allowNull: true,
+        });
+        await queryInterface.addIndex(Swap.tableName, ['refundAddress'], {
+          name: 'swaps_refundAddress',
+          where: {
+            refundAddress: {
+              [Op.ne]: null,
+            },
+          },
+        });
 
         await this.finishMigration(versionRow.version, currencies);
         break;

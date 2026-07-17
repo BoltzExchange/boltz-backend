@@ -1190,6 +1190,8 @@ class Service {
     // Only required for UTXO based chains
     refundPublicKey?: Buffer;
 
+    refundAddress?: string;
+
     // Invoice, if available, to adjust the timeout block height
     invoice?: string;
   }): Promise<{
@@ -1229,23 +1231,26 @@ class Service {
 
     const { base, quote } = splitPairId(args.pairId);
     const orderSide = this.getOrderSide(args.orderSide);
+    const chainCurrency = getChainCurrency(base, quote, orderSide, false);
 
-    switch (
-      getCurrency(
-        this.currencies,
-        getChainCurrency(base, quote, orderSide, false),
-      ).type
-    ) {
+    switch (getCurrency(this.currencies, chainCurrency).type) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid:
       case CurrencyType.Ark:
         if (args.refundPublicKey === undefined) {
           throw ApiErrors.UNDEFINED_PARAMETER('refundPublicKey');
         }
+
+        if (args.refundAddress !== undefined) {
+          throw ApiErrors.UNSUPPORTED_PARAMETER(chainCurrency, 'refundAddress');
+        }
         break;
 
       case CurrencyType.Ether:
       case CurrencyType.ERC20:
+        if (args.refundAddress !== undefined) {
+          args.refundAddress = checkEvmAddress(args.refundAddress);
+        }
         break;
 
       default:
@@ -1304,6 +1309,7 @@ class Service {
       preimageHash: args.preimageHash,
       paymentTimeout: args.paymentTimeout,
       refundPublicKey: args.refundPublicKey,
+      refundAddress: args.refundAddress,
     });
 
     this.eventHandler.emitSwapCreation(id);
@@ -1613,6 +1619,7 @@ class Service {
     paymentTimeout?: number,
     webHook?: WebHookData,
     extraFees?: ExtraFees,
+    refundAddress?: string,
   ): Promise<{
     id: string;
     bip21: string;
@@ -1660,6 +1667,7 @@ class Service {
       referralId,
       paymentTimeout,
       refundPublicKey,
+      refundAddress,
       preimageHash: decodedInvoice.paymentHash!,
     });
 

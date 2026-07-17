@@ -277,6 +277,9 @@ class SwapRouter extends RouterBase {
      *         refundPublicKey:
      *           type: string
      *           description: Public key with which the Submarine Swap can be refunded encoded as HEX
+     *         refundAddress:
+     *           type: string
+     *           description: EVM address with which the Submarine Swap can be refunded. Only allowed for swaps from EVM based chains
      *         pairHash:
      *           type: string
      *           description: Pair hash from the pair information for the client to check if their fee data is up-to-date
@@ -2215,7 +2218,7 @@ class SwapRouter extends RouterBase {
      *             address:
      *               type: string
      *               pattern: '^(0x)?[a-fA-F0-9]{40}$'
-     *               description: Single EVM address (checksummed or lowercase) to search for in the claim address of swaps. Use this to restore EVM swaps (e.g. RSK). Ownership of the address must be proven with the signature
+     *               description: Single EVM address (checksummed or lowercase) to search for in the claim and refund addresses of swaps. Use this to restore EVM swaps (e.g. RSK). Ownership of the address must be proven with the signature
      *             timestamp:
      *               type: integer
      *               description: Unix timestamp (seconds) included in the signed message. Must be within 60 seconds of the server time to limit replay
@@ -2813,6 +2816,7 @@ class SwapRouter extends RouterBase {
       extraFees,
       paymentTimeout,
       refundPublicKey,
+      refundAddress,
       metadata,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
@@ -2823,6 +2827,7 @@ class SwapRouter extends RouterBase {
       { name: 'extraFees', type: 'object', optional: true },
       { name: 'paymentTimeout', type: 'number', optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'refundAddress', type: 'string', optional: true },
       { name: 'metadata', type: 'string', optional: true },
     ]);
     const referralId = parseReferralId(req);
@@ -2846,6 +2851,7 @@ class SwapRouter extends RouterBase {
         paymentTimeout,
         webHookData,
         extraFeesData,
+        refundAddress,
       );
     } else {
       const { preimageHash } = validateRequest(req.body, [
@@ -2860,6 +2866,7 @@ class SwapRouter extends RouterBase {
         preimageHash,
         paymentTimeout,
         refundPublicKey,
+        refundAddress,
         webHook: webHookData,
         version: SwapVersion.Taproot,
       });

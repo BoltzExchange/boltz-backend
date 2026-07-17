@@ -2470,7 +2470,7 @@ class SwapRouter extends RouterBase {
      * /swap/restore:
      *   post:
      *     tags: [Swap]
-     *     description: Restore swaps by searching with an XPUB, a single public key, multiple public keys, or an EVM claim address. Restoring by EVM address requires a signature from that address proving ownership. Returns full swap details needed to resume, claim, or refund swaps when information was lost
+     *     description: Restore swaps by searching with an XPUB, a single public key, multiple public keys, or an EVM address. Searching by EVM address matches both the claim and refund addresses of swaps and requires a signature from that address proving ownership. Returns full swap details needed to resume, claim, or refund swaps when information was lost
      *     requestBody:
      *       required: true
      *       content:

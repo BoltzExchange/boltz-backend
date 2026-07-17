@@ -128,12 +128,14 @@ class SwapRepository {
     onchainAmount: number,
     confirmed: boolean,
     lockupTransactionVout?: number,
+    refundAddress?: string,
   ): Promise<Swap> => {
     await Swap.update(
       {
         onchainAmount,
         lockupTransactionId,
         lockupTransactionVout,
+        refundAddress,
         status: confirmed
           ? SwapUpdateEvent.TransactionConfirmed
           : SwapUpdateEvent.TransactionMempool,

@@ -180,6 +180,8 @@ class EthereumNursery extends TypedEventEmitter<{
             transaction.hash!,
             lockupAmount,
             true,
+            undefined,
+            etherSwapValues.refundAddress,
           )
         : await ChainSwapRepository.setUserLockupTransaction(
             swap as ChainSwapInfo,
@@ -318,6 +320,8 @@ class EthereumNursery extends TypedEventEmitter<{
             transaction.hash!,
             lockupAmount,
             true,
+            undefined,
+            erc20SwapValues.refundAddress,
           )
         : await ChainSwapRepository.setUserLockupTransaction(
             swap as ChainSwapInfo,

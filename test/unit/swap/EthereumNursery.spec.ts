@@ -418,6 +418,7 @@ describe('EthereumNursery', () => {
 
     const suppliedEtherSwapValues = {
       claimAddress: mockAddress,
+      refundAddress: mockAddress,
       amount: BigInt('100000000000'),
       preimageHash: getHexString(examplePreimageHash),
       timelock: mockGetSwapResult.timeoutBlockHeight,
@@ -449,6 +450,8 @@ describe('EthereumNursery', () => {
       exampleTransaction.hash,
       10,
       true,
+      undefined,
+      suppliedEtherSwapValues.refundAddress,
     );
 
     expect(lockupEmitted).toEqual(true);
@@ -814,6 +817,7 @@ describe('EthereumNursery', () => {
     const suppliedERC20SwapValues = {
       amount: BigInt('1000'),
       claimAddress: mockAddress,
+      refundAddress: mockAddress,
       tokenAddress: mockTokenAddress,
       timelock: mockGetSwapResult.timeoutBlockHeight,
       preimageHash: getHexString(examplePreimageHash),
@@ -850,6 +854,8 @@ describe('EthereumNursery', () => {
       exampleTransaction.hash,
       10,
       true,
+      undefined,
+      suppliedERC20SwapValues.refundAddress,
     );
 
     expect(mockFormatTokenAmount).toHaveBeenCalledTimes(1);

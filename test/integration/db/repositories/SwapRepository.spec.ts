@@ -127,6 +127,25 @@ describe('SwapRepository', () => {
   });
 
   describe('setLockupTransaction', () => {
+    test('should persist the refund address observed in the lockup', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+      const refundAddress = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
+
+      const updated = await SwapRepository.setLockupTransaction(
+        swap,
+        'lockup',
+        123_000,
+        true,
+        undefined,
+        refundAddress,
+      );
+
+      await swap.reload();
+
+      expect(updated.refundAddress).toEqual(refundAddress);
+      expect(swap.refundAddress).toEqual(refundAddress);
+    });
+
     test.each([
       SwapUpdateEvent.InvoicePaid,
       SwapUpdateEvent.TransactionClaimPending,

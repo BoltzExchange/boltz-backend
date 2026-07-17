@@ -4163,10 +4163,6 @@
             "type": "string",
             "description": "Public key with which the Submarine Swap can be refunded encoded as HEX"
           },
-          "refundAddress": {
-            "type": "string",
-            "description": "EVM address with which the Submarine Swap can be refunded. Only allowed for swaps from EVM based chains"
-          },
           "pairHash": {
             "type": "string",
             "description": "Pair hash from the pair information for the client to check if their fee data is up-to-date"

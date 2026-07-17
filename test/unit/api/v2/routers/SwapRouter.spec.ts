@@ -671,7 +671,6 @@ describe('SwapRouter', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
     );
 
     expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
@@ -775,7 +774,6 @@ describe('SwapRouter', () => {
       undefined,
       reqBody.webhook,
       undefined,
-      undefined,
     );
   });
 
@@ -806,7 +804,6 @@ describe('SwapRouter', () => {
       undefined,
       undefined,
       reqBody.extraFees,
-      undefined,
     );
   });
 
@@ -894,7 +891,6 @@ describe('SwapRouter', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
     );
   });
 
@@ -919,7 +915,6 @@ describe('SwapRouter', () => {
       undefined,
       reqBody.referralId,
       SwapVersion.Taproot,
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -955,7 +950,6 @@ describe('SwapRouter', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
     );
   });
 
@@ -983,57 +977,7 @@ describe('SwapRouter', () => {
       reqBody.paymentTimeout,
       undefined,
       undefined,
-      undefined,
     );
-  });
-
-  test('should create submarine swaps with refundAddress', async () => {
-    const reqBody = {
-      to: 'BTC',
-      from: 'RBTC',
-      invoice: 'LNBC1',
-      refundAddress: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-    };
-
-    const res = mockResponse();
-    await swapRouter['createSubmarine'](mockRequest(reqBody), res);
-
-    expect(service.createSwapWithInvoice).toHaveBeenCalledTimes(1);
-    expect(service.createSwapWithInvoice).toHaveBeenCalledWith(
-      'L-BTC/BTC',
-      OrderSide.BUY,
-      undefined,
-      reqBody.invoice.toLowerCase(),
-      undefined,
-      undefined,
-      SwapVersion.Taproot,
-      undefined,
-      undefined,
-      undefined,
-      reqBody.refundAddress,
-    );
-  });
-
-  test('should create submarine swaps with preimage hash and refundAddress', async () => {
-    const reqBody = {
-      to: 'BTC',
-      from: 'RBTC',
-      refundAddress: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-      preimageHash:
-        'd1e9cce3bec183a27f4a5a8f86b5029016aa4f5f87f86695c1d1c79b5f0c4e05',
-    };
-
-    const res = mockResponse();
-    await swapRouter['createSubmarine'](mockRequest(reqBody), res);
-
-    expect(service.createSwap).toHaveBeenCalledTimes(1);
-    expect(service.createSwap).toHaveBeenCalledWith({
-      pairId: 'L-BTC/BTC',
-      orderSide: OrderSide.BUY,
-      version: SwapVersion.Taproot,
-      refundAddress: reqBody.refundAddress,
-      preimageHash: getHexBuffer(reqBody.preimageHash),
-    });
   });
 
   test.each`

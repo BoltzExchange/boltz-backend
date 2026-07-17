@@ -2074,69 +2074,6 @@ describe('Service', () => {
     ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
   });
 
-  test('should create swaps with EVM refund address', async () => {
-    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
-    mockGetSwapResult = null;
-
-    const preimageHash = getHexBuffer(
-      'bc3703b99248a0a2d948c6021fdd70debb90ab37233e62531c7f900fe3852c89',
-    );
-
-    await service.createSwap({
-      preimageHash,
-      orderSide: 'sell',
-      pairId: 'ETH/BTC',
-      version: SwapVersion.Taproot,
-      refundAddress: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
-    });
-
-    expect(mockCreateSwap).toHaveBeenCalledTimes(1);
-    expect(mockCreateSwap).toHaveBeenCalledWith(
-      expect.objectContaining({
-        refundAddress: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-      }),
-    );
-  });
-
-  test('should throw when creating swaps with invalid EVM refund address', async () => {
-    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
-    mockGetSwapResult = null;
-
-    await expect(
-      service.createSwap({
-        orderSide: 'sell',
-        pairId: 'ETH/BTC',
-        version: SwapVersion.Taproot,
-        refundAddress: 'notAnAddress',
-        preimageHash: getHexBuffer(
-          'cc3703b99248a0a2d948c6021fdd70debb90ab37233e62531c7f900fe3852c89',
-        ),
-      }),
-    ).rejects.toEqual(Errors.INVALID_ETHEREUM_ADDRESS());
-
-    expect(mockCreateSwap).not.toHaveBeenCalled();
-  });
-
-  test('should throw when creating swaps from UTXO based chains with refund address', async () => {
-    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
-    mockGetSwapResult = null;
-
-    await expect(
-      service.createSwap({
-        orderSide: 'buy',
-        pairId: 'BTC/BTC',
-        version: SwapVersion.Taproot,
-        refundPublicKey: getHexBuffer('0xfff'),
-        refundAddress: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-        preimageHash: getHexBuffer(
-          'dc3703b99248a0a2d948c6021fdd70debb90ab37233e62531c7f900fe3852c89',
-        ),
-      }),
-    ).rejects.toEqual(ApiErrors.UNSUPPORTED_PARAMETER('BTC', 'refundAddress'));
-
-    expect(mockCreateSwap).not.toHaveBeenCalled();
-  });
-
   test('should delete swap when adding webhook fails', async () => {
     mockGetSwapResult = null;
 

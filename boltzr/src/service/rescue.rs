@@ -360,8 +360,8 @@ pub struct EvmTransaction {
 pub struct EvmDetails {
     #[serde(rename = "contractAddress")]
     pub contract_address: String,
-    #[serde(rename = "claimAddress")]
-    pub claim_address: String,
+    #[serde(rename = "claimAddress", skip_serializing_if = "Option::is_none")]
+    pub claim_address: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transaction: Option<EvmTransaction>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -374,10 +374,11 @@ impl EvmDetails {
     fn from_chain_data(data: &ChainSwapData) -> Result<Self> {
         Ok(EvmDetails {
             contract_address: data.lockupAddress.clone(),
-            claim_address: data
-                .claimAddress
-                .clone()
-                .ok_or_else(|| anyhow!("no claim address for {}", data.swapId))?,
+            claim_address: Some(
+                data.claimAddress
+                    .clone()
+                    .ok_or_else(|| anyhow!("no claim address for {}", data.swapId))?,
+            ),
             transaction: data.transactionId.clone().map(|id| EvmTransaction { id }),
             amount: data.amount,
             timeout_block_height: data.timeoutBlockHeight as u64,
@@ -387,14 +388,28 @@ impl EvmDetails {
     fn from_reverse(s: &ReverseSwap) -> Result<Self> {
         Ok(EvmDetails {
             contract_address: s.lockupAddress.clone(),
-            claim_address: s
-                .claimAddress
-                .clone()
-                .ok_or_else(|| anyhow!("no claim address for {}", s.id))?,
+            claim_address: Some(
+                s.claimAddress
+                    .clone()
+                    .ok_or_else(|| anyhow!("no claim address for {}", s.id))?,
+            ),
             transaction: s.transactionId.clone().map(|id| EvmTransaction { id }),
             amount: Some(s.onchainAmount),
             timeout_block_height: s.timeoutBlockHeight as u64,
         })
+    }
+
+    fn from_swap(s: &Swap) -> Self {
+        EvmDetails {
+            contract_address: s.lockupAddress.clone(),
+            claim_address: None,
+            transaction: s
+                .lockupTransactionId
+                .clone()
+                .map(|id| EvmTransaction { id }),
+            amount: s.onchainAmount,
+            timeout_block_height: s.timeoutBlockHeight as u64,
+        }
     }
 }
 
@@ -403,6 +418,13 @@ impl EvmDetails {
 #[allow(clippy::large_enum_variant)]
 pub enum ClaimDetails {
     Utxo(UtxoClaimDetails),
+    Evm(EvmDetails),
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum RefundDetails {
+    Utxo(Box<SwapDetailsBase>),
     Evm(EvmDetails),
 }
 
@@ -419,7 +441,7 @@ pub struct RestorableSwap {
     #[serde(rename = "claimDetails", skip_serializing_if = "Option::is_none")]
     pub claim_details: Option<ClaimDetails>,
     #[serde(rename = "refundDetails", skip_serializing_if = "Option::is_none")]
-    pub refund_details: Option<SwapDetailsBase>,
+    pub refund_details: Option<RefundDetails>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<String>,
 }
@@ -447,7 +469,9 @@ impl TryFrom<(&Swap, u32, String, Option<String>)> for RestorableSwap {
             preimage_hash: s.preimageHash.clone(),
             invoice: s.invoice.clone(),
             claim_details: None,
-            refund_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
+            refund_details: Some(RefundDetails::Utxo(Box::new(
+                (s, key_index, server_public_key, blinding_key).try_into()?,
+            ))),
             metadata: None,
         })
     }
@@ -563,14 +587,15 @@ impl SwapRescue {
         restorable.sort_by(|a, b| {
             // EVM-only rows have no derivation index; sort them last and fall through to createdAt.
             fn get_key_index(swap: &RestorableSwap) -> u32 {
-                swap.refund_details
-                    .as_ref()
-                    .map(|r| r.key_index)
-                    .or(match swap.claim_details.as_ref() {
-                        Some(ClaimDetails::Utxo(c)) => Some(c.base.key_index),
-                        _ => None,
-                    })
-                    .unwrap_or(u32::MAX)
+                match swap.refund_details.as_ref() {
+                    Some(RefundDetails::Utxo(r)) => Some(r.key_index),
+                    _ => None,
+                }
+                .or(match swap.claim_details.as_ref() {
+                    Some(ClaimDetails::Utxo(c)) => Some(c.base.key_index),
+                    _ => None,
+                })
+                .unwrap_or(u32::MAX)
             }
 
             get_key_index(a)
@@ -610,7 +635,7 @@ impl SwapRescue {
                 preimage_hash: submarine_swap.preimageHash.clone(),
                 invoice: submarine_swap.invoice.clone(),
                 claim_details: None,
-                refund_details: None,
+                refund_details: Some(RefundDetails::Evm(EvmDetails::from_swap(&submarine_swap))),
                 metadata: None,
             };
             result.insert(swap.id().to_string(), swap);
@@ -667,7 +692,10 @@ impl SwapRescue {
             .iter()
             .filter_map(|swap| {
                 match (
-                    swap.refund_details.as_ref().map(|r| r.key_index),
+                    match swap.refund_details.as_ref() {
+                        Some(RefundDetails::Utxo(r)) => Some(r.key_index),
+                        _ => None,
+                    },
                     match swap.claim_details.as_ref() {
                         Some(ClaimDetails::Utxo(c)) => Some(c.base.key_index),
                         _ => None,
@@ -1020,7 +1048,7 @@ impl SwapRescue {
 
         let refund_details = if let Some(key_index) = refund_key_index {
             let receiving_wallet = self.get_wallet(&receiving_data.symbol)?;
-            Some(
+            Some(RefundDetails::Utxo(Box::new(
                 (
                     receiving_data,
                     key_index,
@@ -1039,7 +1067,7 @@ impl SwapRescue {
                     )?,
                 )
                     .try_into()?,
-            )
+            )))
         } else {
             None
         };
@@ -1567,7 +1595,7 @@ swapTree: Some(tree.clone()),
                 preimage_hash: swap.preimageHash,
                 invoice: swap.invoice,
                 claim_details: None,
-                refund_details: Some(SwapDetailsBase {
+                refund_details: Some(RefundDetails::Utxo(Box::new(SwapDetailsBase {
                     amount: swap.onchainAmount,
                     tree: swap.redeemScript.unwrap().as_str().try_into().unwrap(),
                     key_index: 0,
@@ -1584,7 +1612,7 @@ swapTree: Some(tree.clone()),
                             .to_string()
                     ),
                     timeout_block_height: 321,
-                }),
+                }))),
                 metadata: Some(hex::encode("opaque-client-metadata")),
             }
         );
@@ -1668,7 +1696,7 @@ swapTree: Some(tree.clone()),
                     },
                     preimage_hash: chain_swap.swap.preimageHash.clone(),
                 })),
-                refund_details: Some(SwapDetailsBase {
+                refund_details: Some(RefundDetails::Utxo(Box::new(SwapDetailsBase {
                     amount: chain_swap.receiving().amount,
                     tree: chain_swap
                         .receiving()
@@ -1692,7 +1720,7 @@ swapTree: Some(tree.clone()),
                             .to_string()
                     ),
                     timeout_block_height: 13_211,
-                }),
+                }))),
                 metadata: None,
             }
         );
@@ -2029,7 +2057,10 @@ swapTree: Some(tree.clone()),
 
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].base.id, chain_swap.id());
-        assert_eq!(res[0].refund_details.as_ref().map(|d| d.key_index), Some(0));
+        assert!(matches!(
+            res[0].refund_details.as_ref(),
+            Some(RefundDetails::Utxo(d)) if d.key_index == 0
+        ));
         assert!(res[0].claim_details.is_none());
     }
 
@@ -2678,7 +2709,7 @@ swapTree: Some(tree),
             details,
             EvmDetails {
                 contract_address: EVM_CONTRACT_ADDRESS.to_string(),
-                claim_address: EVM_CLAIM_ADDRESS.to_string(),
+                claim_address: Some(EVM_CLAIM_ADDRESS.to_string()),
                 transaction: Some(EvmTransaction {
                     id: "0xlockuptx".to_string(),
                 }),
@@ -2710,7 +2741,7 @@ swapTree: Some(tree),
             details,
             EvmDetails {
                 contract_address: EVM_CONTRACT_ADDRESS.to_string(),
-                claim_address: EVM_CLAIM_ADDRESS.to_string(),
+                claim_address: Some(EVM_CLAIM_ADDRESS.to_string()),
                 transaction: Some(EvmTransaction {
                     id: "reverse tx".to_string(),
                 }),
@@ -2740,7 +2771,7 @@ swapTree: Some(tree),
 
         let evm = ClaimDetails::Evm(EvmDetails {
             contract_address: EVM_CONTRACT_ADDRESS.to_string(),
-            claim_address: EVM_CLAIM_ADDRESS.to_string(),
+            claim_address: Some(EVM_CLAIM_ADDRESS.to_string()),
             transaction: None,
             amount: None,
             timeout_block_height: 100,
@@ -2751,6 +2782,44 @@ swapTree: Some(tree),
         assert_eq!(evm_json["contractAddress"], EVM_CONTRACT_ADDRESS);
         assert_eq!(
             serde_json::from_value::<ClaimDetails>(evm_json).unwrap(),
+            evm
+        );
+    }
+
+    #[test]
+    fn test_refund_details_discriminator() {
+        let swap = get_test_swap(get_test_tree());
+        let utxo = RefundDetails::Utxo(Box::new(
+            (&swap, 7u32, "serverpubkey".to_string(), None)
+                .try_into()
+                .unwrap(),
+        ));
+
+        let utxo_json = serde_json::to_value(&utxo).unwrap();
+        assert_eq!(utxo_json["type"], "utxo");
+        assert_eq!(utxo_json["keyIndex"], 7);
+        assert_eq!(utxo_json["serverPublicKey"], "serverpubkey");
+        assert_eq!(
+            serde_json::from_value::<RefundDetails>(utxo_json).unwrap(),
+            utxo
+        );
+
+        let evm = RefundDetails::Evm(EvmDetails {
+            contract_address: EVM_CONTRACT_ADDRESS.to_string(),
+            claim_address: None,
+            transaction: Some(EvmTransaction {
+                id: "0xsubmarinelockup".to_string(),
+            }),
+            amount: Some(123_456),
+            timeout_block_height: 100,
+        });
+
+        let evm_json = serde_json::to_value(&evm).unwrap();
+        assert_eq!(evm_json["type"], "evm");
+        assert_eq!(evm_json["contractAddress"], EVM_CONTRACT_ADDRESS);
+        assert!(evm_json.get("claimAddress").is_none());
+        assert_eq!(
+            serde_json::from_value::<RefundDetails>(evm_json).unwrap(),
             evm
         );
     }
@@ -2848,7 +2917,7 @@ swapTree: Some(tree),
             res[0].claim_details,
             Some(ClaimDetails::Evm(EvmDetails {
                 contract_address: EVM_CONTRACT_ADDRESS.to_string(),
-                claim_address: EVM_CLAIM_ADDRESS.to_string(),
+                claim_address: Some(EVM_CLAIM_ADDRESS.to_string()),
                 transaction: Some(EvmTransaction {
                     id: "0xevmlockup".to_string(),
                 }),
@@ -2856,7 +2925,10 @@ swapTree: Some(tree),
                 timeout_block_height: 13_211,
             }))
         );
-        assert_eq!(res[0].refund_details.as_ref().map(|r| r.key_index), Some(0));
+        assert!(matches!(
+            res[0].refund_details.as_ref(),
+            Some(RefundDetails::Utxo(r)) if r.key_index == 0
+        ));
     }
 
     #[tokio::test]
@@ -3052,7 +3124,7 @@ swapTree: Some(tree),
             res[0].claim_details,
             Some(ClaimDetails::Evm(EvmDetails {
                 contract_address: EVM_CONTRACT_ADDRESS.to_string(),
-                claim_address: EVM_CLAIM_ADDRESS.to_string(),
+                claim_address: Some(EVM_CLAIM_ADDRESS.to_string()),
                 transaction: Some(EvmTransaction {
                     id: "0xevmlockup".to_string(),
                 }),
@@ -3124,7 +3196,7 @@ swapTree: Some(tree),
             res[0].claim_details,
             Some(ClaimDetails::Evm(EvmDetails {
                 contract_address: EVM_CONTRACT_ADDRESS.to_string(),
-                claim_address: EVM_CLAIM_ADDRESS.to_string(),
+                claim_address: Some(EVM_CLAIM_ADDRESS.to_string()),
                 transaction: Some(EvmTransaction {
                     id: "reverse tx".to_string(),
                 }),
@@ -3147,6 +3219,8 @@ swapTree: Some(tree),
             preimageHash: "101a17e334bcaba40cbf8e3580b73d263c3b94ed65e86ff81317f95fe1346dd8"
                 .to_string(),
             lockupAddress: EVM_CONTRACT_ADDRESS.to_string(),
+            lockupTransactionId: Some("0xsubmarinelockup".to_string()),
+            onchainAmount: Some(123_456),
             refundAddress: Some(EVM_CLAIM_ADDRESS.to_string()),
             createdAt: chrono::NaiveDateTime::from_str("2025-01-01T23:56:04").unwrap(),
             ..Default::default()
@@ -3208,7 +3282,15 @@ swapTree: Some(tree),
                 preimage_hash: swap.preimageHash,
                 invoice: swap.invoice,
                 claim_details: None,
-                refund_details: None,
+                refund_details: Some(RefundDetails::Evm(EvmDetails {
+                    contract_address: EVM_CONTRACT_ADDRESS.to_string(),
+                    claim_address: None,
+                    transaction: Some(EvmTransaction {
+                        id: "0xsubmarinelockup".to_string(),
+                    }),
+                    amount: Some(123_456),
+                    timeout_block_height: 123,
+                })),
                 metadata: None,
             }
         );

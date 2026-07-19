@@ -186,6 +186,15 @@ const mockSetLockupTransaction = jest
     },
   );
 
+const mockSetRefundAddress = jest
+  .fn()
+  .mockImplementation(async (swap: Swap, refundAddress: string) => {
+    return {
+      ...swap,
+      refundAddress,
+    };
+  });
+
 jest.mock('../../../lib/db/repositories/SwapRepository');
 
 let mockGetReverseSwapResult: any = null;
@@ -250,6 +259,7 @@ describe('EthereumNursery', () => {
     SwapRepository.getSwap = mockGetSwap;
     SwapRepository.getSwapsExpirable = mockGetSwapsExpirable;
     SwapRepository.setLockupTransaction = mockSetLockupTransaction;
+    SwapRepository.setRefundAddress = mockSetRefundAddress;
 
     ReverseSwapRepository.getReverseSwap = mockGetReverseSwap;
     ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
@@ -450,7 +460,15 @@ describe('EthereumNursery', () => {
       exampleTransaction.hash,
       10,
       true,
-      undefined,
+    );
+
+    expect(mockSetRefundAddress).toHaveBeenCalledTimes(1);
+    expect(mockSetRefundAddress).toHaveBeenCalledWith(
+      {
+        ...mockGetSwapResult,
+        onchainAmount: 10,
+        lockupTransactionId: exampleTransaction.hash,
+      },
       suppliedEtherSwapValues.refundAddress,
     );
 
@@ -532,6 +550,11 @@ describe('EthereumNursery', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(3);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(3);
+    expect(mockSetRefundAddress).toHaveBeenCalledTimes(3);
+    expect(mockSetRefundAddress).toHaveBeenLastCalledWith(
+      expect.anything(),
+      suppliedEtherSwapValues.refundAddress,
+    );
 
     expect(lockupFailed).toEqual(3);
 
@@ -603,6 +626,7 @@ describe('EthereumNursery', () => {
       transaction: exampleTransaction,
       etherSwapValues: {
         claimAddress: mockAddress,
+        refundAddress: mockAddress,
         amount: BigInt('100000000000'),
         preimageHash: getHexString(examplePreimageHash),
         timelock: mockGetSwapResult.timeoutBlockHeight,
@@ -653,12 +677,70 @@ describe('EthereumNursery', () => {
       etherSwapValues: {
         amount: sentAmount,
         claimAddress: mockAddress,
+        refundAddress: mockAddress,
         timelock: mockGetSwapResult.timeoutBlockHeight,
         preimageHash: getHexString(examplePreimageHash),
       } as any,
     });
 
     await lockupFailedPromise;
+  });
+
+  test('should only overwrite an already set refund address on valid lockups', async () => {
+    const existingRefundAddress = '0x6981698B1275eD7727B7F5C3C54d9FE4d8ffEd5E';
+
+    mockGetSwapResult = {
+      pair: 'ETH/BTC',
+      expectedAmount: 10,
+      type: SwapType.Submarine,
+      orderSide: OrderSide.SELL,
+      timeoutBlockHeight: 11102219,
+      refundAddress: existingRefundAddress,
+    };
+
+    const etherSwapValues = {
+      claimAddress: mockAddress,
+      refundAddress: mockAddress,
+      amount: BigInt('99999999999'),
+      preimageHash: getHexString(examplePreimageHash),
+      timelock: mockGetSwapResult.timeoutBlockHeight,
+    } as any;
+
+    let lockupFailed = 0;
+    nursery.once('lockup.failed', () => {
+      lockupFailed += 1;
+    });
+
+    await emitEthLockup({
+      transaction: exampleTransaction,
+      etherSwapValues,
+    });
+
+    expect(lockupFailed).toEqual(1);
+    expect(mockSetRefundAddress).not.toHaveBeenCalled();
+
+    etherSwapValues.amount = BigInt('100000000000');
+
+    let lockupEmitted = false;
+    nursery.once('eth.lockup', () => {
+      lockupEmitted = true;
+    });
+
+    await emitEthLockup({
+      transaction: exampleTransaction,
+      etherSwapValues,
+    });
+
+    expect(lockupEmitted).toEqual(true);
+    expect(mockSetRefundAddress).toHaveBeenCalledTimes(1);
+    expect(mockSetRefundAddress).toHaveBeenCalledWith(
+      {
+        ...mockGetSwapResult,
+        onchainAmount: 10,
+        lockupTransactionId: exampleTransaction.hash,
+      },
+      etherSwapValues.refundAddress,
+    );
   });
 
   test('should listen to EtherSwap claim events', async () => {
@@ -854,7 +936,15 @@ describe('EthereumNursery', () => {
       exampleTransaction.hash,
       10,
       true,
-      undefined,
+    );
+
+    expect(mockSetRefundAddress).toHaveBeenCalledTimes(1);
+    expect(mockSetRefundAddress).toHaveBeenCalledWith(
+      {
+        ...mockGetSwapResult,
+        onchainAmount: 10,
+        lockupTransactionId: exampleTransaction.hash,
+      },
       suppliedERC20SwapValues.refundAddress,
     );
 
@@ -966,6 +1056,11 @@ describe('EthereumNursery', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(4);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(4);
+    expect(mockSetRefundAddress).toHaveBeenCalledTimes(4);
+    expect(mockSetRefundAddress).toHaveBeenLastCalledWith(
+      expect.anything(),
+      suppliedERC20SwapValues.refundAddress,
+    );
 
     expect(lockupFailed).toEqual(4);
 
@@ -1039,6 +1134,7 @@ describe('EthereumNursery', () => {
       transaction: exampleTransaction,
       erc20SwapValues: {
         claimAddress: mockAddress,
+        refundAddress: mockAddress,
         amount: BigInt('1000'),
         tokenAddress: mockTokenAddress,
         timelock: mockGetSwapResult.timeoutBlockHeight,
@@ -1090,6 +1186,7 @@ describe('EthereumNursery', () => {
       erc20SwapValues: {
         amount: sentAmount,
         claimAddress: mockAddress,
+        refundAddress: mockAddress,
         tokenAddress: mockTokenAddress,
         timelock: mockGetSwapResult.timeoutBlockHeight,
         preimageHash: getHexString(examplePreimageHash),

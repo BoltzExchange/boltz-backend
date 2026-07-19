@@ -128,14 +128,12 @@ class SwapRepository {
     onchainAmount: number,
     confirmed: boolean,
     lockupTransactionVout?: number,
-    refundAddress?: string,
   ): Promise<Swap> => {
     await Swap.update(
       {
         onchainAmount,
         lockupTransactionId,
         lockupTransactionVout,
-        refundAddress,
         status: confirmed
           ? SwapUpdateEvent.TransactionConfirmed
           : SwapUpdateEvent.TransactionMempool,
@@ -151,6 +149,15 @@ class SwapRepository {
     );
 
     return (await SwapRepository.getSwap({ id: swap.id })) || swap;
+  };
+
+  public static setRefundAddress = (
+    swap: Swap,
+    refundAddress: string,
+  ): Promise<Swap> => {
+    return swap.update({
+      refundAddress,
+    });
   };
 
   public static setRate = (swap: Swap, rate: number): Promise<Swap> => {

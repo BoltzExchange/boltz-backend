@@ -4,14 +4,17 @@ use crate::api::types::assert_not_zero;
 use crate::api::ws::status::SwapInfos;
 use crate::db::models::SwapType;
 use crate::lightning::cln::OfferError;
+use crate::lightning::invoice::Invoice;
 use crate::swap::manager::SwapManager;
-use anyhow::Result;
+use crate::wallet::Network;
+use anyhow::{Result, anyhow};
 use async_tungstenite::tungstenite::http::StatusCode;
 use axum::body::Body;
 use axum::extract::Path;
 use axum::http::Response;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
+use lightning::offers::offer::Amount;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -59,8 +62,8 @@ pub struct ParamsResponse {
 pub struct Bolt12FetchRequest {
     offer: String,
     // In satoshis
-    #[serde(deserialize_with = "assert_not_zero")]
-    amount: u64,
+    #[serde(default, deserialize_with = "assert_not_zero")]
+    amount: Option<u64>,
     note: Option<String>,
 }
 
@@ -204,27 +207,66 @@ where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let cln = state
-        .manager
-        .get_currency(&currency)
-        .and_then(|currency| currency.cln);
+    let amount_msat = body
+        .amount
+        .map(|amount| {
+            amount.checked_mul(1_000).ok_or_else(|| {
+                AxumError::new(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    anyhow!("amount too large"),
+                )
+            })
+        })
+        .transpose()?;
 
-    Ok(match cln {
-        Some(mut cln) => {
-            let (invoice, magic_routing_hint) = cln
-                .fetch_invoice(body.offer, body.amount * 1_000, body.note)
-                .await?;
-            (
-                StatusCode::CREATED,
-                Json(Bolt12FetchResponse {
-                    invoice,
-                    magic_routing_hint,
-                }),
-            )
-                .into_response()
+    let currency = match state.manager.get_currency(&currency) {
+        Some(currency) => currency,
+        None => return Ok(no_cln_error()),
+    };
+    let mut cln = match currency.cln {
+        Some(cln) => cln,
+        None => return Ok(no_cln_error()),
+    };
+
+    let amount_msat = match amount_msat {
+        Some(amount_msat) => amount_msat,
+        None => match offer_amount_msat(currency.network, &body.offer) {
+            Ok(amount_msat) => amount_msat,
+            Err(err) => return Ok(err.into_response()),
+        },
+    };
+
+    let (invoice, magic_routing_hint) = cln
+        .fetch_invoice(body.offer, amount_msat, body.note)
+        .await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(Bolt12FetchResponse {
+            invoice,
+            magic_routing_hint,
+        }),
+    )
+        .into_response())
+}
+
+fn offer_amount_msat(network: Network, offer: &str) -> std::result::Result<u64, AxumError> {
+    let offer = match crate::lightning::invoice::decode(network, offer) {
+        Ok(Invoice::Offer(offer)) => offer,
+        _ => {
+            return Err(AxumError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                anyhow!("invalid offer"),
+            ));
         }
-        None => no_cln_error(),
-    })
+    };
+
+    match offer.amount() {
+        Some(Amount::Bitcoin { amount_msats }) => Ok(amount_msats),
+        _ => Err(AxumError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            anyhow!("amount is required when the offer does not embed one"),
+        )),
+    }
 }
 
 fn offer_error_response(err: anyhow::Error) -> Response<Body> {
@@ -310,7 +352,7 @@ mod test {
         let chain_client = Arc::new(crate::chain::chain_client::test::get_client().await);
         let mut cln = crate::lightning::cln::test::cln_client().await;
 
-        let offer = cln.offer().await.unwrap();
+        let offer = cln.offer("any").await.unwrap();
 
         let mut manager = MockManager::new();
         {
@@ -349,7 +391,7 @@ mod test {
                     .header(axum::http::header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
                         serde_json::to_vec(&Bolt12FetchRequest {
-                            amount,
+                            amount: Some(amount),
                             offer: offer.bolt12,
                             note: None,
                         })
@@ -381,7 +423,7 @@ mod test {
         let chain_client = Arc::new(crate::chain::chain_client::test::get_client().await);
         let mut cln = crate::lightning::cln::test::cln_client().await;
 
-        let offer = cln.offer().await.unwrap();
+        let offer = cln.offer("any").await.unwrap();
 
         let mut manager = MockManager::new();
         {
@@ -421,7 +463,7 @@ mod test {
                     .header(axum::http::header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
                         serde_json::to_vec(&Bolt12FetchRequest {
-                            amount,
+                            amount: Some(amount),
                             offer: offer.bolt12,
                             note: Some(note.to_string()),
                         })
@@ -453,6 +495,138 @@ mod test {
     }
 
     #[tokio::test]
+    async fn test_bolt12_fetch_amount_from_offer() {
+        let chain_client = Arc::new(crate::chain::chain_client::test::get_client().await);
+        let mut cln = crate::lightning::cln::test::cln_client().await;
+
+        let amount_msat = 21_000;
+        let offer = cln.offer(&format!("{amount_msat}msat")).await.unwrap();
+
+        let mut manager = MockManager::new();
+        {
+            let cln = cln.clone();
+            manager.expect_get_currency().returning(move |_| {
+                Some(Currency {
+                    network: Network::Regtest,
+                    wallet: Some(Arc::new(
+                        crate::wallet::Bitcoin::new(
+                            Network::Regtest,
+                            &Mnemonic::from_str(
+                                "test test test test test test test test test test test junk",
+                            )
+                            .unwrap()
+                            .to_seed(""),
+                            "m/0/0".to_string(),
+                            chain_client.clone(),
+                        )
+                        .unwrap(),
+                    )),
+                    cln: Some(cln.clone()),
+                    lnds: HashMap::new(),
+                    chain: None,
+                    evm_manager: None,
+                })
+            });
+        }
+
+        let res = setup_router(manager)
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::POST)
+                    .uri("/v2/lightning/BTC/bolt12/fetch")
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&Bolt12FetchRequest {
+                            amount: None,
+                            offer: offer.bolt12,
+                            note: None,
+                        })
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(res.status(), StatusCode::CREATED);
+
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let invoice = serde_json::from_slice::<Bolt12FetchResponse>(&body)
+            .unwrap()
+            .invoice;
+
+        let decoded = crate::lightning::invoice::decode(Network::Regtest, &invoice).unwrap();
+        match decoded {
+            Invoice::Bolt12(invoice) => {
+                assert_eq!(invoice.amount_msats(), amount_msat);
+            }
+            _ => unreachable!(),
+        };
+    }
+
+    #[tokio::test]
+    async fn test_bolt12_fetch_no_amount_offer_without_amount() {
+        let chain_client = Arc::new(crate::chain::chain_client::test::get_client().await);
+        let mut cln = crate::lightning::cln::test::cln_client().await;
+
+        let offer = cln.offer("any").await.unwrap();
+
+        let mut manager = MockManager::new();
+        {
+            let cln = cln.clone();
+            manager.expect_get_currency().returning(move |_| {
+                Some(Currency {
+                    network: Network::Regtest,
+                    wallet: Some(Arc::new(
+                        crate::wallet::Bitcoin::new(
+                            Network::Regtest,
+                            &Mnemonic::from_str(
+                                "test test test test test test test test test test test junk",
+                            )
+                            .unwrap()
+                            .to_seed(""),
+                            "m/0/0".to_string(),
+                            chain_client.clone(),
+                        )
+                        .unwrap(),
+                    )),
+                    cln: Some(cln.clone()),
+                    lnds: HashMap::new(),
+                    chain: None,
+                    evm_manager: None,
+                })
+            });
+        }
+
+        let res = setup_router(manager)
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::POST)
+                    .uri("/v2/lightning/BTC/bolt12/fetch")
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&Bolt12FetchRequest {
+                            amount: None,
+                            offer: offer.bolt12,
+                            note: None,
+                        })
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(
+            serde_json::from_slice::<ApiError>(&body).unwrap().error,
+            "amount is required when the offer does not embed one"
+        );
+    }
+
+    #[tokio::test]
     async fn test_bolt12_fetch_no_cln() {
         let mut manager = MockManager::new();
         manager.expect_get_currency().return_const(None);
@@ -466,7 +640,7 @@ mod test {
                     .body(Body::from(
                         serde_json::to_vec(&Bolt12FetchRequest {
                             offer: "".to_string(),
-                            amount: 1,
+                            amount: Some(1),
                             note: None,
                         })
                         .unwrap(),
@@ -499,7 +673,7 @@ mod test {
                     .body(Body::from(
                         serde_json::to_vec(&Bolt12FetchRequest {
                             offer: "".to_string(),
-                            amount: 0,
+                            amount: Some(0),
                             note: None,
                         })
                         .unwrap(),
@@ -515,6 +689,39 @@ mod test {
         assert_eq!(
             serde_json::from_slice::<ApiError>(&body).unwrap().error,
             "Failed to deserialize the JSON body into the target type: amount: invalid value: integer `0`, expected value greater than 0 at line 1 column 22"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_bolt12_fetch_amount_overflow() {
+        let mut manager = MockManager::new();
+        manager.expect_get_currency().return_const(None);
+
+        let res = setup_router(manager)
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::POST)
+                    .uri("/v2/lightning/BTC/bolt12/fetch")
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&Bolt12FetchRequest {
+                            offer: "".to_string(),
+                            amount: Some(u64::MAX / 1_000 + 1),
+                            note: None,
+                        })
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(
+            serde_json::from_slice::<ApiError>(&body).unwrap().error,
+            "amount too large"
         );
     }
 }

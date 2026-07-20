@@ -301,11 +301,12 @@ pub mod test {
     use std::path::Path;
 
     impl Cln {
-        pub async fn offer(&mut self) -> anyhow::Result<OfferResponse> {
+        pub async fn offer(&mut self, amount: &str) -> anyhow::Result<OfferResponse> {
             let res = self
                 .cln
                 .offer(OfferRequest {
-                    amount: "any".to_string(),
+                    amount: amount.to_string(),
+                    description: Some("test".to_string()),
                     ..Default::default()
                 })
                 .await?;

@@ -1,5 +1,5 @@
 import type { Sequelize } from 'sequelize';
-import { DataTypes, Model } from 'sequelize';
+import { DataTypes, Model, Op } from 'sequelize';
 import {
   getChainCurrency,
   getLightningCurrency,
@@ -20,6 +20,7 @@ type SwapType = {
   keyIndex?: number;
   refundPublicKey?: string;
   redeemScript?: string;
+  refundAddress?: string;
 
   fee?: number;
   referral?: string;
@@ -58,6 +59,7 @@ class Swap extends Model implements SwapType {
   declare keyIndex?: number;
   declare refundPublicKey?: string;
   declare redeemScript?: string;
+  declare refundAddress?: string;
 
   declare fee?: number;
   declare referral?: string;
@@ -113,6 +115,7 @@ class Swap extends Model implements SwapType {
         keyIndex: { type: new DataTypes.INTEGER(), allowNull: true },
         refundPublicKey: { type: new DataTypes.STRING(), allowNull: true },
         redeemScript: { type: new DataTypes.TEXT(), allowNull: true },
+        refundAddress: { type: new DataTypes.STRING(255), allowNull: true },
         fee: { type: new DataTypes.BIGINT(), allowNull: true },
         referral: { type: new DataTypes.STRING(255), allowNull: true },
         routingFee: { type: new DataTypes.INTEGER(), allowNull: true },
@@ -199,6 +202,16 @@ class Swap extends Model implements SwapType {
           {
             unique: false,
             fields: ['refundPublicKey'],
+          },
+          {
+            name: 'swaps_refundAddress',
+            unique: false,
+            fields: ['refundAddress'],
+            where: {
+              refundAddress: {
+                [Op.ne]: null,
+              },
+            },
           },
         ],
       },

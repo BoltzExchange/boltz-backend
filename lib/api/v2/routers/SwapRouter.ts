@@ -2215,7 +2215,7 @@ class SwapRouter extends RouterBase {
      *             address:
      *               type: string
      *               pattern: '^(0x)?[a-fA-F0-9]{40}$'
-     *               description: Single EVM address (checksummed or lowercase) to search for in the claim address of swaps. Use this to restore EVM swaps (e.g. RSK). Ownership of the address must be proven with the signature
+     *               description: Single EVM address (checksummed or lowercase) to search for in the claim and refund addresses of swaps. Use this to restore EVM swaps (e.g. RSK). Ownership of the address must be proven with the signature
      *             timestamp:
      *               type: integer
      *               description: Unix timestamp (seconds) included in the signed message. Must be within 60 seconds of the server time to limit replay
@@ -2337,8 +2337,12 @@ class SwapRouter extends RouterBase {
      *
      *     RestoreRefundDetails:
      *       type: object
-     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey", "timeoutBlockHeight"]
+     *       required: ["type", "tree", "keyIndex", "lockupAddress", "serverPublicKey", "timeoutBlockHeight"]
      *       properties:
+     *         type:
+     *           type: string
+     *           enum: ["utxo"]
+     *           description: Discriminator identifying these as UTXO refund details
      *         tree:
      *           $ref: '#/components/schemas/SwapTree'
      *         amount:
@@ -2394,6 +2398,30 @@ class SwapRouter extends RouterBase {
      *           type: number
      *           description: Block height at which the swap times out
      *
+     *     RestoreEvmRefundDetails:
+     *       type: object
+     *       description: Variant of refundDetails returned when the side the client refunds is an EVM chain. The amount and timeoutBlockHeight are informational; the lockup transaction and the contract Lockup event are authoritative for the exact refund parameters
+     *       required: ["type", "contractAddress", "timeoutBlockHeight"]
+     *       properties:
+     *         type:
+     *           type: string
+     *           enum: ["evm"]
+     *           description: Discriminator identifying these as EVM refund details
+     *         contractAddress:
+     *           type: string
+     *           description: Address of the EtherSwap/ERC20Swap contract the funds are locked in
+     *         claimAddress:
+     *           type: string
+     *           description: EVM address that is allowed to claim the swap, if known
+     *         transaction:
+     *           $ref: '#/components/schemas/EvmTransaction'
+     *         amount:
+     *           type: number
+     *           description: Amount locked in the swap (in satoshis)
+     *         timeoutBlockHeight:
+     *           type: number
+     *           description: Block height at which the swap times out
+     *
      *     RestorableSwap:
      *       type: object
      *       required: ["id", "type", "status", "createdAt", "from", "to", "preimageHash"]
@@ -2434,7 +2462,15 @@ class SwapRouter extends RouterBase {
      *               evm: '#/components/schemas/RestoreEvmClaimDetails'
      *           description: Details to claim the swap. The type field discriminates UTXO claim details (with a swap tree and MuSig key) from EVM claim details, depending on the chain the client claims on
      *         refundDetails:
-     *           $ref: '#/components/schemas/RestoreRefundDetails'
+     *           oneOf:
+     *             - $ref: '#/components/schemas/RestoreRefundDetails'
+     *             - $ref: '#/components/schemas/RestoreEvmRefundDetails'
+     *           discriminator:
+     *             propertyName: type
+     *             mapping:
+     *               utxo: '#/components/schemas/RestoreRefundDetails'
+     *               evm: '#/components/schemas/RestoreEvmRefundDetails'
+     *           description: Details to refund the swap. The type field discriminates UTXO refund details (with a swap tree and MuSig key) from EVM refund details, depending on the chain the client refunds on
      *         metadata:
      *           allOf:
      *             - $ref: '#/components/schemas/MetadataHex'
@@ -2470,7 +2506,7 @@ class SwapRouter extends RouterBase {
      * /swap/restore:
      *   post:
      *     tags: [Swap]
-     *     description: Restore swaps by searching with an XPUB, a single public key, multiple public keys, or an EVM claim address. Restoring by EVM address requires a signature from that address proving ownership. Returns full swap details needed to resume, claim, or refund swaps when information was lost
+     *     description: Restore swaps by searching with an XPUB, a single public key, multiple public keys, or an EVM address. Searching by EVM address matches both the claim and refund addresses of swaps and requires a signature from that address proving ownership. Returns full swap details needed to resume, claim, or refund swaps when information was lost
      *     requestBody:
      *       required: true
      *       content:

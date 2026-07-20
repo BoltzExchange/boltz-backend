@@ -151,6 +151,15 @@ class SwapRepository {
     return (await SwapRepository.getSwap({ id: swap.id })) || swap;
   };
 
+  public static setRefundAddress = (
+    swap: Swap,
+    refundAddress: string,
+  ): Promise<Swap> => {
+    return swap.update({
+      refundAddress,
+    });
+  };
+
   public static setRate = (swap: Swap, rate: number): Promise<Swap> => {
     return swap.update({
       rate,

@@ -191,6 +191,16 @@ class EthereumNursery extends TypedEventEmitter<{
           );
 
     if (
+      swap.type === SwapType.Submarine &&
+      (swap as Swap).refundAddress == null
+    ) {
+      swap = await SwapRepository.setRefundAddress(
+        swap as Swap,
+        etherSwapValues.refundAddress,
+      );
+    }
+
+    if (
       swap.type === SwapType.Chain &&
       !ChainSwapRepository.canActOnUserLockup(swap as ChainSwapInfo, options)
     ) {
@@ -282,6 +292,16 @@ class EthereumNursery extends TypedEventEmitter<{
       }
     }
 
+    if (
+      swap.type === SwapType.Submarine &&
+      (swap as Swap).refundAddress !== etherSwapValues.refundAddress
+    ) {
+      swap = await SwapRepository.setRefundAddress(
+        swap as Swap,
+        etherSwapValues.refundAddress,
+      );
+    }
+
     this.emit('eth.lockup', {
       swap,
       etherSwapValues,
@@ -327,6 +347,16 @@ class EthereumNursery extends TypedEventEmitter<{
             undefined,
             options,
           );
+
+    if (
+      swap.type === SwapType.Submarine &&
+      (swap as Swap).refundAddress == null
+    ) {
+      swap = await SwapRepository.setRefundAddress(
+        swap as Swap,
+        erc20SwapValues.refundAddress,
+      );
+    }
 
     if (
       swap.type === SwapType.Chain &&
@@ -429,6 +459,16 @@ class EthereumNursery extends TypedEventEmitter<{
           });
           return;
       }
+    }
+
+    if (
+      swap.type === SwapType.Submarine &&
+      (swap as Swap).refundAddress !== erc20SwapValues.refundAddress
+    ) {
+      swap = await SwapRepository.setRefundAddress(
+        swap as Swap,
+        erc20SwapValues.refundAddress,
+      );
     }
 
     this.emit('erc20.lockup', {

@@ -2512,8 +2512,7 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "offer",
-                  "amount"
+                  "offer"
                 ],
                 "properties": {
                   "offer": {
@@ -2522,7 +2521,7 @@
                   },
                   "amount": {
                     "type": "number",
-                    "description": "Amount of the invoice that should be fetched in satoshis"
+                    "description": "Amount of the invoice that should be fetched in satoshis. Optional when the offer embeds an amount in the chain's native unit, in which case the amount of the offer is used; required otherwise"
                   },
                   "note": {
                     "type": "string",

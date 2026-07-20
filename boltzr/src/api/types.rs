@@ -1,13 +1,13 @@
 use serde::{Deserialize, Deserializer};
 
-pub fn assert_not_zero<'de, D>(deserializer: D) -> Result<u64, D::Error>
+pub fn assert_not_zero<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let amount = u64::deserialize(deserializer)?;
-    if amount == 0 {
+    let amount = Option::<u64>::deserialize(deserializer)?;
+    if amount == Some(0) {
         return Err(serde::de::Error::invalid_value(
-            serde::de::Unexpected::Unsigned(amount),
+            serde::de::Unexpected::Unsigned(0),
             &"value greater than 0",
         ));
     }
@@ -21,13 +21,13 @@ mod test {
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct Test {
-        #[serde(deserialize_with = "assert_not_zero")]
-        test: u64,
+        #[serde(default, deserialize_with = "assert_not_zero")]
+        test: Option<u64>,
     }
 
     #[test]
     fn test_assert_not_zero() {
-        let data = Test { test: 21 };
+        let data = Test { test: Some(21) };
         assert_eq!(
             serde_json::from_slice::<Test>(&serde_json::to_vec(&data).unwrap()).unwrap(),
             data
@@ -35,8 +35,24 @@ mod test {
     }
 
     #[test]
+    fn test_assert_not_zero_none() {
+        assert_eq!(
+            serde_json::from_str::<Test>("{}").unwrap(),
+            Test { test: None }
+        );
+    }
+
+    #[test]
+    fn test_assert_not_zero_null() {
+        assert_eq!(
+            serde_json::from_str::<Test>("{\"test\":null}").unwrap(),
+            Test { test: None }
+        );
+    }
+
+    #[test]
     fn test_assert_not_zero_is_zero() {
-        let data = Test { test: 0 };
+        let data = Test { test: Some(0) };
         assert_eq!(
             serde_json::from_slice::<Test>(&serde_json::to_vec(&data).unwrap())
                 .err()

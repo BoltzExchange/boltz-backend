@@ -516,14 +516,14 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required: ["offer", "amount"]
+ *             required: ["offer"]
  *             properties:
  *               offer:
  *                 type: string
  *                 description: A BOLT12 offer
  *               amount:
  *                 type: number
- *                 description: Amount of the invoice that should be fetched in satoshis
+ *                 description: Amount of the invoice that should be fetched in satoshis. Optional when the offer embeds an amount in the chain's native unit, in which case the amount of the offer is used; required otherwise
  *               note:
  *                 type: string
  *                 description: Optional note to include in the invoice request

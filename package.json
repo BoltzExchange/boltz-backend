@@ -73,7 +73,7 @@
     "@opentelemetry/instrumentation-http": "^0.219.0",
     "@opentelemetry/instrumentation-pg": "^0.71.0",
     "@opentelemetry/instrumentation-winston": "^0.63.0",
-    "@opentelemetry/sdk-node": "^0.219.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
     "@pyroscope/nodejs": "^0.4.13",
     "@scure/base": "^2.2.0",
     "@scure/bip32": "^2.2.0",

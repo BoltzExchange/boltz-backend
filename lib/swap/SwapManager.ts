@@ -673,6 +673,9 @@ class SwapManager {
         if (updatedSwap.createdRefundSignature) {
           throw Errors.SWAP_ALREADY_REFUNDED(updatedSwap.id);
         }
+        if (updatedSwap.invoice) {
+          throw ServiceErrors.SWAP_HAS_INVOICE_ALREADY(updatedSwap.id);
+        }
         swap = updatedSwap;
 
         const expectedAmount =

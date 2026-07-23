@@ -1,4 +1,5 @@
 import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { Transaction } from '@scure/btc-signer';
 import {
@@ -1017,6 +1018,13 @@ describe('UtxoNursery', () => {
 
     mockGetReverseSwapResult = {
       id: 'id',
+      preimageHash: getHexString(
+        sha256(
+          getHexBuffer(
+            '0c25a0d5b61ae3f3dc6889742aefddc5608ebc8bae6dfa96e1a1481c5db7d5ed',
+          ),
+        ),
+      ),
     };
 
     let eventEmitted = false;
@@ -1084,7 +1092,16 @@ describe('UtxoNursery', () => {
 
     const transaction = parseTx(sampleTransactions.claim);
 
-    mockGetReverseSwapResult = { id: 'reverseClaimResilience' };
+    mockGetReverseSwapResult = {
+      id: 'reverseClaimResilience',
+      preimageHash: getHexString(
+        sha256(
+          getHexBuffer(
+            '0c25a0d5b61ae3f3dc6889742aefddc5608ebc8bae6dfa96e1a1481c5db7d5ed',
+          ),
+        ),
+      ),
+    };
 
     ClaimTransactionRepository.addTransaction = jest
       .fn()
@@ -1109,26 +1126,185 @@ describe('UtxoNursery', () => {
     }
   });
 
+  test('should emit reverseSwap.claimed with the stored preimage for cooperative claims', async () => {
+    RefundTransactionRepository.getTransaction = jest
+      .fn()
+      .mockResolvedValue(null);
+    ChainSwapRepository.getChainSwapByData = jest.fn().mockResolvedValue(null);
+
+    const preimage = Buffer.alloc(32, 21);
+    mockGetReverseSwapResult = {
+      id: 'reverseCoopClaim',
+      preimage: getHexString(preimage),
+    };
+
+    const coopClaimTransaction = {
+      getId: () => 'reverseCoopClaimTxId',
+      ins: [
+        {
+          hash: Buffer.alloc(32, 20),
+          index: 1,
+          witness: [Buffer.alloc(64, 1)],
+        },
+      ],
+    } as any;
+
+    const claimed = jest.fn();
+    nursery.once('reverseSwap.claimed', claimed);
+
+    try {
+      await nursery['checkSwapClaims'](btcChainClient, coopClaimTransaction);
+
+      expect(claimed).toHaveBeenCalledTimes(1);
+      expect(claimed).toHaveBeenCalledWith({
+        reverseSwap: mockGetReverseSwapResult,
+        preimage,
+      });
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledWith({
+        swapId: 'reverseCoopClaim',
+        symbol: btcChainClient.symbol,
+        id: 'reverseCoopClaimTxId',
+      });
+    } finally {
+      mockGetReverseSwapResult = null;
+    }
+  });
+
   describe('chain swap claim persistence', () => {
     const spentHash = Buffer.alloc(32, 7);
     const spentVout = 3;
     const transactionId = 'chainClaimTxId';
+    const claimPreimage = Buffer.alloc(32, 1);
     const fakeTransaction = {
       getId: () => transactionId,
       ins: [
         {
           hash: spentHash,
           index: spentVout,
-          // Non-cooperative chain swap claim has 4 witness elements
           witness: [
-            Buffer.alloc(0),
-            Buffer.alloc(0),
-            Buffer.alloc(0),
-            Buffer.alloc(0),
+            Buffer.alloc(64, 1),
+            claimPreimage,
+            Buffer.alloc(35, 2),
+            Buffer.alloc(33, 3),
           ],
         },
       ],
     } as any;
+
+    const expectFilteredUserClaim = async (
+      id: string,
+      witness: Buffer[],
+      preimageHash: string,
+    ) => {
+      RefundTransactionRepository.getTransaction = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      const mockChainSwap = {
+        id,
+        preimage: null,
+        preimageHash,
+        chainSwap: { id },
+        sendingData: {
+          transactionId: transactionHashToId(spentHash),
+          transactionVout: spentVout,
+        },
+        receivingData: {
+          transactionId: 'other',
+          transactionVout: 0,
+        },
+      };
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(mockChainSwap);
+
+      const filteredTransaction = {
+        getId: () => transactionId,
+        ins: [
+          {
+            hash: spentHash,
+            index: spentVout,
+            witness,
+          },
+        ],
+      } as any;
+
+      const claimed = jest.fn();
+      nursery.once('chainSwap.claimed', claimed);
+
+      await nursery['checkSwapClaims'](btcChainClient, filteredTransaction);
+
+      expect(claimed).not.toHaveBeenCalled();
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledWith({
+        swapId: id,
+        symbol: btcChainClient.symbol,
+        id: transactionId,
+      });
+    };
+
+    const expectEmittedUserClaim = async (
+      id: string,
+      witness: Buffer[],
+      preimage: Buffer,
+    ) => {
+      RefundTransactionRepository.getTransaction = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      const mockChainSwap = {
+        id,
+        preimage: null,
+        preimageHash: getHexString(sha256(preimage)),
+        chainSwap: { id },
+        sendingData: {
+          transactionId: transactionHashToId(spentHash),
+          transactionVout: spentVout,
+        },
+        receivingData: {
+          transactionId: 'other',
+          transactionVout: 0,
+        },
+      };
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(mockChainSwap);
+
+      const claimTransaction = {
+        getId: () => transactionId,
+        ins: [
+          {
+            hash: spentHash,
+            index: spentVout,
+            witness,
+          },
+        ],
+      } as any;
+
+      const claimed = jest.fn();
+      nursery.once('chainSwap.claimed', claimed);
+
+      await nursery['checkSwapClaims'](btcChainClient, claimTransaction);
+
+      expect(claimed).toHaveBeenCalledTimes(1);
+      expect(claimed).toHaveBeenCalledWith({
+        swap: mockChainSwap,
+        preimage,
+      });
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledWith({
+        swapId: id,
+        symbol: btcChainClient.symbol,
+        id: transactionId,
+      });
+    };
 
     test('should persist when spend matches sendingData (user claim)', async () => {
       RefundTransactionRepository.getTransaction = jest
@@ -1137,7 +1313,8 @@ describe('UtxoNursery', () => {
 
       const mockChainSwap = {
         id: 'chainSwapId',
-        preimage: getHexString(Buffer.alloc(32, 1)),
+        preimage: getHexString(claimPreimage),
+        preimageHash: getHexString(sha256(claimPreimage)),
         chainSwap: { id: 'chainSwapId' },
         sendingData: {
           transactionId: transactionHashToId(spentHash),
@@ -1171,6 +1348,88 @@ describe('UtxoNursery', () => {
       });
     });
 
+    test('should recognize a Taproot script claim with a final annex', async () => {
+      const preimage = Buffer.alloc(32, 11);
+      await expectEmittedUserClaim(
+        'chainSwapAnnexClaim',
+        [
+          Buffer.alloc(64, 1),
+          preimage,
+          Buffer.alloc(35, 2),
+          Buffer.alloc(33, 3),
+          Buffer.from([0x50, 0x01]),
+        ],
+        preimage,
+      );
+    });
+
+    test('should recognize a claim regardless of extra witness elements', async () => {
+      const preimage = Buffer.alloc(32, 12);
+      await expectEmittedUserClaim(
+        'chainSwapExtraWitness',
+        [
+          Buffer.alloc(64, 1),
+          preimage,
+          Buffer.alloc(35, 2),
+          Buffer.alloc(33, 3),
+          Buffer.from([0x51, 0x01]),
+        ],
+        preimage,
+      );
+    });
+
+    test('should recognize a covenant claim with the preimage as the first element', async () => {
+      const preimage = Buffer.alloc(32, 17);
+      await expectEmittedUserClaim(
+        'chainSwapCovenantClaim',
+        [preimage, Buffer.alloc(35, 2), Buffer.alloc(33, 3)],
+        preimage,
+      );
+    });
+
+    test('should filter a refund transaction', async () => {
+      await expectFilteredUserClaim(
+        'chainSwapRefund',
+        [Buffer.alloc(64, 1), Buffer.alloc(35, 2), Buffer.alloc(33, 3)],
+        getHexString(sha256(Buffer.alloc(32, 13))),
+      );
+    });
+
+    test('should filter a Taproot refund with a final annex', async () => {
+      await expectFilteredUserClaim(
+        'chainSwapRefundAnnex',
+        [
+          Buffer.alloc(64, 1),
+          Buffer.alloc(35, 2),
+          Buffer.alloc(33, 3),
+          Buffer.from([0x50, 0x01]),
+        ],
+        getHexString(sha256(Buffer.alloc(32, 13))),
+      );
+    });
+
+    test('should filter a Taproot key-path spend with a final annex', async () => {
+      await expectFilteredUserClaim(
+        'chainSwapKeyPathAnnex',
+        [Buffer.alloc(64, 1), Buffer.from([0x50, 0x01])],
+        getHexString(sha256(Buffer.alloc(32, 14))),
+      );
+    });
+
+    test('should filter a claim with a mismatched preimage', async () => {
+      const preimage = Buffer.alloc(32, 15);
+      await expectFilteredUserClaim(
+        'chainSwapPreimageMismatch',
+        [
+          Buffer.alloc(64, 1),
+          preimage,
+          Buffer.alloc(35, 2),
+          Buffer.alloc(33, 3),
+        ],
+        getHexString(sha256(Buffer.alloc(32, 16))),
+      );
+    });
+
     test('should not persist when spend matches receivingData (server claim)', async () => {
       RefundTransactionRepository.getTransaction = jest
         .fn()
@@ -1178,7 +1437,8 @@ describe('UtxoNursery', () => {
 
       const mockChainSwap = {
         id: 'chainSwapId',
-        preimage: getHexString(Buffer.alloc(32, 1)),
+        preimage: getHexString(claimPreimage),
+        preimageHash: getHexString(sha256(claimPreimage)),
         chainSwap: { id: 'chainSwapId' },
         sendingData: {
           transactionId: 'other',
@@ -1211,7 +1471,8 @@ describe('UtxoNursery', () => {
 
       const mockChainSwap = {
         id: 'chainSwapId',
-        preimage: getHexString(Buffer.alloc(32, 1)),
+        preimage: getHexString(claimPreimage),
+        preimageHash: getHexString(sha256(claimPreimage)),
         chainSwap: { id: 'chainSwapId' },
         sendingData: {
           transactionId: transactionHashToId(spentHash),
@@ -1252,7 +1513,8 @@ describe('UtxoNursery', () => {
 
       const mockChainSwap = {
         id: 'chainSwapId',
-        preimage: getHexString(Buffer.alloc(32, 1)),
+        preimage: getHexString(claimPreimage),
+        preimageHash: getHexString(sha256(claimPreimage)),
         chainSwap: { id: 'chainSwapId' },
         sendingData: {
           transactionId: transactionHashToId(spentHash),

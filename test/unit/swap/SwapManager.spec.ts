@@ -1190,6 +1190,116 @@ describe('SwapManager', () => {
     expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(0);
   });
 
+  test('should reject a second admitted invoice assignment after payment became pending', async () => {
+    const persistedSwap = {
+      id: 'concurrentFundedInvoice',
+      pair: 'BTC/BTC',
+      chainCurrency: 'BTC',
+      lightningCurrency: 'BTC',
+      type: SwapType.Submarine,
+      orderSide: OrderSide.BUY,
+      preimageHash:
+        '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
+      expectedAmount: 350,
+      onchainAmount: 350,
+      lockupTransactionId:
+        '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
+      status: SwapUpdateEvent.TransactionConfirmed,
+    } as any as Swap;
+
+    const invoiceSignKeys = getHexBuffer(
+      'bd67aa04f8e310ad257f2d7f5a2f4cf314c6c6017515748fb05c33763b1c6744',
+    );
+    const invoice = bolt11.sign(
+      bolt11.encode({
+        payeeNodeKey: getHexString(
+          Buffer.from(secp256k1.getPublicKey(invoiceSignKeys, true)),
+        ),
+        satoshis: 200,
+        tags: [
+          {
+            data: persistedSwap.preimageHash,
+            tagName: 'payment_hash',
+          },
+        ],
+      }),
+      invoiceSignKeys,
+    ).paymentRequest!;
+
+    const statusesBeforeWrite: string[] = [];
+    SwapRepository.getSwap = jest.fn().mockImplementation(async () => {
+      return persistedSwap;
+    });
+    SwapRepository.setInvoice = jest
+      .fn()
+      .mockImplementation(
+        async (
+          swap: Swap,
+          invoiceToSet: string,
+          invoiceAmount: number,
+          expectedAmount: number,
+          fee: number,
+          acceptZeroConf: boolean,
+        ) => {
+          statusesBeforeWrite.push(swap.status);
+          Object.assign(swap, {
+            fee,
+            invoice: invoiceToSet,
+            invoiceAmount,
+            acceptZeroConf,
+            expectedAmount,
+            status: SwapUpdateEvent.InvoiceSet,
+          });
+          return swap;
+        },
+      ) as any;
+
+    const attemptSettleSwap = jest.fn().mockImplementation(async () => {
+      persistedSwap.status = SwapUpdateEvent.InvoicePending;
+    });
+    manager.nursery.attemptSettleSwap = attemptSettleSwap;
+
+    const fees = {
+      baseFee: 100,
+      percentageFee: 50,
+      percentageFeeRate: 0.05,
+    };
+    const emitSwapInvoiceSet = jest.fn();
+
+    const assignments = await Promise.allSettled([
+      manager.setSwapInvoice(
+        persistedSwap,
+        invoice,
+        1,
+        fees,
+        true,
+        emitSwapInvoiceSet,
+      ),
+      manager.setSwapInvoice(
+        persistedSwap,
+        invoice,
+        1,
+        fees,
+        true,
+        emitSwapInvoiceSet,
+      ),
+    ]);
+
+    expect(
+      assignments.filter(({ status }) => status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(assignments.filter(({ status }) => status === 'rejected')).toEqual([
+      {
+        status: 'rejected',
+        reason: ServiceErrors.SWAP_HAS_INVOICE_ALREADY(persistedSwap.id),
+      },
+    ]);
+    expect(statusesBeforeWrite).toEqual([SwapUpdateEvent.TransactionConfirmed]);
+    expect(SwapRepository.setInvoice).toHaveBeenCalledTimes(1);
+    expect(attemptSettleSwap).toHaveBeenCalledTimes(1);
+    expect(persistedSwap.status).toEqual(SwapUpdateEvent.InvoicePending);
+  });
+
   test('should throw when setting expired invoices', async () => {
     const swap = {
       id: 'expiredInvoice',

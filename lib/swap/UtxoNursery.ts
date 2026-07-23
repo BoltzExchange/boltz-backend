@@ -1,10 +1,6 @@
+import { sha256 } from '@noble/hashes/sha2.js';
 import type { Transaction } from '@scure/btc-signer';
-import {
-  Scripts,
-  SwapTreeSerializer,
-  detectPreimage,
-  detectSwap,
-} from 'boltz-core';
+import { Scripts, SwapTreeSerializer, detectSwap } from 'boltz-core';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import {
@@ -367,22 +363,31 @@ class UtxoNursery extends TypedEventEmitter<{
       }
     }
 
-    const inputs = TxView.of(transaction).inputs;
-    for (let vin = 0; vin < inputs.length; vin += 1) {
-      const input = inputs[vin];
-
+    for (const input of TxView.of(transaction).inputs) {
       await Promise.all([
-        this.checkReverseSwapClaim(chainClient, transaction, vin, input),
-        this.checkChainSwapClaim(chainClient, transaction, vin, input),
+        this.checkReverseSwapClaim(chainClient, transaction, input),
+        this.checkChainSwapClaim(chainClient, transaction, input),
       ]);
     }
+  };
+
+  private findWitnessPreimage = (
+    input: { witness?: Uint8Array[] },
+    preimageHash: string,
+  ): Buffer | undefined => {
+    const hash = getHexBuffer(preimageHash);
+    const preimage = (input.witness ?? []).find(
+      (element) =>
+        element.length === 32 && Buffer.from(sha256(element)).equals(hash),
+    );
+
+    return preimage !== undefined ? Buffer.from(preimage) : undefined;
   };
 
   private checkReverseSwapClaim = async (
     chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
-    inputIndex: number,
-    input: { txid: string; index: number },
+    input: { txid: string; index: number; witness?: Uint8Array[] },
   ) => {
     const reverseSwap = await ReverseSwapRepository.getReverseSwap({
       status: {
@@ -400,18 +405,26 @@ class UtxoNursery extends TypedEventEmitter<{
       return;
     }
 
-    this.logger.verbose(
-      `Found ${chainClient.symbol} claim transaction of Reverse Swap ${
-        reverseSwap.id
-      }: ${TxView.of(transaction).id}`,
-    );
+    const preimage = reverseSwap.preimage
+      ? getHexBuffer(reverseSwap.preimage)
+      : this.findWitnessPreimage(input, reverseSwap.preimageHash);
 
-    this.emit('reverseSwap.claimed', {
-      reverseSwap,
-      preimage: reverseSwap.preimage
-        ? getHexBuffer(reverseSwap.preimage)
-        : Buffer.from(detectPreimage(inputIndex, transaction)),
-    });
+    if (preimage !== undefined) {
+      this.logger.verbose(
+        `Found ${chainClient.symbol} claim transaction of Reverse Swap ${
+          reverseSwap.id
+        }: ${TxView.of(transaction).id}`,
+      );
+
+      this.emit('reverseSwap.claimed', {
+        reverseSwap,
+        preimage,
+      });
+    } else {
+      this.logger.debug(
+        `Not handling ${chainClient.symbol} transaction ${TxView.of(transaction).id} as claim of Reverse Swap ${reverseSwap.id} because it does not reveal the preimage`,
+      );
+    }
 
     await ClaimTransactionRepository.persistTransaction(this.logger, {
       swapId: reverseSwap.id,
@@ -423,7 +436,6 @@ class UtxoNursery extends TypedEventEmitter<{
   private checkChainSwapClaim = async (
     chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
-    inputIndex: number,
     input: { txid: string; index: number; witness?: Uint8Array[] },
   ) => {
     const swap = await ChainSwapRepository.getChainSwapByData(
@@ -446,8 +458,8 @@ class UtxoNursery extends TypedEventEmitter<{
     }
 
     // Only persist user claims: the user claims by spending the server's lockup (sendingData).
-    // Spends of the user's lockup (receivingData) are Boltz's own claims. This runs before
-    // the witness-length filter so cooperative user claims (witness length 1) are persisted too.
+    // Spends of the user's lockup (receivingData) are Boltz's own claims. This is independent
+    // of the preimage check so cooperative user claims (which reveal nothing) are persisted too.
     const isUserClaim =
       input.txid === swap.sendingData.transactionId &&
       input.index === swap.sendingData.transactionVout;
@@ -463,27 +475,24 @@ class UtxoNursery extends TypedEventEmitter<{
       });
     };
 
-    if ((input.witness?.length ?? 0) !== 4) {
-      this.logger.debug(
-        `Not scanning ${chainClient.symbol} transaction ${TxView.of(transaction).id} for claims because it is a cooperative claim or refund transaction`,
+    const preimage = this.findWitnessPreimage(input, swap.preimageHash);
+
+    if (preimage !== undefined) {
+      this.logger.verbose(
+        `Found ${chainClient.symbol} claim transaction of Chain Swap ${
+          swap.chainSwap.id
+        }: ${TxView.of(transaction).id}`,
       );
 
-      await persistUserClaim();
-      return;
+      this.emit('chainSwap.claimed', {
+        swap,
+        preimage,
+      });
+    } else {
+      this.logger.debug(
+        `Not handling ${chainClient.symbol} transaction ${TxView.of(transaction).id} as claim of Chain Swap ${swap.chainSwap.id} because it does not reveal the preimage`,
+      );
     }
-
-    this.logger.verbose(
-      `Found ${chainClient.symbol} claim transaction of Chain Swap ${
-        swap.chainSwap.id
-      }: ${TxView.of(transaction).id}`,
-    );
-
-    this.emit('chainSwap.claimed', {
-      swap,
-      preimage: swap.preimage
-        ? getHexBuffer(swap.preimage)
-        : Buffer.from(detectPreimage(inputIndex, transaction)),
-    });
 
     await persistUserClaim();
   };

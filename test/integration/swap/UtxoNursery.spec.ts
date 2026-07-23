@@ -2,7 +2,13 @@ import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import type { Transaction } from '@scure/btc-signer';
 import bolt11 from 'bolt11';
-import { OutputType } from 'boltz-core';
+import type { ClaimDetails } from 'boltz-core';
+import {
+  Musig,
+  OutputType,
+  SwapTreeSerializer,
+  constructClaimTransaction,
+} from 'boltz-core';
 import { randomBytes } from 'crypto';
 import fs from 'fs';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
@@ -10,6 +16,7 @@ import { networks as liquidNetworks } from 'liquidjs-lib';
 import path from 'path';
 import { parseTransaction, setup } from '../../../lib/Core';
 import Logger from '../../../lib/Logger';
+import { TxView } from '../../../lib/TxView';
 import { getHexBuffer, getPairId } from '../../../lib/Utils';
 import {
   CurrencyType,
@@ -18,9 +25,12 @@ import {
 } from '../../../lib/consts/Enums';
 import Database from '../../../lib/db/Database';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
+import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
+import ClaimTransactionRepository from '../../../lib/db/repositories/ClaimTransactionRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import type ClnPendingPaymentTracker from '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
 import type NotificationClient from '../../../lib/notifications/NotificationClient';
 import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
@@ -618,6 +628,101 @@ describe('UtxoNursery', () => {
       emitTransaction(elementsClient.symbol, tx);
 
       await emitPromise;
+    });
+  });
+
+  describe('checkSwapClaims', () => {
+    test('should detect chain swap claims and extract the preimage from the witness', async () => {
+      const preimage = randomBytes(32);
+      const claimKeys = makeKeys();
+      const refundKeys = makeKeys();
+
+      const created = await swapManager.createChainSwap({
+        acceptZeroConf: false,
+        baseCurrency: elementsClient.symbol,
+        quoteCurrency: bitcoinClient.symbol,
+        orderSide: OrderSide.SELL,
+        percentageFee: 100,
+        preimageHash: Buffer.from(sha256(preimage)),
+        claimPublicKey: claimKeys.publicKey,
+        refundPublicKey: refundKeys.publicKey,
+        sendingTimeoutBlockDelta: 102,
+        receivingTimeoutBlockDelta: 101,
+        userLockAmount: 101_000,
+        serverLockAmount: 100_000,
+      });
+
+      const lockupTxId = await bitcoinClient.sendToAddress(
+        created.claimDetails.lockupAddress!,
+        created.claimDetails.amount!,
+        undefined,
+        false,
+        '',
+      );
+      const lockupTx = parseTransaction<Transaction>(
+        CurrencyType.BitcoinLike,
+        await bitcoinClient.getRawTransaction(lockupTxId),
+      );
+
+      const wallet = walletManager.wallets.get(bitcoinClient.symbol)!;
+      const lockupScript = wallet.decodeAddress(
+        created.claimDetails.lockupAddress!,
+      );
+      const vout = TxView.of(lockupTx).outputs.findIndex((out) =>
+        out.script.equals(lockupScript),
+      );
+      expect(vout).not.toEqual(-1);
+
+      await WrappedSwapRepository.setServerLockupTransaction(
+        (await ChainSwapRepository.getChainSwap({ id: created.id }))!,
+        lockupTxId,
+        created.claimDetails.amount!,
+        0,
+        vout,
+      );
+
+      const claimTransaction = constructClaimTransaction(
+        [
+          {
+            vout,
+            preimage,
+            transactionId: lockupTxId,
+            type: OutputType.Taproot,
+            cooperative: false,
+            script: lockupScript,
+            amount: BigInt(created.claimDetails.amount!),
+            privateKey: claimKeys.privateKey,
+            swapTree: SwapTreeSerializer.deserializeSwapTree(
+              created.claimDetails.swapTree!,
+            ),
+            internalKey: Musig.create(claimKeys.privateKey, [
+              getHexBuffer(created.claimDetails.serverPublicKey!),
+              claimKeys.publicKey,
+            ]).aggPubkey,
+          } as ClaimDetails,
+        ],
+        wallet.decodeAddress(await bitcoinClient.getNewAddress('')),
+        1_000n,
+      );
+
+      await bitcoinClient.sendRawTransaction(claimTransaction.hex);
+
+      const emitPromise = new Promise<void>((resolve) => {
+        nursery.once('chainSwap.claimed', ({ swap, preimage: emitted }) => {
+          expect(swap.id).toEqual(created.id);
+          expect(emitted).toEqual(preimage);
+          resolve();
+        });
+      });
+      emitTransaction(bitcoinClient.symbol, claimTransaction);
+      await emitPromise;
+
+      await wait(250);
+      const persisted = await ClaimTransactionRepository.getTransactionForSwap(
+        created.id,
+      );
+      expect(persisted).not.toBeNull();
+      expect(persisted!.id).toEqual(claimTransaction.id);
     });
   });
 });

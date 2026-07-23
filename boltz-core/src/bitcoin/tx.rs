@@ -696,13 +696,16 @@ mod tests {
         )
         .unwrap();
 
+        let InputType::Claim(expected_preimage) = input.input_type else {
+            unreachable!()
+        };
         assert_eq!(
-            detect_preimage(&tx.input[0]).unwrap(),
-            if let InputType::Claim(preimage) = input.input_type {
-                preimage
-            } else {
-                unreachable!()
-            }
+            detect_preimage(
+                &tx.input[0],
+                bitcoin::hashes::sha256::Hash::hash(&expected_preimage).as_byte_array(),
+            )
+            .unwrap(),
+            expected_preimage,
         );
 
         assert_eq!(tx.output.len(), 1);
@@ -853,13 +856,16 @@ mod tests {
         )
         .unwrap();
 
+        let InputType::Claim(expected_preimage) = input.input_type else {
+            unreachable!()
+        };
         assert_eq!(
-            detect_preimage(&tx.input[0]).unwrap(),
-            if let InputType::Claim(preimage) = input.input_type {
-                preimage
-            } else {
-                unreachable!()
-            }
+            detect_preimage(
+                &tx.input[0],
+                bitcoin::hashes::sha256::Hash::hash(&expected_preimage).as_byte_array(),
+            )
+            .unwrap(),
+            expected_preimage,
         );
 
         assert_eq!(tx.output.len(), 1);
@@ -894,13 +900,16 @@ mod tests {
         )
         .unwrap();
 
+        let InputType::Claim(expected_preimage) = input.input_type else {
+            unreachable!()
+        };
         assert_eq!(
-            detect_preimage(&tx.input[0]).unwrap(),
-            if let InputType::Claim(preimage) = input.input_type {
-                preimage
-            } else {
-                unreachable!()
-            }
+            detect_preimage(
+                &tx.input[0],
+                bitcoin::hashes::sha256::Hash::hash(&expected_preimage).as_byte_array(),
+            )
+            .unwrap(),
+            expected_preimage,
         );
 
         assert_eq!(tx.output.len(), 1);
@@ -967,13 +976,16 @@ mod tests {
         )
         .unwrap();
 
+        let InputType::Claim(expected_preimage) = input.input_type else {
+            unreachable!()
+        };
         assert_eq!(
-            detect_preimage(&tx.input[0]).unwrap(),
-            if let InputType::Claim(preimage) = input.input_type {
-                preimage
-            } else {
-                unreachable!()
-            }
+            detect_preimage(
+                &tx.input[0],
+                bitcoin::hashes::sha256::Hash::hash(&expected_preimage).as_byte_array(),
+            )
+            .unwrap(),
+            expected_preimage,
         );
 
         assert_eq!(tx.output.len(), 1);
@@ -1040,13 +1052,16 @@ mod tests {
         )
         .unwrap();
 
+        let InputType::Claim(expected_preimage) = input.input_type else {
+            unreachable!()
+        };
         assert_eq!(
-            detect_preimage(&tx.input[0]).unwrap(),
-            if let InputType::Claim(preimage) = input.input_type {
-                preimage
-            } else {
-                unreachable!()
-            }
+            detect_preimage(
+                &tx.input[0],
+                bitcoin::hashes::sha256::Hash::hash(&expected_preimage).as_byte_array(),
+            )
+            .unwrap(),
+            expected_preimage,
         );
 
         assert_eq!(tx.output.len(), 1);

@@ -38,6 +38,7 @@ pub mod wrapper;
 
 #[cfg(any(feature = "bitcoin", feature = "elements"))]
 mod consts;
+#[cfg(any(feature = "bitcoin", feature = "elements"))]
 mod preimage_detector;
 #[cfg(any(feature = "bitcoin", feature = "elements"))]
 mod target_fee;
@@ -55,6 +56,7 @@ pub use elements::{AssetRescueError, TxError as ElementsTxError};
 pub use musig::{Musig, MusigError};
 #[cfg(any(feature = "bitcoin", feature = "elements"))]
 pub use network::{Network, NetworkError};
+#[cfg(any(feature = "bitcoin", feature = "elements"))]
 pub use preimage_detector::detect_preimage;
 #[cfg(any(feature = "bitcoin", feature = "elements"))]
 pub use target_fee::FeeTarget;

@@ -1,40 +1,40 @@
 use crate::utils::TxIn;
+use bitcoin::hashes::{Hash, sha256};
 
 const PREIMAGE_SIZE: usize = 32;
 
-/// Scan a transaction input for a 32-byte HTLC preimage.
+/// Scan a transaction input for the 32-byte HTLC preimage whose SHA256
+/// digest equals `preimage_hash`.
 ///
-/// Inspects the witness stack first (positions 0 and 1, where claim
-/// preimages live in p2wsh and Taproot swaps respectively) and then
-/// falls back to data pushes from the `scriptSig` (legacy / nested
-/// segwit). Returns the first 32-byte push found, or `None` if no
-/// candidate is present. The input is not validated against any
-/// particular swap script — the caller is responsible for confirming
-/// the spend it came from is in fact a claim spend.
-pub fn detect_preimage<T: TxIn>(input: &T) -> Option<[u8; 32]> {
-    let witness = input.witness();
-
-    if !witness.is_empty() {
-        if witness[0].len() == PREIMAGE_SIZE {
-            return map_preimage(&witness[0]);
-        } else if witness.len() > 1 && witness[1].len() == PREIMAGE_SIZE {
-            return map_preimage(&witness[1]);
-        }
-    }
-
-    let script_sig_pushed_bytes = input.script_sig_pushed_bytes();
-    for bytes in script_sig_pushed_bytes {
-        if bytes.len() == PREIMAGE_SIZE {
-            return map_preimage(&bytes);
-        }
-    }
-
-    None
+/// Inspects every witness stack item and then every data push from the
+/// `scriptSig` (legacy / nested segwit), returning the first 32-byte
+/// candidate that hashes to `preimage_hash`. Returns `None` when the
+/// input reveals no matching preimage — a refund, a cooperative
+/// (key-path) spend, or a claim of an unrelated swap.
+///
+/// Matching against the expected hash (rather than returning the first
+/// 32-byte push) ensures an unrelated 32-byte item — an x-only public
+/// key, a script hash, part of a signature — is never mistaken for the
+/// preimage.
+pub fn detect_preimage<T: TxIn>(input: &T, preimage_hash: &[u8; 32]) -> Option<[u8; 32]> {
+    input
+        .witness()
+        .into_iter()
+        .chain(input.script_sig_pushed_bytes())
+        .find_map(|candidate| match_preimage(&candidate, preimage_hash))
 }
 
 #[inline]
-fn map_preimage(preimage: &[u8]) -> Option<[u8; 32]> {
-    preimage.try_into().ok()
+fn match_preimage(candidate: &[u8], preimage_hash: &[u8; 32]) -> Option<[u8; 32]> {
+    if candidate.len() != PREIMAGE_SIZE {
+        return None;
+    }
+
+    if sha256::Hash::hash(candidate).as_byte_array() != preimage_hash {
+        return None;
+    }
+
+    candidate.try_into().ok()
 }
 
 #[cfg(test)]
@@ -43,6 +43,8 @@ mod tests {
     use bitcoin::Transaction;
     use rstest::rstest;
 
+    const TAPROOT_SWAP_TX: &str = "01000000000101b8f85fff05221e452555ae44b12a25f56d28f2a9824e67c1245f75f4b9c48d6d0000000000fdffffff01a8d50000000000002251201741cbb35789d4cc2c4472ff016dcf7a10103d7df76554bd9c5eeafb5198a8fb044061b57eb4b82d615dd0758a9e1d0c96129a8847b42dfcc94440e8002030dd1789480d2d52c5c95dc7e2b264bf91b26c6608dfba4c37e38554f4015beaf5ca7cd9200cca502fa4bc0081045551d0faa24b187092a19730742aaa6f5a1a0891a75c9139a914c51acde17d25a3af31a56841be0beb99e8a2e07e882035311bda259a948847aac4152796cba59b5f0f5da9e9171c71d164d99786a0f1ac41c18bed72ea9edbb0b6fee1b288e7ee909316a6296bf85048b202d23d0c40ffea95b1c02e96b4c5d23e62313c181c4e7e412f25af1d1c994c5d77128a58737c0c3300000000";
+
     #[rstest]
     #[case::nested_segwit_swap(
         "6ec0840cfab5fe6a47e632d9de1123b8067553fa800e066ade6b41ec38ee0d94",
@@ -50,7 +52,7 @@ mod tests {
     )]
     #[case::taproot_swap(
         "0cca502fa4bc0081045551d0faa24b187092a19730742aaa6f5a1a0891a75c91",
-        "01000000000101b8f85fff05221e452555ae44b12a25f56d28f2a9824e67c1245f75f4b9c48d6d0000000000fdffffff01a8d50000000000002251201741cbb35789d4cc2c4472ff016dcf7a10103d7df76554bd9c5eeafb5198a8fb044061b57eb4b82d615dd0758a9e1d0c96129a8847b42dfcc94440e8002030dd1789480d2d52c5c95dc7e2b264bf91b26c6608dfba4c37e38554f4015beaf5ca7cd9200cca502fa4bc0081045551d0faa24b187092a19730742aaa6f5a1a0891a75c9139a914c51acde17d25a3af31a56841be0beb99e8a2e07e882035311bda259a948847aac4152796cba59b5f0f5da9e9171c71d164d99786a0f1ac41c18bed72ea9edbb0b6fee1b288e7ee909316a6296bf85048b202d23d0c40ffea95b1c02e96b4c5d23e62313c181c4e7e412f25af1d1c994c5d77128a58737c0c3300000000"
+        TAPROOT_SWAP_TX
     )]
     #[case::nested_segwit_reverse_swap(
         "f67bc660f7d7eb4d05ca3e1798f7c8a29557b0e0eb173f6576f31fd9aa26f686",
@@ -59,6 +61,48 @@ mod tests {
     fn test_detect_preimage(#[case] preimage: &str, #[case] tx: &str) {
         let tx: Transaction = bitcoin::consensus::deserialize(&hex::decode(tx).unwrap()).unwrap();
         let input = &tx.input[0];
-        assert_eq!(hex::encode(detect_preimage(input).unwrap()), preimage);
+
+        let expected = hex::decode(preimage).unwrap();
+        let preimage_hash = sha256::Hash::hash(&expected).to_byte_array();
+
+        assert_eq!(
+            detect_preimage(input, &preimage_hash).unwrap().to_vec(),
+            expected,
+        );
+    }
+
+    #[test]
+    fn test_detect_preimage_wrong_hash() {
+        let tx: Transaction =
+            bitcoin::consensus::deserialize(&hex::decode(TAPROOT_SWAP_TX).unwrap()).unwrap();
+        let input = &tx.input[0];
+
+        // The Taproot claim witness holds a 32-byte preimage (and a 32-byte
+        // x-only key); a hash nothing matches must not yield a false positive.
+        assert_eq!(detect_preimage(input, &[0u8; 32]), None);
+    }
+
+    struct WitnessInput(Vec<Vec<u8>>);
+
+    impl TxIn for WitnessInput {
+        fn witness(&self) -> Vec<Vec<u8>> {
+            self.0.clone()
+        }
+
+        fn script_sig_pushed_bytes(&self) -> Vec<Vec<u8>> {
+            Vec::new()
+        }
+    }
+
+    #[test]
+    fn test_detect_preimage_scans_past_nonmatching() {
+        let preimage = [0xabu8; 32];
+        let preimage_hash = sha256::Hash::hash(&preimage).to_byte_array();
+
+        // A 32-byte item that is not the preimage precedes the real one;
+        // detection must skip it and keep scanning instead of returning early.
+        let input = WitnessInput(vec![[0xcdu8; 32].to_vec(), preimage.to_vec()]);
+
+        assert_eq!(detect_preimage(&input, &preimage_hash), Some(preimage));
     }
 }

@@ -1,7 +1,11 @@
 //! Shared types and traits used across the chain modules: the
 //! [`OutputType`] / [`InputType`] descriptors, the [`Destination`]
-//! pay-to spec, and the [`TxIn`] trait that
-//! [`detect_preimage`](crate::detect_preimage) generic-bounds against.
+//! pay-to spec, and the [`TxIn`] trait for reading an input's witness
+//! and `scriptSig` data.
+#![cfg_attr(
+    any(feature = "bitcoin", feature = "elements"),
+    doc = "[`detect_preimage`](crate::detect_preimage) operates on [`TxIn`] to scan claim spends."
+)]
 
 /// The script type a swap output uses.
 ///
@@ -54,7 +58,14 @@ pub(crate) trait Transaction {
 }
 
 /// A transaction input that exposes its witness and pushed script-sig bytes,
-/// used by [`detect_preimage`](crate::detect_preimage) to scan claim spends.
+#[cfg_attr(
+    any(feature = "bitcoin", feature = "elements"),
+    doc = "used by [`detect_preimage`](crate::detect_preimage) to scan claim spends."
+)]
+#[cfg_attr(
+    not(any(feature = "bitcoin", feature = "elements")),
+    doc = "used by `detect_preimage` to scan claim spends."
+)]
 pub trait TxIn {
     /// All witness stack items for this input.
     fn witness(&self) -> Vec<Vec<u8>>;

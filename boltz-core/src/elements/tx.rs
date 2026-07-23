@@ -1187,13 +1187,16 @@ pub mod tests {
         )
         .unwrap();
 
+        let InputType::Claim(expected_preimage) = input.input_type else {
+            unreachable!()
+        };
         assert_eq!(
-            detect_preimage(&tx.input[0]).unwrap(),
-            if let InputType::Claim(preimage) = input.input_type {
-                preimage
-            } else {
-                unreachable!()
-            }
+            detect_preimage(
+                &tx.input[0],
+                bitcoin::hashes::sha256::Hash::hash(&expected_preimage).as_byte_array(),
+            )
+            .unwrap(),
+            expected_preimage,
         );
 
         let broadcast = send_raw_transaction(&client, &tx);
@@ -1282,13 +1285,16 @@ pub mod tests {
         )
         .unwrap();
 
+        let InputType::Claim(expected_preimage) = input.input_type else {
+            unreachable!()
+        };
         assert_eq!(
-            detect_preimage(&tx.input[0]).unwrap(),
-            if let InputType::Claim(preimage) = input.input_type {
-                preimage
-            } else {
-                unreachable!()
-            }
+            detect_preimage(
+                &tx.input[0],
+                bitcoin::hashes::sha256::Hash::hash(&expected_preimage).as_byte_array(),
+            )
+            .unwrap(),
+            expected_preimage,
         );
 
         let broadcast = send_raw_transaction(&client, &tx);
@@ -1367,13 +1373,16 @@ pub mod tests {
         )
         .unwrap();
 
+        let InputType::Claim(expected_preimage) = input.input_type else {
+            unreachable!()
+        };
         assert_eq!(
-            detect_preimage(&tx.input[0]).unwrap(),
-            if let InputType::Claim(preimage) = input.input_type {
-                preimage
-            } else {
-                unreachable!()
-            }
+            detect_preimage(
+                &tx.input[0],
+                bitcoin::hashes::sha256::Hash::hash(&expected_preimage).as_byte_array(),
+            )
+            .unwrap(),
+            expected_preimage,
         );
 
         let broadcast = send_raw_transaction(&client, &tx);
@@ -1452,13 +1461,16 @@ pub mod tests {
         )
         .unwrap();
 
+        let InputType::Claim(expected_preimage) = input.input_type else {
+            unreachable!()
+        };
         assert_eq!(
-            detect_preimage(&tx.input[0]).unwrap(),
-            if let InputType::Claim(preimage) = input.input_type {
-                preimage
-            } else {
-                unreachable!()
-            }
+            detect_preimage(
+                &tx.input[0],
+                bitcoin::hashes::sha256::Hash::hash(&expected_preimage).as_byte_array(),
+            )
+            .unwrap(),
+            expected_preimage,
         );
 
         let broadcast = send_raw_transaction(&client, &tx);

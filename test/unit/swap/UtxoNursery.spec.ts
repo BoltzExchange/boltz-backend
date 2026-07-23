@@ -1,7 +1,13 @@
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { Transaction } from '@scure/btc-signer';
-import { Scripts, SwapTreeSerializer, swapTree } from 'boltz-core';
+import {
+  OutputType,
+  Scripts,
+  SwapTreeSerializer,
+  detectSwap,
+  swapTree,
+} from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { Op } from 'sequelize';
 import {
@@ -289,6 +295,9 @@ describe('UtxoNursery', () => {
       id: 'id',
       expectedAmount: 100214,
       redeemScript: sampleRedeemScript,
+      lockupAddress: encodeAddress(
+        Buffer.from(transaction.getOutput(0).script!),
+      ),
     };
 
     nursery.once('swap.lockup', (args) => {
@@ -440,6 +449,9 @@ describe('UtxoNursery', () => {
         type: SwapType.Submarine,
         redeemScript: sampleRedeemScript,
         expectedAmount: Number(transaction.getOutput(0).amount),
+        lockupAddress: encodeAddress(
+          Buffer.from(transaction.getOutput(0).script!),
+        ),
       };
       mockSetLockupTransaction.mockResolvedValueOnce({
         ...mockGetSwapResult,
@@ -475,6 +487,9 @@ describe('UtxoNursery', () => {
       acceptZeroConf: true,
       redeemScript: sampleRedeemScript,
       type: SwapType.Submarine,
+      lockupAddress: encodeAddress(
+        Buffer.from(transaction.getOutput(0).script!),
+      ),
     };
 
     mockGetRawTransactionVerboseResult = () => ({
@@ -608,6 +623,9 @@ describe('UtxoNursery', () => {
       acceptZeroConf: true,
       redeemScript: sampleRedeemScript,
       type: SwapType.Submarine,
+      lockupAddress: encodeAddress(
+        Buffer.from(transaction.getOutput(0).script!),
+      ),
     };
 
     expect.assertions(3);
@@ -628,6 +646,64 @@ describe('UtxoNursery', () => {
       transaction,
       TransactionStatus.ZeroConfSafe,
     );
+  });
+
+  test('should bind a legacy lockup to its advertised output wrapper', async () => {
+    const checkSwapOutputs = nursery['checkOutputs'];
+
+    const expectedAmount = 100_214;
+    const triggerAmount = 1_000;
+    const wrongWrapper = Buffer.from(Scripts.p2shOutput(sampleRedeemScript));
+    const advertisedWrapper = Buffer.from(
+      Scripts.p2shP2wshOutput(sampleRedeemScript),
+    );
+
+    const transaction = new Transaction();
+    transaction.addOutput({
+      script: wrongWrapper,
+      amount: BigInt(expectedAmount),
+    });
+    transaction.addOutput({
+      script: advertisedWrapper,
+      amount: BigInt(triggerAmount),
+    });
+
+    const detected = detectSwap(sampleRedeemScript, transaction)!;
+    expect(detected.type).toEqual(OutputType.Legacy);
+    expect(detected.vout).toEqual(0);
+
+    mockGetSwapResult = {
+      id: 'cross-wrapper',
+      expectedAmount,
+      version: SwapVersion.Legacy,
+      redeemScript: sampleRedeemScript,
+      lockupAddress: encodeAddress(advertisedWrapper),
+    };
+    mockGetSwap
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(mockGetSwapResult);
+
+    let eventEmitted = false;
+    nursery.once('swap.lockup', () => {
+      eventEmitted = true;
+    });
+
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.Confirmed,
+    );
+
+    expect(mockGetSwap).toHaveBeenCalledTimes(2);
+    expect(mockGetSwap).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        lockupAddress: mockGetSwapResult.lockupAddress,
+      }),
+    );
+    expect(eventEmitted).toEqual(false);
+    expect(mockSetLockupTransaction).not.toHaveBeenCalled();
   });
 
   test('should detect Taproot Swap outputs', async () => {
@@ -661,6 +737,7 @@ describe('UtxoNursery', () => {
       version: SwapVersion.Taproot,
       refundPublicKey: theirPublicKey,
       redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
+      lockupAddress: encodeAddress(Buffer.from(Scripts.p2trOutput(tweakedKey))),
     };
 
     let eventEmitted = false;
@@ -691,6 +768,191 @@ describe('UtxoNursery', () => {
     expect(mockGetKeysByIndex).toHaveBeenCalledWith(mockGetSwapResult.keyIndex);
   });
 
+  test('should bind a Taproot Swap lockup to its advertised output wrapper', async () => {
+    const checkSwapOutputs = nursery['checkOutputs'];
+
+    const ourKeys = makeKeys();
+    const theirPublicKey = Buffer.from(makeKeys().publicKey);
+
+    const tree = swapTree(
+      false,
+      randomBytes(32),
+      Buffer.from(ourKeys.publicKey),
+      theirPublicKey,
+      210,
+    );
+    const musig = createMusig(ourKeys, theirPublicKey);
+    const tweakedKey = Buffer.from(
+      tweakMusig(CurrencyType.BitcoinLike, musig, tree).aggPubkey,
+    );
+
+    const expectedAmount = 100_214;
+    const wrongWrapper = Buffer.from(Scripts.p2wshOutput(tweakedKey));
+    const advertisedWrapper = Buffer.from(Scripts.p2trOutput(tweakedKey));
+
+    const transaction = new Transaction();
+    transaction.addOutput({
+      script: wrongWrapper,
+      amount: BigInt(expectedAmount),
+    });
+    transaction.addOutput({
+      script: advertisedWrapper,
+      amount: 1_000n,
+    });
+
+    const detected = detectSwap(tweakedKey, transaction)!;
+    expect(detected.type).toEqual(OutputType.Bech32);
+    expect(detected.vout).toEqual(0);
+
+    mockGetKeysByIndexResult = ourKeys;
+    mockGetSwapResult = {
+      id: 'cross-wrapper-taproot',
+      expectedAmount,
+      keyIndex: 123,
+      version: SwapVersion.Taproot,
+      refundPublicKey: theirPublicKey,
+      redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
+      lockupAddress: encodeAddress(advertisedWrapper),
+    };
+    mockGetSwap
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(mockGetSwapResult);
+
+    let eventEmitted = false;
+    nursery.once('swap.lockup', () => {
+      eventEmitted = true;
+    });
+
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.Confirmed,
+    );
+
+    expect(mockGetSwap).toHaveBeenCalledTimes(2);
+    expect(mockGetSwap).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        lockupAddress: mockGetSwapResult.lockupAddress,
+      }),
+    );
+    expect(mockGetKeysByIndex).toHaveBeenCalledWith(mockGetSwapResult.keyIndex);
+    expect(eventEmitted).toEqual(false);
+    expect(mockSetLockupTransaction).not.toHaveBeenCalled();
+  });
+
+  test('should bind a chain swap lockup to its Taproot output wrapper', async () => {
+    const ourKeys = makeKeys();
+    const theirPublicKey = Buffer.from(makeKeys().publicKey);
+    const tree = swapTree(
+      false,
+      randomBytes(32),
+      Buffer.from(ourKeys.publicKey),
+      theirPublicKey,
+      210,
+    );
+    const tweakedKey = Buffer.from(
+      tweakMusig(
+        CurrencyType.BitcoinLike,
+        createMusig(ourKeys, theirPublicKey),
+        tree,
+      ).aggPubkey,
+    );
+
+    const transaction = new Transaction();
+    transaction.addOutput({
+      script: Buffer.from(Scripts.p2wshOutput(tweakedKey)),
+      amount: 123n,
+    });
+    transaction.addOutput({
+      script: Buffer.from(Scripts.p2trOutput(tweakedKey)),
+      amount: 1_000n,
+    });
+
+    const detected = detectSwap(tweakedKey, transaction)!;
+    expect(detected.type).toEqual(OutputType.Bech32);
+    expect(detected.vout).toEqual(0);
+
+    mockGetKeysByIndexResult = ourKeys;
+    const mockChainSwap = {
+      id: 'cross-wrapper-chain',
+      type: SwapType.Chain,
+      receivingData: {
+        keyIndex: 123,
+        expectedAmount: 123,
+        theirPublicKey: theirPublicKey.toString('hex'),
+        swapTree: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
+      },
+    };
+    ChainSwapRepository.setUserLockupTransaction = jest.fn();
+
+    let eventEmitted = false;
+    nursery.once('chainSwap.lockup', () => {
+      eventEmitted = true;
+    });
+
+    await nursery.checkChainSwapTransaction(
+      mockChainSwap as any,
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.Confirmed,
+    );
+
+    expect(eventEmitted).toEqual(false);
+    expect(ChainSwapRepository.setUserLockupTransaction).not.toHaveBeenCalled();
+  });
+
+  test('should ignore transactions in which no swap output is detected', async () => {
+    const ourKeys = makeKeys();
+    const theirPublicKey = Buffer.from(makeKeys().publicKey);
+    const tree = swapTree(
+      false,
+      randomBytes(32),
+      Buffer.from(ourKeys.publicKey),
+      theirPublicKey,
+      210,
+    );
+
+    const transaction = new Transaction();
+    transaction.addOutput({
+      script: Buffer.from(
+        Scripts.p2trOutput(Buffer.from(makeKeys().publicKey)),
+      ),
+      amount: 1_000n,
+    });
+
+    mockGetKeysByIndexResult = ourKeys;
+    const mockChainSwap = {
+      id: 'no-output',
+      type: SwapType.Chain,
+      receivingData: {
+        keyIndex: 123,
+        expectedAmount: 123,
+        theirPublicKey: theirPublicKey.toString('hex'),
+        swapTree: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
+      },
+    };
+    ChainSwapRepository.setUserLockupTransaction = jest.fn();
+
+    let eventEmitted = false;
+    nursery.once('chainSwap.lockup', () => {
+      eventEmitted = true;
+    });
+
+    await nursery.checkChainSwapTransaction(
+      mockChainSwap as any,
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.Confirmed,
+    );
+
+    expect(eventEmitted).toEqual(false);
+    expect(ChainSwapRepository.setUserLockupTransaction).not.toHaveBeenCalled();
+  });
+
   test('should reject transactions from blocked addresses', async () => {
     const checkSwapOutputs = nursery['checkOutputs'];
 
@@ -703,6 +965,9 @@ describe('UtxoNursery', () => {
       acceptZeroConf: true,
       redeemScript: sampleRedeemScript,
       type: SwapType.Submarine,
+      lockupAddress: encodeAddress(
+        Buffer.from(transaction.getOutput(0).script!),
+      ),
     };
 
     mockGetRawTransactionVerboseResult = () => ({
@@ -1272,6 +1537,9 @@ describe('UtxoNursery', () => {
           id: 'testSwap',
           expectedAmount,
           redeemScript: sampleRedeemScript,
+          lockupAddress: encodeAddress(
+            Buffer.from(transaction.getOutput(0).script!),
+          ),
         };
 
         mockSetLockupTransaction.mockImplementationOnce(async (swap) => ({

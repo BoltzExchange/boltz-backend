@@ -1,5 +1,10 @@
 import type { Transaction } from '@scure/btc-signer';
-import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
+import {
+  Scripts,
+  SwapTreeSerializer,
+  detectPreimage,
+  detectSwap,
+} from 'boltz-core';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import {
@@ -138,7 +143,15 @@ class UtxoNursery extends TypedEventEmitter<{
         SwapTreeSerializer.deserializeSwapTree(swap.receivingData.swapTree!),
       ).aggPubkey,
     );
-    const swapOutput = detectSwap(tweakedKey, transaction)!;
+    const swapOutput = this.detectAdvertisedOutput(
+      swap,
+      tweakedKey,
+      transaction,
+      Buffer.from(Scripts.p2trOutput(tweakedKey)),
+    );
+    if (swapOutput === undefined) {
+      return;
+    }
 
     this.logFoundTransaction(
       wallet.symbol,
@@ -658,7 +671,15 @@ class UtxoNursery extends TypedEventEmitter<{
       }
     }
 
-    const swapOutput = detectSwap(redeemScriptOrTweakedKey, transaction)!;
+    const swapOutput = this.detectAdvertisedOutput(
+      swap,
+      redeemScriptOrTweakedKey,
+      transaction,
+      wallet.decodeAddress(swap.lockupAddress),
+    );
+    if (swapOutput === undefined) {
+      return;
+    }
 
     this.logFoundTransaction(
       wallet.symbol,
@@ -843,6 +864,27 @@ class UtxoNursery extends TypedEventEmitter<{
     }
 
     return undefined;
+  };
+
+  private detectAdvertisedOutput = (
+    swap: Swap | ChainSwapInfo,
+    redeemScriptOrTweakedKey: Buffer,
+    transaction: Transaction | LiquidTransaction,
+    expectedOutputScript: Buffer,
+  ): ReturnType<typeof detectSwap> => {
+    const swapOutput = detectSwap(redeemScriptOrTweakedKey, transaction);
+    if (swapOutput?.script === undefined) {
+      return undefined;
+    }
+
+    if (!Buffer.from(swapOutput.script).equals(expectedOutputScript)) {
+      this.logger.warn(
+        `Ignoring lockup transaction ${TxView.of(transaction).id} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: detected output does not match the advertised script`,
+      );
+      return undefined;
+    }
+
+    return swapOutput;
   };
 
   private logFoundTransaction = (

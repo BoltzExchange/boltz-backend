@@ -1832,6 +1832,199 @@ describe('SwapManager', () => {
     );
   });
 
+  describe('ARK swaps', () => {
+    const preimageHash = getHexBuffer(
+      '6b0d0275c597a18cfcc23261a62e095e2ba12ac5c866823d2926912806a5b10a',
+    );
+    const claimKey = getHexBuffer(
+      '026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa8',
+    );
+    const refundKey = getHexBuffer(
+      '03f1c589378d79bb4a38be80bd085f5454a07d7f5c515fa0752f1b443816442ac2',
+    );
+
+    const nonInteractiveClaim = {
+      claimAddress: 'tark1claimAddress',
+    };
+
+    const arkTree = {
+      claimLeaf: { version: 192, output: 'arkClaimLeaf' },
+      refundLeaf: { version: 192, output: 'arkRefundLeaf' },
+    } as any;
+    const timeouts = {
+      refund: 543,
+      unilateralClaim: 16,
+      unilateralRefund: 32,
+      unilateralRefundWithoutReceiver: 64,
+    };
+
+    let arkNode: any;
+
+    beforeEach(() => {
+      arkNode = {
+        symbol: 'ARK',
+        pubkey: Buffer.alloc(33, 3),
+        createVHtlc: jest.fn().mockResolvedValue({
+          vHtlc: {
+            id: 'vHtlcId',
+            address: 'arkLockupAddress',
+            swapTree: arkTree,
+          },
+          timeouts,
+        }),
+        subscription: {
+          subscribeAddresses: jest.fn().mockResolvedValue(undefined),
+        },
+      };
+      manager['currencies'].set('ARK', {
+        arkNode,
+        symbol: 'ARK',
+        type: CurrencyType.Ark,
+        lndClients: new Map(),
+      } as any as Currency);
+
+      ChainSwapRepository.addChainSwap = jest.fn().mockResolvedValue(undefined);
+    });
+
+    test('should create reverse swaps to ARK with nonInteractiveClaim', async () => {
+      const onchainTimeoutBlockDelta = 140;
+
+      const reverseSwap = await manager.createReverseSwap({
+        preimageHash,
+        nonInteractiveClaim,
+        onchainTimeoutBlockDelta,
+        orderSide: OrderSide.BUY,
+        baseCurrency: 'ARK',
+        quoteCurrency: 'BTC',
+        onchainAmount: 8,
+        percentageFee: 1,
+        holdInvoiceAmount: 10,
+        lightningTimeoutBlockDelta: 143,
+        claimCovenant: false,
+        claimPublicKey: claimKey,
+        version: SwapVersion.Taproot,
+      });
+
+      expect(arkNode.createVHtlc).toHaveBeenCalledTimes(1);
+      expect(arkNode.createVHtlc).toHaveBeenCalledWith(
+        preimageHash,
+        onchainTimeoutBlockDelta,
+        claimKey,
+        undefined,
+        nonInteractiveClaim,
+      );
+
+      expect(reverseSwap).toMatchObject({
+        swapTree: arkTree,
+        timeoutBlockHeights: timeouts,
+        lockupAddress: 'arkLockupAddress',
+        refundPublicKey: getHexString(arkNode.pubkey),
+      });
+
+      expect(mockAddReverseSwap).toHaveBeenCalledTimes(1);
+      expect(mockAddReverseSwap).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lockupAddress: 'arkLockupAddress',
+          timeoutBlockHeight: timeouts.refund,
+          redeemScript: JSON.stringify(arkTree),
+        }),
+      );
+
+      expect(arkNode.subscription.subscribeAddresses).toHaveBeenCalledTimes(1);
+      expect(arkNode.subscription.subscribeAddresses).toHaveBeenCalledWith([
+        {
+          address: 'arkLockupAddress',
+          vHtlcId: 'vHtlcId',
+        },
+      ]);
+    });
+
+    test('should create chain swaps sending ARK with nonInteractiveClaim', async () => {
+      const sendingTimeoutBlockDelta = 140;
+
+      const chainSwap = await manager.createChainSwap({
+        preimageHash,
+        nonInteractiveClaim,
+        sendingTimeoutBlockDelta,
+        orderSide: OrderSide.BUY,
+        baseCurrency: 'ARK',
+        quoteCurrency: 'BTC',
+        percentageFee: 1,
+        userLockAmount: 100_000,
+        serverLockAmount: 99_000,
+        acceptZeroConf: false,
+        receivingTimeoutBlockDelta: 150,
+        claimPublicKey: claimKey,
+        refundPublicKey: refundKey,
+      });
+
+      expect(arkNode.createVHtlc).toHaveBeenCalledTimes(1);
+      expect(arkNode.createVHtlc).toHaveBeenCalledWith(
+        preimageHash,
+        sendingTimeoutBlockDelta,
+        claimKey,
+        undefined,
+        nonInteractiveClaim,
+      );
+
+      expect(chainSwap.claimDetails).toMatchObject({
+        timeouts,
+        amount: 99_000,
+        swapTree: arkTree,
+        lockupAddress: 'arkLockupAddress',
+        timeoutBlockHeight: timeouts.refund,
+        serverPublicKey: getHexString(arkNode.pubkey),
+      });
+
+      // The receiving side is a regular serialized swap tree
+      expect(chainSwap.lockupDetails.swapTree).toBeDefined();
+      expect(chainSwap.lockupDetails.swapTree).not.toEqual(arkTree);
+
+      expect(arkNode.subscription.subscribeAddresses).toHaveBeenCalledTimes(1);
+      expect(arkNode.subscription.subscribeAddresses).toHaveBeenCalledWith([
+        {
+          address: 'arkLockupAddress',
+          vHtlcId: 'vHtlcId',
+        },
+      ]);
+    });
+
+    test('should not forward nonInteractiveClaim for chain swaps receiving ARK', async () => {
+      const receivingTimeoutBlockDelta = 150;
+
+      const chainSwap = await manager.createChainSwap({
+        preimageHash,
+        nonInteractiveClaim,
+        receivingTimeoutBlockDelta,
+        orderSide: OrderSide.SELL,
+        baseCurrency: 'ARK',
+        quoteCurrency: 'BTC',
+        percentageFee: 1,
+        userLockAmount: 100_000,
+        serverLockAmount: 99_000,
+        acceptZeroConf: false,
+        sendingTimeoutBlockDelta: 140,
+        claimPublicKey: claimKey,
+        refundPublicKey: refundKey,
+      });
+
+      expect(arkNode.createVHtlc).toHaveBeenCalledTimes(1);
+      expect(arkNode.createVHtlc).toHaveBeenCalledWith(
+        preimageHash,
+        receivingTimeoutBlockDelta,
+        undefined,
+        refundKey,
+        undefined,
+      );
+
+      expect(chainSwap.lockupDetails).toMatchObject({
+        timeouts,
+        swapTree: arkTree,
+        lockupAddress: 'arkLockupAddress',
+      });
+    });
+  });
+
   test('it should get currencies', () => {
     const getCurrencies = manager['getCurrencies'];
 

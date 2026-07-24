@@ -49,6 +49,7 @@ class Api {
 
     this.app.use(
       express.json({
+        limit: '100kb',
         verify(req, _, buf: Buffer, encoding: string) {
           if (buf && buf.length) {
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment

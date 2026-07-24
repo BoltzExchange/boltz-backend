@@ -188,6 +188,8 @@ describe('SwapRouter', () => {
   const validMetadata = 'deadbeef';
   const validMetadataBuffer = getHexBuffer(validMetadata);
   const oversizedMetadata = '00'.repeat(1025);
+  const arkClaimAddress =
+    'tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndakjpdlzx4q6n5was20sqf5kff8999rupjsl2ptlz3nqtkl6hv27fvrc05ag';
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -1533,6 +1535,27 @@ describe('SwapRouter', () => {
   claimPublicKey: '0011',
   metadata: oversizedMetadata,
 }}
+    ${'invalid parameter: nonInteractiveClaim'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  nonInteractiveClaim: 'notAnObject',
+}}
+    ${'invalid parameter: nonInteractiveClaim'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  nonInteractiveClaim: null,
+}}
+    ${'undefined parameter: claimAddress'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  nonInteractiveClaim: {},
+}}
   `(
     'should not create reverse swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -1726,6 +1749,32 @@ describe('SwapRouter', () => {
       extraFees: reqBody.extraFees,
       preimageHash: getHexBuffer(reqBody.preimageHash),
       claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+    });
+  });
+
+  test('should create reverse swaps with nonInteractiveClaim', async () => {
+    const reqBody = {
+      to: 'ARK',
+      from: 'BTC',
+      claimPublicKey: '21',
+      preimageHash: getHexString(randomBytes(32)),
+      nonInteractiveClaim: {
+        claimAddress: arkClaimAddress,
+      },
+    };
+    const res = mockResponse();
+
+    await swapRouter['createReverse'](mockRequest(reqBody), res);
+
+    expect(service.createReverseSwap).toHaveBeenCalledTimes(1);
+    expect(service.createReverseSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      prepayMinerFee: false,
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Taproot,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+      nonInteractiveClaim: reqBody.nonInteractiveClaim,
     });
   });
 
@@ -2231,6 +2280,24 @@ describe('SwapRouter', () => {
   preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
   metadata: oversizedMetadata,
 }}
+    ${'invalid parameter: nonInteractiveClaim'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+  nonInteractiveClaim: 'notAnObject',
+}}
+    ${'invalid parameter: nonInteractiveClaim'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+  nonInteractiveClaim: null,
+}}
+    ${'undefined parameter: claimAddress'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+  nonInteractiveClaim: {},
+}}
   `(
     'should not create chain swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -2380,6 +2447,34 @@ describe('SwapRouter', () => {
       preimageHash: getHexBuffer(reqBody.preimageHash),
       claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
       refundPublicKey: getHexBuffer(reqBody.refundPublicKey),
+    });
+  });
+
+  test('should create chain swaps with nonInteractiveClaim', async () => {
+    const reqBody = {
+      to: 'ARK',
+      from: 'BTC',
+      userLockAmount: 123,
+      claimPublicKey: '21',
+      refundPublicKey: '12',
+      preimageHash: getHexString(randomBytes(32)),
+      nonInteractiveClaim: {
+        claimAddress: arkClaimAddress,
+      },
+    };
+    const res = mockResponse();
+
+    await swapRouter['createChain'](mockRequest(reqBody), res);
+
+    expect(service.createChainSwap).toHaveBeenCalledTimes(1);
+    expect(service.createChainSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      orderSide: OrderSide.BUY,
+      userLockAmount: reqBody.userLockAmount,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+      refundPublicKey: getHexBuffer(reqBody.refundPublicKey),
+      nonInteractiveClaim: reqBody.nonInteractiveClaim,
     });
   });
 
@@ -2827,17 +2922,28 @@ describe('SwapRouter', () => {
     });
 
     test.each`
-      error                              | data
-      ${'undefined parameter: url'}      | ${{}}
-      ${'invalid parameter: url'}        | ${{ url: 1 }}
-      ${'invalid parameter: status'}     | ${{ url: 'http', status: 'correct' }}
-      ${'invalid parameter: hashSwapId'} | ${{ url: 'http', hashSwapId: 'correct' }}
+      error                               | data
+      ${'undefined parameter: url'}       | ${{}}
+      ${'invalid parameter: url'}         | ${{ url: 1 }}
+      ${'invalid parameter: webhook.url'} | ${{ url: '' }}
+      ${'invalid parameter: webhook.url'} | ${{ url: 'a'.repeat(1025) }}
+      ${'invalid parameter: status'}      | ${{ url: 'http', status: 'correct' }}
+      ${'invalid parameter: hashSwapId'}  | ${{ url: 'http', hashSwapId: 'correct' }}
     `(
       'should not parse webhook with invalid parameters ($error)',
       ({ error, data }) => {
         expect(() => swapRouter['parseWebHook'](data)).toThrow(error);
       },
     );
+
+    test('should parse webhook with url of maximal length', () => {
+      const data = {
+        url: 'a'.repeat(1024),
+        hashSwapId: false,
+      };
+
+      expect(swapRouter['parseWebHook'](data)).toEqual(data);
+    });
 
     describe('status', () => {
       test.each`
@@ -2975,6 +3081,59 @@ describe('SwapRouter', () => {
         ).toThrow(ApiErrors.INVALID_EXTRA_FEES_ID(id));
       },
     );
+
+    test.each`
+      name          | id
+      ${'empty'}    | ${''}
+      ${'too long'} | ${'a'.repeat(256)}
+    `('should reject id that is $name', ({ id }) => {
+      expect(() => swapRouter['parseExtraFees']({ id, percentage: 1 })).toThrow(
+        ApiErrors.INVALID_EXTRA_FEES_ID(id),
+      );
+    });
+
+    test('should parse extra fees with id of maximal length', () => {
+      const data = {
+        id: 'a'.repeat(255),
+        percentage: 1,
+      };
+
+      expect(swapRouter['parseExtraFees'](data)).toEqual(data);
+    });
+  });
+
+  describe('parseNonInteractiveClaim', () => {
+    test('should parse non-interactive claims', () => {
+      const data = {
+        claimAddress: arkClaimAddress,
+      };
+
+      expect(swapRouter['parseNonInteractiveClaim'](data)).toEqual(data);
+    });
+
+    test('should omit extra data', () => {
+      expect(
+        swapRouter['parseNonInteractiveClaim']({
+          claimAddress: arkClaimAddress,
+          some: 'extra',
+        }),
+      ).toEqual({ claimAddress: arkClaimAddress });
+    });
+
+    test('should return undefined when input data is undefined', () => {
+      expect(swapRouter['parseNonInteractiveClaim'](undefined)).toBeUndefined();
+    });
+
+    test.each`
+      name                            | error                                                    | data
+      ${'missing claimAddress'}       | ${'undefined parameter: claimAddress'}                   | ${{}}
+      ${'claimAddress of wrong type'} | ${'invalid parameter: claimAddress'}                     | ${{ claimAddress: 21 }}
+      ${'garbage claimAddress'}       | ${'invalid parameter: nonInteractiveClaim.claimAddress'} | ${{ claimAddress: 'notAnAddress' }}
+      ${'bech32 claimAddress'}        | ${'invalid parameter: nonInteractiveClaim.claimAddress'} | ${{ claimAddress: 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4' }}
+      ${'truncated claimAddress'}     | ${'invalid parameter: nonInteractiveClaim.claimAddress'} | ${{ claimAddress: arkClaimAddress.slice(0, -4) }}
+    `('should throw for $name', ({ error, data }) => {
+      expect(() => swapRouter['parseNonInteractiveClaim'](data)).toThrow(error);
+    });
   });
 
   describe('getReferralFromHeader', () => {

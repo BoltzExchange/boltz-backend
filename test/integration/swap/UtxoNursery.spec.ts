@@ -693,7 +693,8 @@ describe('UtxoNursery', () => {
             amount: BigInt(created.claimDetails.amount!),
             privateKey: claimKeys.privateKey,
             swapTree: SwapTreeSerializer.deserializeSwapTree(
-              created.claimDetails.swapTree!,
+              created.claimDetails
+                .swapTree! as SwapTreeSerializer.SerializedTree,
             ),
             internalKey: Musig.create(claimKeys.privateKey, [
               getHexBuffer(created.claimDetails.serverPublicKey!),

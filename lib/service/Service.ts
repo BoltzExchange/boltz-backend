@@ -18,6 +18,7 @@ import {
   createApiCredential,
   formatError,
   fromProtoInt,
+  generateSwapId,
   getChainCurrency,
   getHexString,
   getLightningCurrency,
@@ -1284,49 +1285,56 @@ class Service {
     }
 
     const referralId = await this.getReferralId(args.referralId);
-    const {
-      id,
-      address,
-      swapTree,
-      timeoutBlockHeight,
-      timeoutBlockHeights,
-      blindingKey,
-      redeemScript,
-      claimAddress,
-      claimPublicKey,
-    } = await this.swapManager.createSwap({
-      orderSide,
-      referralId,
-      timeoutBlockDelta,
-      baseCurrency: base,
-      quoteCurrency: quote,
-      version: args.version,
-      preimageHash: args.preimageHash,
-      paymentTimeout: args.paymentTimeout,
-      refundPublicKey: args.refundPublicKey,
-    });
 
-    this.eventHandler.emitSwapCreation(id);
-
-    if (args.webHook) {
-      await this.addWebHook(id, args.webHook, async () => {
-        await (await SwapRepository.getSwap({ id }))?.destroy();
-      });
+    const id = generateSwapId(args.version);
+    if (args.webHook !== undefined) {
+      await this.addWebHook(id, args.webHook);
     }
 
-    return {
-      id,
-      address,
-      swapTree,
-      referralId,
-      canBeRouted,
-      blindingKey,
-      redeemScript,
-      claimAddress,
-      claimPublicKey,
-      timeoutBlockHeight,
-      timeoutBlockHeights,
-    };
+    try {
+      const {
+        address,
+        swapTree,
+        timeoutBlockHeight,
+        timeoutBlockHeights,
+        blindingKey,
+        redeemScript,
+        claimAddress,
+        claimPublicKey,
+      } = await this.swapManager.createSwap({
+        id,
+        orderSide,
+        referralId,
+        timeoutBlockDelta,
+        baseCurrency: base,
+        quoteCurrency: quote,
+        version: args.version,
+        preimageHash: args.preimageHash,
+        paymentTimeout: args.paymentTimeout,
+        refundPublicKey: args.refundPublicKey,
+      });
+
+      this.eventHandler.emitSwapCreation(id);
+
+      return {
+        id,
+        address,
+        swapTree,
+        referralId,
+        canBeRouted,
+        blindingKey,
+        redeemScript,
+        claimAddress,
+        claimPublicKey,
+        timeoutBlockHeight,
+        timeoutBlockHeights,
+      };
+    } catch (error) {
+      if (args.webHook !== undefined) {
+        await this.removeWebHook(id);
+      }
+      throw error;
+    }
   };
 
   /**
@@ -1696,6 +1704,10 @@ class Service {
       });
       await swap?.destroy();
 
+      if (webHook !== undefined) {
+        await this.removeWebHook(createdSwap.id);
+      }
+
       throw error;
     }
   };
@@ -2060,85 +2072,90 @@ class Service {
       throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
     }
 
-    const {
-      id,
-      invoice,
-      swapTree,
-      blindingKey,
-      redeemScript,
-      refundAddress,
-      lockupAddress,
-      refundPublicKey,
-      minerFeeInvoice,
-      timeoutBlockHeight,
-      timeoutBlockHeights,
-    } = await this.swapManager.createReverseSwap({
-      referralId,
-      percentageFee,
-      onchainAmount,
-      holdInvoiceAmount,
-      onchainTimeoutBlockDelta,
-      lightningTimeoutBlockDelta,
-      prepayMinerFeeInvoiceAmount,
-      prepayMinerFeeOnchainAmount,
-      orderSide: side,
-      baseCurrency: base,
-      quoteCurrency: quote,
-      version: args.version,
-      memo: args.description,
-      preimageHash: preimageHash,
-      routingNode: args.routingNode,
-      userAddress: args.userAddress,
-      claimAddress: args.claimAddress,
-      invoiceExpiry: args.invoiceExpiry,
-      claimPublicKey: args.claimPublicKey,
-      descriptionHash: args.descriptionHash,
-      claimCovenant: args.claimCovenant || false,
-      userAddressSignature: args.userAddressSignature,
-      invoice:
-        args.invoice !== undefined && decodedInvoice !== undefined
-          ? { invoice: args.invoice, decoded: decodedInvoice }
-          : undefined,
-    });
+    const id = generateSwapId(args.version);
+    if (args.webHook !== undefined) {
+      await this.addWebHook(id, args.webHook);
+    }
 
-    this.eventHandler.emitSwapCreation(id);
-
-    if (args.webHook) {
-      await this.addWebHook(id, args.webHook, async () => {
-        await (await ReverseRoutingHintRepository.getHint(id))?.destroy();
-        await (await ReverseSwapRepository.getReverseSwap({ id }))?.destroy();
+    try {
+      const {
+        invoice,
+        swapTree,
+        blindingKey,
+        redeemScript,
+        refundAddress,
+        lockupAddress,
+        refundPublicKey,
+        minerFeeInvoice,
+        timeoutBlockHeight,
+        timeoutBlockHeights,
+      } = await this.swapManager.createReverseSwap({
+        id,
+        referralId,
+        percentageFee,
+        onchainAmount,
+        holdInvoiceAmount,
+        onchainTimeoutBlockDelta,
+        lightningTimeoutBlockDelta,
+        prepayMinerFeeInvoiceAmount,
+        prepayMinerFeeOnchainAmount,
+        orderSide: side,
+        baseCurrency: base,
+        quoteCurrency: quote,
+        version: args.version,
+        memo: args.description,
+        preimageHash: preimageHash,
+        routingNode: args.routingNode,
+        userAddress: args.userAddress,
+        claimAddress: args.claimAddress,
+        invoiceExpiry: args.invoiceExpiry,
+        claimPublicKey: args.claimPublicKey,
+        descriptionHash: args.descriptionHash,
+        claimCovenant: args.claimCovenant || false,
+        userAddressSignature: args.userAddressSignature,
+        invoice:
+          args.invoice !== undefined && decodedInvoice !== undefined
+            ? { invoice: args.invoice, decoded: decodedInvoice }
+            : undefined,
       });
+
+      this.eventHandler.emitSwapCreation(id);
+
+      await this.createExtraFees(id, extraFee, args.extraFees);
+
+      const response: any = {
+        id,
+        swapTree,
+        referralId,
+        blindingKey,
+        redeemScript,
+        refundAddress,
+        lockupAddress,
+        refundPublicKey,
+        timeoutBlockHeight,
+        timeoutBlockHeights,
+      };
+
+      if (args.invoice === undefined) {
+        response.invoice = invoice;
+      }
+
+      if (swapIsPrepayMinerFee) {
+        response.minerFeeInvoice = minerFeeInvoice;
+        response.prepayMinerFeeAmount = prepayMinerFeeOnchainAmount;
+      }
+
+      if (invoiceAmountDefined) {
+        response.onchainAmount = onchainAmount;
+      }
+
+      return response;
+    } catch (error) {
+      if (args.webHook !== undefined) {
+        await this.removeWebHook(id);
+      }
+      throw error;
     }
-
-    await this.createExtraFees(id, extraFee, args.extraFees);
-
-    const response: any = {
-      id,
-      swapTree,
-      referralId,
-      blindingKey,
-      redeemScript,
-      refundAddress,
-      lockupAddress,
-      refundPublicKey,
-      timeoutBlockHeight,
-      timeoutBlockHeights,
-    };
-
-    if (args.invoice === undefined) {
-      response.invoice = invoice;
-    }
-
-    if (swapIsPrepayMinerFee) {
-      response.minerFeeInvoice = minerFeeInvoice;
-      response.prepayMinerFeeAmount = prepayMinerFeeOnchainAmount;
-    }
-
-    if (invoiceAmountDefined) {
-      response.onchainAmount = onchainAmount;
-    }
-
-    return response;
   };
 
   private calculateChainSwapAmounts = (
@@ -2408,50 +2425,57 @@ class Service {
       );
     }
 
-    const res = await this.swapManager.createChainSwap({
-      referralId,
-      percentageFee,
-      sendingTimeoutBlockDelta,
-      receivingTimeoutBlockDelta,
-      orderSide: side,
-      baseCurrency: base,
-      quoteCurrency: quote,
-      claimAddress: args.claimAddress,
-      preimageHash: args.preimageHash,
-      userLockAmount: args.userLockAmount,
-      claimPublicKey: args.claimPublicKey,
-      refundPublicKey: args.refundPublicKey,
-      serverLockAmount: args.serverLockAmount,
-      acceptZeroConf: this.rateProvider.acceptZeroConf(
-        receivingCurrency.symbol,
-        args.userLockAmount,
-      ),
-    });
-
-    this.eventHandler.emitSwapCreation(res.id);
-
-    if (args.webHook) {
-      await this.addWebHook(res.id, args.webHook, async () => {
-        await ChainSwapRepository.destroy(res.id);
-      });
+    const id = generateSwapId(SwapVersion.Taproot);
+    if (args.webHook !== undefined) {
+      await this.addWebHook(id, args.webHook);
     }
 
-    await this.createExtraFees(res.id, extraFee, args.extraFees);
-
-    return {
-      referralId,
-      id: res.id,
-      claimDetails: res.claimDetails,
-      lockupDetails: {
-        ...res.lockupDetails,
-        bip21: this.paymentRequestUtils.encodeBip21(
+    try {
+      const res = await this.swapManager.createChainSwap({
+        id,
+        referralId,
+        percentageFee,
+        sendingTimeoutBlockDelta,
+        receivingTimeoutBlockDelta,
+        orderSide: side,
+        baseCurrency: base,
+        quoteCurrency: quote,
+        claimAddress: args.claimAddress,
+        preimageHash: args.preimageHash,
+        userLockAmount: args.userLockAmount,
+        claimPublicKey: args.claimPublicKey,
+        refundPublicKey: args.refundPublicKey,
+        serverLockAmount: args.serverLockAmount,
+        acceptZeroConf: this.rateProvider.acceptZeroConf(
           receivingCurrency.symbol,
-          res.lockupDetails.lockupAddress,
-          res.lockupDetails.amount,
-          getSwapMemo(sendingCurrency.symbol, SwapType.Chain),
+          args.userLockAmount,
         ),
-      },
-    };
+      });
+
+      this.eventHandler.emitSwapCreation(id);
+
+      await this.createExtraFees(id, extraFee, args.extraFees);
+
+      return {
+        referralId,
+        id,
+        claimDetails: res.claimDetails,
+        lockupDetails: {
+          ...res.lockupDetails,
+          bip21: this.paymentRequestUtils.encodeBip21(
+            receivingCurrency.symbol,
+            res.lockupDetails.lockupAddress,
+            res.lockupDetails.amount,
+            getSwapMemo(sendingCurrency.symbol, SwapType.Chain),
+          ),
+        },
+      };
+    } catch (error) {
+      if (args.webHook !== undefined) {
+        await this.removeWebHook(id);
+      }
+      throw error;
+    }
   };
 
   /**
@@ -2607,9 +2631,7 @@ class Service {
   private addWebHook = async (
     swapId: string,
     data: WebHookData,
-    // To delete the swap in case the WebHook cannot be set
-    swapDeleteFn: () => Promise<void>,
-  ) => {
+  ): Promise<void> => {
     try {
       await this.sidecar.createWebHook(
         swapId,
@@ -2618,8 +2640,24 @@ class Service {
         data.status,
       );
     } catch (e) {
-      await swapDeleteFn();
-      throw `setting Webhook failed: ${formatError(e)}`;
+      this.logger.warn(
+        `Registering webhook for swap ${swapId} failed: ${formatError(e)}`,
+      );
+      throw Errors.COULD_NOT_REGISTER_WEBHOOK();
+    }
+  };
+
+  // Best-effort removal of a webhook that was registered before the swap
+  // creation it belongs to failed. A stranded webhook is inert, so a failure
+  // here must not mask the original swap creation error.
+  private removeWebHook = async (swapId: string): Promise<void> => {
+    try {
+      await this.sidecar.deleteWebHook(swapId);
+    } catch (e) {
+      this.logger.warn(`Could not remove webhook for swap ${swapId}`);
+      this.logger.debug(
+        `Removing webhook for swap ${swapId} failed: ${formatError(e)}`,
+      );
     }
   };
 

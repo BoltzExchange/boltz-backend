@@ -209,4 +209,8 @@ export default {
     message: 'invalid payment timeout',
     code: concatErrorCode(ErrorCodePrefix.Service, 58),
   }),
+  COULD_NOT_REGISTER_WEBHOOK: (): Error => ({
+    message: 'could not register webhook',
+    code: concatErrorCode(ErrorCodePrefix.Service, 59),
+  }),
 };

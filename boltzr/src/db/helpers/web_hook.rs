@@ -5,11 +5,12 @@ use crate::db::schema::{chainSwaps, reverseSwaps, swaps, web_hooks};
 use crate::webhook::caller::HookState;
 use crate::webhook::{SwapUpdateCallData, WebHookCallData};
 use diesel::prelude::*;
-use diesel::{insert_into, update};
+use diesel::{delete, insert_into, update};
 use tracing::{instrument, trace};
 
 pub trait WebHookHelper {
     fn insert_web_hook(&self, hook: &WebHook) -> QueryResponse<usize>;
+    fn delete_web_hook(&self, id: &str) -> QueryResponse<usize>;
     fn set_state(&self, id: &str, state: WebHookState) -> QueryResponse<usize>;
     fn get_by_id(&self, id: &str) -> QueryResponse<Option<WebHook>>;
     fn get_by_state(&self, state: WebHookState) -> QueryResponse<Vec<WebHook>>;
@@ -42,6 +43,14 @@ impl WebHookHelper for WebHookHelperDatabase {
         trace!("Inserting WebHook: {:#?}", hook);
         Ok(insert_into(web_hooks::dsl::web_hooks)
             .values(hook)
+            .execute(&mut self.pool.get()?)?)
+    }
+
+    #[instrument(skip_all, fields(swap_id = id))]
+    fn delete_web_hook(&self, id: &str) -> QueryResponse<usize> {
+        trace!("Deleting WebHook of swap {}", id);
+        Ok(delete(web_hooks::dsl::web_hooks)
+            .filter(web_hooks::dsl::id.eq(id))
             .execute(&mut self.pool.get()?)?)
     }
 
@@ -228,6 +237,34 @@ pub mod test {
         };
         assert_eq!(helper.insert_web_hook(&hook).unwrap(), 1);
         assert!(helper.insert_web_hook(&hook).err().is_some());
+    }
+
+    #[test]
+    fn test_delete_web_hook() {
+        let helper = WebHookHelperDatabase::new(get_pool());
+
+        let hook = WebHook {
+            id: Alphanumeric.sample_string(&mut rand::thread_rng(), 16),
+            state: WebHookState::None.into(),
+            url: "https://some.thing".to_string(),
+            hash_swap_id: true,
+            status: None,
+        };
+        assert_eq!(helper.insert_web_hook(&hook).unwrap(), 1);
+
+        assert_eq!(helper.delete_web_hook(&hook.id).unwrap(), 1);
+        assert_eq!(helper.get_by_id(&hook.id).unwrap(), None);
+    }
+
+    #[test]
+    fn test_delete_web_hook_not_existing() {
+        let helper = WebHookHelperDatabase::new(get_pool());
+        assert_eq!(
+            helper
+                .delete_web_hook(&Alphanumeric.sample_string(&mut rand::thread_rng(), 16))
+                .unwrap(),
+            0
+        );
     }
 
     #[test]

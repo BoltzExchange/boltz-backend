@@ -68,6 +68,20 @@ describe('Sidecar', () => {
     });
   });
 
+  describe('deleteWebHook', () => {
+    test('should call the sidecar to delete a webhook', async () => {
+      const unaryNodeCall = jest.fn().mockResolvedValue(undefined);
+      sidecar['unaryNodeCall'] = unaryNodeCall;
+
+      await sidecar.deleteWebHook('swap-id');
+
+      expect(unaryNodeCall).toHaveBeenCalledTimes(1);
+      expect(unaryNodeCall).toHaveBeenCalledWith('deleteWebHook', {
+        id: 'swap-id',
+      });
+    });
+  });
+
   describe('subscribeSwapUpdates', () => {
     test('should serialize transaction confirmed flag', async () => {
       const stream = {

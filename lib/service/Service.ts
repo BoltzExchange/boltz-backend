@@ -1584,16 +1584,31 @@ class Service {
       );
 
     await this.createExtraFees(swap.id, fees.extraFee, extraFees);
+    const label = getSwapMemo(lightningCurrency, SwapType.Submarine);
+    let bip21 = this.paymentRequestUtils.encodeBip21(
+      chainCurrency,
+      swap.lockupAddress,
+      expectedAmount,
+      label,
+    );
+
+    if (chainCurrency === 'BTC' && lightningCurrency === 'BTC') {
+      try {
+        bip21 = await this.sidecar.getPayjoinUri(
+          swap.lockupAddress,
+          expectedAmount,
+          label,
+          swap.id,
+        );
+      } catch {
+        // Fall back to a standard BIP21 when Payjoin URI generation is unavailable.
+      }
+    }
 
     return {
       expectedAmount,
       acceptZeroConf,
-      bip21: this.paymentRequestUtils.encodeBip21(
-        chainCurrency,
-        swap.lockupAddress,
-        expectedAmount,
-        getSwapMemo(lightningCurrency, SwapType.Submarine),
-      )!,
+      bip21: bip21!,
     };
   };
 

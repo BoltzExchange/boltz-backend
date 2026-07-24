@@ -26,6 +26,11 @@ jobs:
           rust-version: ${{ matrix.rust-version }}
           cache-prefix: npm-rust-build
 
+      - name: Install payjoin tools
+        run: |
+          cargo install --git https://github.com/payjoin/rust-payjoin payjoin-cli
+          cargo install --git https://github.com/payjoin/rust-payjoin payjoin-mailroom
+
       - name: Start regtest
         id: start_regtest
         timeout-minutes: 10

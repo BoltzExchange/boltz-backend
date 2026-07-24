@@ -125,6 +125,8 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/SwapTreeLeaf'
      *         unilateralRefundWithoutBoltzLeaf:
      *           $ref: '#/components/schemas/SwapTreeLeaf'
+     *         nonInteractiveClaimLeaf:
+     *           $ref: '#/components/schemas/SwapTreeLeaf'
      */
 
     /**

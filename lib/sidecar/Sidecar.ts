@@ -292,6 +292,17 @@ class Sidecar extends BaseClient<
     >('createWebHook', req);
   };
 
+  public deleteWebHook = async (swapId: string) => {
+    const req: sidecarrpc.DeleteWebHookRequest = {
+      id: swapId,
+    };
+
+    await this.unaryNodeCall<
+      sidecarrpc.DeleteWebHookRequest,
+      sidecarrpc.DeleteWebHookResponse
+    >('deleteWebHook', req);
+  };
+
   public claimBatch = async (swapIds: string[]) => {
     const req: sidecarrpc.ClaimBatchRequest = {
       swapIds,

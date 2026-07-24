@@ -220,6 +220,7 @@ mod server_test {
 
         impl WebHookHelper for WebHookHelper {
             fn insert_web_hook(&self, hook: &WebHook) -> QueryResponse<usize>;
+            fn delete_web_hook(&self, id: &str) -> QueryResponse<usize>;
             fn set_state(&self, id: &str, state: WebHookState) -> QueryResponse<usize>;
             fn get_by_id(&self, id: &str) -> QueryResponse<Option<WebHook>>;
             fn get_by_state(&self, state: WebHookState) -> QueryResponse<Vec<WebHook>>;

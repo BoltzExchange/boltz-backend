@@ -15,6 +15,7 @@ service BoltzR {
 
   rpc StartWebHookRetries (StartWebHookRetriesRequest) returns (StartWebHookRetriesResponse);
   rpc CreateWebHook (CreateWebHookRequest) returns (CreateWebHookResponse);
+  rpc DeleteWebHook (DeleteWebHookRequest) returns (DeleteWebHookResponse);
   rpc SendWebHook (SendWebHookRequest) returns (SendWebHookResponse);
 
   rpc ClaimBatch (ClaimBatchRequest) returns (ClaimBatchResponse);
@@ -111,6 +112,11 @@ message CreateWebHookRequest {
   repeated string status = 4;
 }
 message CreateWebHookResponse {}
+
+message DeleteWebHookRequest {
+  string id = 1;
+}
+message DeleteWebHookResponse {}
 
 message SendWebHookRequest {
   string id = 1;

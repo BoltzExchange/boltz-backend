@@ -402,6 +402,9 @@ class SwapManager {
 
     // Only required for UTXO based chains
     refundPublicKey?: Buffer;
+
+    // Pre-generated swap id; when omitted a new one is generated
+    id?: string;
   }): Promise<CreatedSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
@@ -413,7 +416,7 @@ class SwapManager {
       throw Errors.NO_LIGHTNING_SUPPORT(sendingCurrency.symbol);
     }
 
-    const id = generateSwapId(args.version);
+    const id = args.id ?? generateSwapId(args.version);
 
     this.logger.verbose(
       `Creating new ${swapVersionToString(args.version)} Swap from ${
@@ -811,6 +814,9 @@ class SwapManager {
     descriptionHash?: Buffer;
 
     invoiceExpiry?: number;
+
+    // Pre-generated swap id; when omitted a new one is generated
+    id?: string;
   }): Promise<CreatedReverseSwap> => {
     const isInvoice = args.invoice !== undefined;
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
@@ -828,7 +834,7 @@ class SwapManager {
       throw Errors.NO_LIGHTNING_SUPPORT(receivingCurrency.symbol);
     }
 
-    const id = generateSwapId(args.version);
+    const id = args.id ?? generateSwapId(args.version);
 
     this.logger.verbose(
       `Creating new ${swapVersionToString(args.version)} Reverse Swap from ${
@@ -1206,6 +1212,9 @@ class SwapManager {
     receivingTimeoutBlockDelta: number;
 
     referralId?: string;
+
+    // Pre-generated swap id; when omitted a new one is generated
+    id?: string;
   }): Promise<CreatedChainSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
@@ -1213,7 +1222,7 @@ class SwapManager {
       args.orderSide,
     );
 
-    const id = generateSwapId(SwapVersion.Taproot);
+    const id = args.id ?? generateSwapId(SwapVersion.Taproot);
 
     this.logger.verbose(
       `Creating new ${swapVersionToString(SwapVersion.Taproot)} Chain Swap from ${

@@ -8,14 +8,15 @@ use crate::grpc::service::boltzr::{
     Block, BlockAddedRequest, Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CheckTransactionRequest,
     CheckTransactionResponse, ClaimBatchRequest, ClaimBatchResponse, CreateWebHookRequest,
     CreateWebHookResponse, DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse,
-    EstimateFeeRequest, EstimateFeeResponse, Feature, GetInfoRequest, GetInfoResponse,
-    GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse, LogLevel,
-    RelevantTransaction, RelevantTransactionRequest, RescanChainsRequest, RescanChainsResponse,
-    SendMessageRequest, SendMessageResponse, SendSwapUpdateRequest, SendSwapUpdateResponse,
-    SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse,
-    SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
-    StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest, SwapUpdateResponse,
-    TransactionStatus, bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response,
+    DeleteWebHookRequest, DeleteWebHookResponse, EstimateFeeRequest, EstimateFeeResponse, Feature,
+    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest,
+    IsMarkedResponse, LogLevel, RelevantTransaction, RelevantTransactionRequest,
+    RescanChainsRequest, RescanChainsResponse, SendMessageRequest, SendMessageResponse,
+    SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
+    SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
+    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
+    SwapUpdateResponse, TransactionStatus, bolt11_invoice, bolt12_invoice,
+    decode_invoice_or_offer_response,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
@@ -337,6 +338,20 @@ where
         }) {
             Ok(_) => Ok(Response::new(CreateWebHookResponse {})),
             Err(err) => Err(Status::new(Code::InvalidArgument, err.to_string())),
+        }
+    }
+
+    #[instrument(name = "grpc::delete_web_hook", skip_all)]
+    async fn delete_web_hook(
+        &self,
+        request: Request<DeleteWebHookRequest>,
+    ) -> Result<Response<DeleteWebHookResponse>, Status> {
+        let params = request.into_inner();
+        debug!("Deleting WebHook for swap {}", params.id);
+
+        match self.web_hook_helper.delete_web_hook(&params.id) {
+            Ok(_) => Ok(Response::new(DeleteWebHookResponse {})),
+            Err(err) => Err(Status::new(Code::Internal, err.to_string())),
         }
     }
 
@@ -823,9 +838,9 @@ mod test {
     use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
     use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
     use crate::grpc::service::boltzr::{
-        CreateWebHookRequest, CreateWebHookResponse, GetInfoRequest, GetInfoResponse,
-        SendWebHookRequest, SendWebHookResponse, SignEvmRefundRequest, StartWebHookRetriesRequest,
-        StartWebHookRetriesResponse,
+        CreateWebHookRequest, CreateWebHookResponse, DeleteWebHookRequest, DeleteWebHookResponse,
+        GetInfoRequest, GetInfoResponse, SendWebHookRequest, SendWebHookResponse,
+        SignEvmRefundRequest, StartWebHookRetriesRequest, StartWebHookRetriesResponse,
     };
     use crate::grpc::status_fetcher::StatusFetcher;
     use crate::notifications::commands::Commands;
@@ -908,6 +923,7 @@ mod test {
 
         impl WebHookHelper for WebHookHelper {
             fn insert_web_hook(&self, hook: &WebHook) -> QueryResponse<usize>;
+            fn delete_web_hook(&self, id: &str) -> QueryResponse<usize>;
             fn set_state(&self, id: &str, state: WebHookState) -> QueryResponse<usize>;
             fn get_by_id(&self, id: &str) -> QueryResponse<Option<WebHook>>;
             fn get_by_state(&self, state: WebHookState) -> QueryResponse<Vec<WebHook>>;
@@ -999,6 +1015,20 @@ mod test {
             .unwrap();
         assert_eq!(err.code(), Code::InvalidArgument);
         assert_eq!(err.message(), "relative URL without a base");
+    }
+
+    #[tokio::test]
+    async fn test_delete_web_hook() {
+        let (_, svc) = make_service().await;
+        assert_eq!(
+            svc.delete_web_hook(Request::new(DeleteWebHookRequest {
+                id: "id".to_string(),
+            }))
+            .await
+            .unwrap()
+            .into_inner(),
+            DeleteWebHookResponse {}
+        );
     }
 
     #[tokio::test]
@@ -1198,6 +1228,7 @@ mod test {
             .expect_get_by_state()
             .returning(|_| Ok(Vec::new()));
         hook_helper.expect_insert_web_hook().returning(|_| Ok(1));
+        hook_helper.expect_delete_web_hook().returning(|_| Ok(1));
         hook_helper.expect_set_state().returning(|_, _| Ok(1));
         hook_helper.expect_clone().returning(make_mock_hook_helper);
 

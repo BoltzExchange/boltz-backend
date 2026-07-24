@@ -1674,6 +1674,34 @@ describe('SwapRouter', () => {
     });
   });
 
+  test('should propagate the error when webhook registration fails', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      invoice: 'lni',
+      claimPublicKey: '21',
+      metadata: validMetadata,
+      webhook: {
+        url: 'test',
+        hashSwapId: false,
+      },
+    };
+    const error = { message: 'could not register webhook' };
+    const res = mockResponse();
+    (service.createReverseSwap as jest.Mock).mockRejectedValueOnce(error);
+
+    await expect(
+      swapRouter['createReverse'](mockRequest(reqBody), res),
+    ).rejects.toEqual(error);
+
+    // A failed webhook registration aborts the whole request; the creation
+    // tail must not run
+    expect(SwapMetadataRepository.set).not.toHaveBeenCalled();
+    expect(MarkedSwapRepository.addMarkedSwap).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
+  });
+
   test('should create reverse swaps with extraFees', async () => {
     const reqBody = {
       to: 'L-BTC',

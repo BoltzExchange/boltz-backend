@@ -152,7 +152,7 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
       );
 
@@ -163,6 +163,28 @@ describe('SwapRepository', () => {
       expect(result.swap.lockupTransactionVout).toEqual(0);
     });
 
+    test('should write a failure and its reason in one call', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+
+      const result = await SwapRepository.setLockupTransaction(
+        swap,
+        'lockup-a',
+        100_000,
+        {
+          status: SwapUpdateEvent.TransactionLockupFailed,
+          failureReason: 'not enough',
+        },
+        0,
+      );
+
+      expect(result.outcome).toEqual(LockupWriteOutcome.Acquired);
+      expect(result.swap.status).toEqual(
+        SwapUpdateEvent.TransactionLockupFailed,
+      );
+      expect(result.swap.failureReason).toEqual('not enough');
+      expect(result.swap.lockupTransactionId).toEqual('lockup-a');
+    });
+
     test('should reject when the swap does not exist anymore', async () => {
       const swap = await Swap.create(createSubmarineSwapData());
       await swap.destroy();
@@ -171,7 +193,7 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
       );
 
@@ -193,7 +215,7 @@ describe('SwapRepository', () => {
         swap,
         'initial-lockup',
         123_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         1,
       );
       await SwapRepository.setSwapStatus(swap, status);
@@ -202,7 +224,7 @@ describe('SwapRepository', () => {
         swap,
         'stale-lockup',
         321_000,
-        SwapUpdateEvent.TransactionMempool,
+        { status: SwapUpdateEvent.TransactionMempool },
         2,
       );
 
@@ -226,7 +248,7 @@ describe('SwapRepository', () => {
           swap,
           'lockup-a',
           100_000,
-          SwapUpdateEvent.TransactionConfirmed,
+          { status: SwapUpdateEvent.TransactionConfirmed },
           0,
         );
 
@@ -242,14 +264,14 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
       );
       const result = await SwapRepository.setLockupTransaction(
         swap,
         'lockup-b',
         1_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         1,
       );
 
@@ -268,14 +290,14 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         5,
       );
       const result = await SwapRepository.setLockupTransaction(
         swap,
         'lockup-a',
         1_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         7,
       );
 
@@ -292,14 +314,14 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionMempool,
+        { status: SwapUpdateEvent.TransactionMempool },
         0,
       );
       const result = await SwapRepository.setLockupTransaction(
         swap,
         'lockup-b',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         1,
       );
 
@@ -317,14 +339,17 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         1_000,
-        SwapUpdateEvent.TransactionLockupFailed,
+        {
+          status: SwapUpdateEvent.TransactionLockupFailed,
+          failureReason: 'lockup failed',
+        },
         0,
       );
       const result = await SwapRepository.setLockupTransaction(
         swap,
         'lockup-b',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         1,
       );
 
@@ -332,6 +357,7 @@ describe('SwapRepository', () => {
       expect(result.outcome).toEqual(LockupWriteOutcome.Acquired);
       expect(swap.status).toEqual(SwapUpdateEvent.TransactionConfirmed);
       expect(swap.lockupTransactionId).toEqual('lockup-b');
+      expect(swap.failureReason).toBeNull();
     });
 
     test('should let a valid lockup take over from a zero-conf rejected one', async () => {
@@ -341,7 +367,7 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionMempool,
+        { status: SwapUpdateEvent.TransactionMempool },
         0,
       );
       await SwapRepository.setSwapStatus(
@@ -352,7 +378,7 @@ describe('SwapRepository', () => {
         swap,
         'lockup-b',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         1,
       );
 
@@ -370,14 +396,14 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionMempool,
+        { status: SwapUpdateEvent.TransactionMempool },
         0,
       );
       const result = await SwapRepository.setLockupTransaction(
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
       );
 
@@ -394,14 +420,17 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
       );
       const result = await SwapRepository.setLockupTransaction(
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionLockupFailed,
+        {
+          status: SwapUpdateEvent.TransactionLockupFailed,
+          failureReason: 'lockup failed',
+        },
         0,
       );
 
@@ -418,14 +447,14 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
       );
       const result = await SwapRepository.setLockupTransaction(
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionMempool,
+        { status: SwapUpdateEvent.TransactionMempool },
         0,
       );
 
@@ -438,17 +467,14 @@ describe('SwapRepository', () => {
     test('should match and backfill when the stored lockup has no vout', async () => {
       const swap = await Swap.create(createSubmarineSwapData());
 
-      await SwapRepository.setLockupTransaction(
-        swap,
-        'lockup-a',
-        100_000,
-        SwapUpdateEvent.TransactionMempool,
-      );
+      await SwapRepository.setLockupTransaction(swap, 'lockup-a', 100_000, {
+        status: SwapUpdateEvent.TransactionMempool,
+      });
       const result = await SwapRepository.setLockupTransaction(
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         3,
       );
 
@@ -465,20 +491,114 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionMempool,
+        { status: SwapUpdateEvent.TransactionMempool },
         2,
       );
       const result = await SwapRepository.setLockupTransaction(
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
       );
 
       await swap.reload();
       expect(result.outcome).toEqual(LockupWriteOutcome.Idempotent);
       expect(swap.status).toEqual(SwapUpdateEvent.TransactionConfirmed);
       expect(swap.lockupTransactionVout).toEqual(2);
+    });
+  });
+
+  describe('setLockupFailed', () => {
+    const failLockup = (swap: Swap) =>
+      SwapRepository.setLockupFailed(
+        swap,
+        { transactionId: 'lockup-a', vout: 0 },
+        'not enough',
+      );
+
+    const recordLockup = (swap: Swap) =>
+      SwapRepository.setLockupTransaction(
+        swap,
+        'lockup-a',
+        100_000,
+        { status: SwapUpdateEvent.TransactionConfirmed },
+        0,
+      );
+
+    test('should write the status and its reason in one call', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+      await recordLockup(swap);
+
+      const result = await failLockup(swap);
+
+      expect(result.outcome).toEqual(LockupWriteOutcome.Acquired);
+      expect(result.swap.status).toEqual(
+        SwapUpdateEvent.TransactionLockupFailed,
+      );
+      expect(result.swap.failureReason).toEqual('not enough');
+    });
+
+    test('should reject a lockup that does not own the swap', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+      await recordLockup(swap);
+
+      const result = await SwapRepository.setLockupFailed(
+        swap,
+        { transactionId: 'lockup-b', vout: 0 },
+        'not enough',
+      );
+
+      expect(result.outcome).toEqual(LockupWriteOutcome.Rejected);
+      expect(result.swap.status).toEqual(SwapUpdateEvent.TransactionConfirmed);
+      expect(result.swap.failureReason).toBeNull();
+    });
+
+    test.each([1, null, undefined])(
+      'should reject another vout (%p) of the recorded transaction',
+      async (vout) => {
+        const swap = await Swap.create(createSubmarineSwapData());
+        await recordLockup(swap);
+
+        const result = await SwapRepository.setLockupFailed(
+          swap,
+          { transactionId: 'lockup-a', vout },
+          'not enough',
+        );
+
+        expect(result.outcome).toEqual(LockupWriteOutcome.Rejected);
+        expect(result.swap.status).toEqual(
+          SwapUpdateEvent.TransactionConfirmed,
+        );
+        expect(result.swap.failureReason).toBeNull();
+      },
+    );
+
+    test('should reject when no lockup was recorded yet', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+
+      const result = await failLockup(swap);
+
+      expect(result.outcome).toEqual(LockupWriteOutcome.Rejected);
+      expect(result.swap.failureReason).toBeNull();
+    });
+
+    test.each([
+      SwapUpdateEvent.InvoicePending,
+      SwapUpdateEvent.InvoicePaid,
+      SwapUpdateEvent.InvoiceFailedToPay,
+      SwapUpdateEvent.TransactionClaimPending,
+      SwapUpdateEvent.TransactionClaimed,
+      SwapUpdateEvent.SwapExpired,
+    ])('should reject a swap that moved on to %s', async (status) => {
+      const swap = await Swap.create(createSubmarineSwapData());
+      await recordLockup(swap);
+      await SwapRepository.setSwapStatus(swap, status);
+
+      const result = await failLockup(swap);
+
+      expect(result.outcome).toEqual(LockupWriteOutcome.Rejected);
+      expect(result.swap.status).toEqual(status);
+      expect(result.swap.failureReason).toBeNull();
     });
   });
 
@@ -489,7 +609,7 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionMempool,
+        { status: SwapUpdateEvent.TransactionMempool },
         0,
       );
 
@@ -510,7 +630,7 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
       );
 
@@ -529,7 +649,7 @@ describe('SwapRepository', () => {
         swap,
         'lockup-a',
         100_000,
-        SwapUpdateEvent.TransactionMempool,
+        { status: SwapUpdateEvent.TransactionMempool },
         0,
       );
 

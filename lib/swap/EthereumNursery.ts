@@ -20,7 +20,8 @@ import {
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
-import { LockupWriteOutcome } from '../db/LockupIdentity';
+import type { LockupIdentity, LockupTarget } from '../db/LockupIdentity';
+import { LockupWriteOutcome, formatLockupIdentity } from '../db/LockupIdentity';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type {
@@ -35,7 +36,10 @@ import type Wallet from '../wallet/Wallet';
 import type WalletManager from '../wallet/WalletManager';
 import type EthereumManager from '../wallet/ethereum/EthereumManager';
 import type ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
-import { shouldIgnoreCompetingLockup } from './CompetingLockup';
+import {
+  getLockupIdentity,
+  shouldIgnoreCompetingLockup,
+} from './CompetingLockup';
 import Errors from './Errors';
 import EthereumTransactionConfirmationTracker from './EthereumConfirmationTracker';
 import type OverpaymentProtector from './OverpaymentProtector';
@@ -46,16 +50,14 @@ class EthereumNursery extends TypedEventEmitter<{
   // EtherSwap
   'eth.lockup': {
     swap: Swap | ChainSwapInfo;
-    transactionHash: string;
-    logIndex: number;
+    lockup: LockupIdentity;
     etherSwapValues: EtherSwapValues;
   };
 
   // ERC20Swap
   'erc20.lockup': {
     swap: Swap | ChainSwapInfo;
-    transactionHash: string;
-    logIndex: number;
+    lockup: LockupIdentity;
     erc20SwapValues: ERC20SwapValues;
   };
 
@@ -161,32 +163,6 @@ class EthereumNursery extends TypedEventEmitter<{
     this.contractTransactionTracker.trackTransaction(swap, transaction.hash);
   };
 
-  private isCompetingLockup = (
-    swap: Swap | ChainSwapInfo,
-    incomingId: string,
-    incomingVout: number,
-  ): boolean =>
-    shouldIgnoreCompetingLockup({
-      prevId:
-        swap.type === SwapType.Submarine
-          ? (swap as Swap).lockupTransactionId
-          : (swap as ChainSwapInfo).receivingData.transactionId,
-      prevVout:
-        swap.type === SwapType.Submarine
-          ? (swap as Swap).lockupTransactionVout
-          : (swap as ChainSwapInfo).receivingData.transactionVout,
-      incomingId,
-      incomingVout,
-      recordedStatus: swap.status as SwapUpdateEvent,
-    });
-
-  private static shouldEmitLockupFailed = (
-    swap: Swap | ChainSwapInfo,
-    outcome: LockupWriteOutcome,
-  ): boolean =>
-    swap.status === SwapUpdateEvent.TransactionLockupFailed &&
-    (outcome === LockupWriteOutcome.Acquired || swap.failureReason == null);
-
   private validateEtherSwapLockup = async (
     swap: Swap | ChainSwapInfo,
     transaction: Transaction | TransactionResponse,
@@ -252,8 +228,7 @@ class EthereumNursery extends TypedEventEmitter<{
 
   private processLockup = async ({
     swap,
-    transaction,
-    logIndex,
+    lockup,
     lockReason,
     contractName,
     lockupAmount,
@@ -263,8 +238,7 @@ class EthereumNursery extends TypedEventEmitter<{
     options,
   }: {
     swap: Swap | ChainSwapInfo;
-    transaction: Transaction | TransactionResponse;
-    logIndex: number;
+    lockup: LockupIdentity & { vout: number };
     lockReason: string;
     contractName: string;
     lockupAmount: number;
@@ -275,43 +249,52 @@ class EthereumNursery extends TypedEventEmitter<{
   }) =>
     this.lock.acquire(swap.id, lockReason, async () => {
       this.logger.debug(
-        `Found lockup in ${this.ethereumManager.networkDetails.name} ${contractName} contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
+        `Found lockup in ${this.ethereumManager.networkDetails.name} ${contractName} contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${lockup.transactionId}`,
       );
 
-      if (this.isCompetingLockup(swap, transaction.hash!, logIndex)) {
+      if (
+        shouldIgnoreCompetingLockup({
+          incoming: lockup,
+          recorded: getLockupIdentity(swap),
+          recordedStatus: swap.status as SwapUpdateEvent,
+        })
+      ) {
         this.logger.debug(
-          `Ignoring competing lockup transaction ${transaction.hash} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+          `Ignoring competing lockup transaction ${lockup.transactionId} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
         );
         return;
       }
 
       const reason = await validate();
-      const status =
+      const target: LockupTarget =
         reason === undefined
-          ? SwapUpdateEvent.TransactionConfirmed
-          : SwapUpdateEvent.TransactionLockupFailed;
+          ? { status: SwapUpdateEvent.TransactionConfirmed }
+          : {
+              status: SwapUpdateEvent.TransactionLockupFailed,
+              failureReason: reason,
+            };
 
       const result =
         swap.type === SwapType.Submarine
           ? await SwapRepository.setLockupTransaction(
               swap as Swap,
-              transaction.hash!,
+              lockup.transactionId,
               lockupAmount,
-              status,
-              logIndex,
+              target,
+              lockup.vout,
             )
           : await ChainSwapRepository.setUserLockupTransaction(
               swap as ChainSwapInfo,
-              transaction.hash!,
+              lockup.transactionId,
               lockupAmount,
-              status,
-              logIndex,
+              target,
+              lockup.vout,
               options,
             );
 
       if (result.outcome === LockupWriteOutcome.Rejected) {
         this.logger.warn(
-          `Ignoring lockup transaction ${transaction.hash}:${logIndex} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because another lockup owns it`,
+          `Ignoring lockup transaction ${formatLockupIdentity(lockup)} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because another lockup owns it`,
         );
         return;
       }
@@ -329,8 +312,12 @@ class EthereumNursery extends TypedEventEmitter<{
       }
 
       if (reason !== undefined) {
-        if (EthereumNursery.shouldEmitLockupFailed(updated, result.outcome)) {
+        if (result.written) {
           this.emit('lockup.failed', { swap: updated, reason });
+        } else {
+          this.logger.debug(
+            `Not failing lockup ${formatLockupIdentity(lockup)} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because the Swap moved on: ${reason}`,
+          );
         }
         return;
       }
@@ -375,10 +362,11 @@ class EthereumNursery extends TypedEventEmitter<{
       return;
     }
 
+    const lockup = { transactionId: transaction.hash!, vout: logIndex };
+
     await this.processLockup({
       swap,
-      transaction,
-      logIndex,
+      lockup,
       options,
       lockReason: 'checkEtherSwapLockup',
       contractName: 'EtherSwap',
@@ -388,10 +376,9 @@ class EthereumNursery extends TypedEventEmitter<{
         this.validateEtherSwapLockup(swap, transaction, etherSwapValues),
       emitLockup: (updated) => {
         this.emit('eth.lockup', {
-          swap: updated,
+          lockup,
           etherSwapValues,
-          logIndex,
-          transactionHash: transaction.hash!,
+          swap: updated,
         });
       },
     });
@@ -485,10 +472,11 @@ class EthereumNursery extends TypedEventEmitter<{
 
     const erc20Wallet = wallet.walletProvider as ERC20WalletProvider;
 
+    const lockup = { transactionId: transaction.hash!, vout: logIndex };
+
     await this.processLockup({
       swap,
-      transaction,
-      logIndex,
+      lockup,
       options,
       lockReason: 'checkErc20SwapLockup',
       contractName: 'ERC20Swap',
@@ -504,10 +492,9 @@ class EthereumNursery extends TypedEventEmitter<{
         ),
       emitLockup: (updated) => {
         this.emit('erc20.lockup', {
-          swap: updated,
+          lockup,
           erc20SwapValues,
-          logIndex,
-          transactionHash: transaction.hash!,
+          swap: updated,
         });
       },
     });

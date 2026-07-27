@@ -4,7 +4,9 @@ import {
   LockupWriteOutcome,
   canTakeOverLockup,
   decideLockupWrite,
+  formatLockupIdentity,
   isSameLockup,
+  ownsLockup,
   shouldWriteZeroConfRejection,
 } from '../../../lib/db/LockupIdentity';
 
@@ -45,6 +47,69 @@ describe('LockupIdentity', () => {
         ).toEqual(true);
       },
     );
+  });
+
+  describe('ownsLockup', () => {
+    test('should match identical lockups', () => {
+      expect(ownsLockup(owner, { ...owner })).toEqual(true);
+    });
+
+    test('should not match different transactions', () => {
+      expect(ownsLockup(owner, other)).toEqual(false);
+    });
+
+    test('should not match another vout of the same transaction', () => {
+      expect(
+        ownsLockup(owner, { transactionId: owner.transactionId, vout: 2 }),
+      ).toEqual(false);
+    });
+
+    test.each`
+      recordedVout | incomingVout
+      ${null}      | ${2}
+      ${undefined} | ${2}
+      ${2}         | ${null}
+      ${2}         | ${undefined}
+    `(
+      'should not match when a vout is missing ($recordedVout, $incomingVout)',
+      ({ recordedVout, incomingVout }) => {
+        const recorded = {
+          transactionId: owner.transactionId,
+          vout: recordedVout,
+        };
+        const incoming = {
+          transactionId: owner.transactionId,
+          vout: incomingVout,
+        };
+
+        expect(ownsLockup(recorded, incoming)).toEqual(false);
+        expect(isSameLockup(recorded, incoming)).toEqual(true);
+      },
+    );
+
+    test.each`
+      recordedVout | incomingVout
+      ${null}      | ${null}
+      ${null}      | ${undefined}
+      ${undefined} | ${null}
+      ${undefined} | ${undefined}
+    `(
+      'should match when neither side has a vout ($recordedVout, $incomingVout)',
+      ({ recordedVout, incomingVout }) => {
+        expect(
+          ownsLockup(
+            { transactionId: owner.transactionId, vout: recordedVout },
+            { transactionId: owner.transactionId, vout: incomingVout },
+          ),
+        ).toEqual(true);
+      },
+    );
+  });
+
+  describe('formatLockupIdentity', () => {
+    test('should format a lockup as its outpoint', () => {
+      expect(formatLockupIdentity(owner)).toEqual(`${owner.transactionId}:1`);
+    });
   });
 
   describe('canTakeOverLockup', () => {

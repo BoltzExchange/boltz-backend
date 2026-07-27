@@ -1,18 +1,72 @@
-import { SwapUpdateEvent } from '../../../lib/consts/Enums';
-import { shouldIgnoreCompetingLockup } from '../../../lib/swap/CompetingLockup';
+import { SwapType, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import type Swap from '../../../lib/db/models/Swap';
+import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
+import {
+  getLockupIdentity,
+  shouldIgnoreCompetingLockup,
+} from '../../../lib/swap/CompetingLockup';
+
+describe('getLockupIdentity', () => {
+  test('should read the lockup of a Submarine Swap', () => {
+    expect(
+      getLockupIdentity({
+        type: SwapType.Submarine,
+        lockupTransactionId: 'a'.repeat(64),
+        lockupTransactionVout: 1,
+      } as Swap),
+    ).toEqual({ transactionId: 'a'.repeat(64), vout: 1 });
+  });
+
+  test('should read the receiving lockup of a Chain Swap', () => {
+    expect(
+      getLockupIdentity({
+        type: SwapType.Chain,
+        receivingData: {
+          transactionId: 'b'.repeat(64),
+          transactionVout: 2,
+        },
+      } as ChainSwapInfo),
+    ).toEqual({ transactionId: 'b'.repeat(64), vout: 2 });
+  });
+
+  test.each([undefined, null])(
+    'should be null when no lockup was recorded (%p)',
+    (transactionId) => {
+      expect(
+        getLockupIdentity({
+          type: SwapType.Submarine,
+          lockupTransactionId: transactionId,
+        } as Swap),
+      ).toBeNull();
+      expect(
+        getLockupIdentity({
+          type: SwapType.Chain,
+          receivingData: { transactionId },
+        } as ChainSwapInfo),
+      ).toBeNull();
+    },
+  );
+
+  test('should keep a missing vout', () => {
+    expect(
+      getLockupIdentity({
+        type: SwapType.Submarine,
+        lockupTransactionId: 'a'.repeat(64),
+        lockupTransactionVout: null,
+      } as unknown as Swap),
+    ).toEqual({ transactionId: 'a'.repeat(64), vout: null });
+  });
+});
 
 describe('shouldIgnoreCompetingLockup', () => {
   const base = {
-    prevId: 'a'.repeat(64),
-    incomingId: 'b'.repeat(64),
+    recorded: { transactionId: 'a'.repeat(64) },
+    incoming: { transactionId: 'b'.repeat(64) },
     recordedStatus: SwapUpdateEvent.TransactionMempool,
   };
 
   test('should proceed when no lockup is recorded yet', () => {
-    expect(shouldIgnoreCompetingLockup({ ...base, prevId: undefined })).toEqual(
-      false,
-    );
-    expect(shouldIgnoreCompetingLockup({ ...base, prevId: null })).toEqual(
+    expect(shouldIgnoreCompetingLockup({ ...base, recorded: null })).toEqual(
       false,
     );
   });
@@ -21,9 +75,8 @@ describe('shouldIgnoreCompetingLockup', () => {
     expect(
       shouldIgnoreCompetingLockup({
         ...base,
-        incomingId: base.prevId,
-        prevVout: 5,
-        incomingVout: 5,
+        recorded: { transactionId: base.recorded.transactionId, vout: 5 },
+        incoming: { transactionId: base.recorded.transactionId, vout: 5 },
       }),
     ).toEqual(false);
   });
@@ -32,9 +85,8 @@ describe('shouldIgnoreCompetingLockup', () => {
     expect(
       shouldIgnoreCompetingLockup({
         ...base,
-        incomingId: base.prevId,
-        prevVout: 5,
-        incomingVout: 7,
+        recorded: { transactionId: base.recorded.transactionId, vout: 5 },
+        incoming: { transactionId: base.recorded.transactionId, vout: 7 },
       }),
     ).toEqual(true);
   });
@@ -43,17 +95,18 @@ describe('shouldIgnoreCompetingLockup', () => {
     expect(
       shouldIgnoreCompetingLockup({
         ...base,
-        incomingId: base.prevId,
-        prevVout: null,
-        incomingVout: 7,
+        recorded: { transactionId: base.recorded.transactionId, vout: null },
+        incoming: { transactionId: base.recorded.transactionId, vout: 7 },
       }),
     ).toEqual(false);
     expect(
       shouldIgnoreCompetingLockup({
         ...base,
-        incomingId: base.prevId,
-        prevVout: 5,
-        incomingVout: undefined,
+        recorded: { transactionId: base.recorded.transactionId, vout: 5 },
+        incoming: {
+          transactionId: base.recorded.transactionId,
+          vout: undefined,
+        },
       }),
     ).toEqual(false);
   });

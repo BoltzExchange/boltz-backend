@@ -13,10 +13,15 @@ import {
 } from '../../consts/Enums';
 import type { IncorrectAmountDetails } from '../../consts/Types';
 import Database from '../Database';
-import type { LockupTargetStatus, LockupWriteResult } from '../LockupIdentity';
+import type {
+  LockupIdentity,
+  LockupTarget,
+  LockupWriteResult,
+} from '../LockupIdentity';
 import {
   LockupWriteOutcome,
   decideLockupWrite,
+  ownsLockup,
   shouldWriteZeroConfRejection,
 } from '../LockupIdentity';
 import type { ChainSwapType } from '../models/ChainSwap';
@@ -343,29 +348,50 @@ class ChainSwapRepository {
       },
     );
 
+  // Locks the rows in a fixed order to keep concurrent writers from deadlocking
+  private static lockChainSwapForUpdate = async (
+    swap: ChainSwapInfo,
+    transaction: Transaction,
+  ): Promise<{ current: ChainSwap; currentData: ChainSwapData } | null> => {
+    const current = await ChainSwap.findOne({
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+      where: { id: swap.id },
+    });
+    if (current === null) {
+      return null;
+    }
+
+    const currentData = await ChainSwapData.findOne({
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+      where: { swapId: swap.id, symbol: swap.receivingData.symbol },
+    });
+    if (currentData === null) {
+      return null;
+    }
+
+    return { current, currentData };
+  };
+
   public static setUserLockupTransaction = async (
     swap: ChainSwapInfo,
     lockupTransactionId: string,
     onchainAmount: number,
-    status: LockupTargetStatus,
+    target: LockupTarget,
     lockupTransactionVout?: number,
     options?: UserLockupTransactionOptions,
   ): Promise<LockupWriteResult<ChainSwapInfo>> => {
-    const outcome = await Database.sequelize.transaction(
+    const decision = await Database.sequelize.transaction(
       async (transaction) => {
-        const current = await ChainSwap.findOne({
+        const locked = await ChainSwapRepository.lockChainSwapForUpdate(
+          swap,
           transaction,
-          lock: transaction.LOCK.UPDATE,
-          where: { id: swap.id },
-        });
-        const currentData = await ChainSwapData.findOne({
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-          where: { swapId: swap.id, symbol: swap.receivingData.symbol },
-        });
-        if (current === null || currentData === null) {
-          return LockupWriteOutcome.Rejected;
+        );
+        if (locked === null) {
+          return { outcome: LockupWriteOutcome.Rejected, write: false };
         }
+        const { current, currentData } = locked;
 
         const updatable = ChainSwapRepository.getUserLockupTransactionStatuses(
           options,
@@ -384,12 +410,22 @@ class ChainSwapRepository {
             vout: lockupTransactionVout,
           },
           currentStatus: current.status as SwapUpdateEvent,
-          targetStatus: status,
+          targetStatus: target.status,
           updatable,
         });
 
         if (decision.write) {
-          await current.update({ status }, { transaction });
+          await current.update(
+            {
+              status: target.status,
+              // Always written to clear the reason of a lockup that failed before
+              failureReason:
+                target.status === SwapUpdateEvent.TransactionLockupFailed
+                  ? target.failureReason
+                  : null,
+            },
+            { transaction },
+          );
           await currentData.update(
             {
               amount: onchainAmount,
@@ -400,12 +436,65 @@ class ChainSwapRepository {
           );
         }
 
-        return decision.outcome;
+        return decision;
+      },
+    );
+
+    return {
+      outcome: decision.outcome,
+      written: decision.write,
+      swap: (await ChainSwapRepository.getChainSwap({ id: swap.id }))!,
+    };
+  };
+
+  public static setUserLockupFailed = async (
+    swap: ChainSwapInfo,
+    incoming: LockupIdentity,
+    failureReason: string,
+    options?: UserLockupTransactionOptions,
+  ): Promise<LockupWriteResult<ChainSwapInfo>> => {
+    const outcome = await Database.sequelize.transaction(
+      async (transaction) => {
+        const locked = await ChainSwapRepository.lockChainSwapForUpdate(
+          swap,
+          transaction,
+        );
+        if (locked === null) {
+          return LockupWriteOutcome.Rejected;
+        }
+        const { current, currentData } = locked;
+
+        if (
+          currentData.transactionId == null ||
+          !ownsLockup(
+            {
+              transactionId: currentData.transactionId,
+              vout: currentData.transactionVout,
+            },
+            incoming,
+          ) ||
+          !ChainSwapRepository.getUserLockupTransactionStatuses(
+            options,
+          ).includes(current.status as SwapUpdateEvent)
+        ) {
+          return LockupWriteOutcome.Rejected;
+        }
+
+        await current.update(
+          {
+            failureReason,
+            status: SwapUpdateEvent.TransactionLockupFailed,
+          },
+          { transaction },
+        );
+
+        return LockupWriteOutcome.Acquired;
       },
     );
 
     return {
       outcome,
+      written: outcome === LockupWriteOutcome.Acquired,
       swap: (await ChainSwapRepository.getChainSwap({ id: swap.id }))!,
     };
   };
@@ -416,19 +505,16 @@ class ChainSwapRepository {
     transactionVout?: number,
   ): Promise<ChainSwapInfo> => {
     await Database.sequelize.transaction(async (transaction) => {
-      const current = await ChainSwap.findOne({
+      const locked = await ChainSwapRepository.lockChainSwapForUpdate(
+        swap,
         transaction,
-        lock: transaction.LOCK.UPDATE,
-        where: { id: swap.id },
-      });
-      const currentData = await ChainSwapData.findOne({
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-        where: { swapId: swap.id, symbol: swap.receivingData.symbol },
-      });
+      );
+      if (locked === null) {
+        return;
+      }
+      const { current, currentData } = locked;
+
       if (
-        current === null ||
-        currentData === null ||
         !shouldWriteZeroConfRejection({
           existing:
             currentData.transactionId == null

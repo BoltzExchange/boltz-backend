@@ -453,7 +453,7 @@ describe('ChainSwapRepository', () => {
         }))!,
         txId,
         onchainAmount,
-        targetStatus,
+        { status: targetStatus },
         vout,
       );
 
@@ -475,7 +475,7 @@ describe('ChainSwapRepository', () => {
       } as ChainSwapInfo,
       'lockup-a',
       1_000,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       0,
     );
 
@@ -492,14 +492,14 @@ describe('ChainSwapRepository', () => {
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       amount,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       0,
     );
     const result = await ChainSwapRepository.setUserLockupTransaction(
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-b',
       1_000,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       1,
     );
 
@@ -518,14 +518,14 @@ describe('ChainSwapRepository', () => {
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       amount,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       5,
     );
     const result = await ChainSwapRepository.setUserLockupTransaction(
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       1_000,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       7,
     );
 
@@ -542,14 +542,17 @@ describe('ChainSwapRepository', () => {
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       amount,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       0,
     );
     const result = await ChainSwapRepository.setUserLockupTransaction(
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       amount,
-      SwapUpdateEvent.TransactionLockupFailed,
+      {
+        status: SwapUpdateEvent.TransactionLockupFailed,
+        failureReason: 'lockup failed',
+      },
       0,
     );
 
@@ -566,14 +569,14 @@ describe('ChainSwapRepository', () => {
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       amount,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       0,
     );
     const result = await ChainSwapRepository.setUserLockupTransaction(
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       amount,
-      SwapUpdateEvent.TransactionMempool,
+      { status: SwapUpdateEvent.TransactionMempool },
       0,
     );
 
@@ -590,14 +593,14 @@ describe('ChainSwapRepository', () => {
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       amount,
-      SwapUpdateEvent.TransactionMempool,
+      { status: SwapUpdateEvent.TransactionMempool },
       0,
     );
     const result = await ChainSwapRepository.setUserLockupTransaction(
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-b',
       amount,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       1,
     );
 
@@ -615,7 +618,7 @@ describe('ChainSwapRepository', () => {
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       amount,
-      SwapUpdateEvent.TransactionMempool,
+      { status: SwapUpdateEvent.TransactionMempool },
       0,
     );
     await initial.swap.chainSwap.update({
@@ -625,7 +628,7 @@ describe('ChainSwapRepository', () => {
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-b',
       amount,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       1,
     );
 
@@ -643,14 +646,14 @@ describe('ChainSwapRepository', () => {
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       amount,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       0,
     );
     const result = await ChainSwapRepository.setUserLockupTransaction(
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-b',
       amount,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       1,
       { allowLockupFailedUpdate: true },
     );
@@ -668,13 +671,13 @@ describe('ChainSwapRepository', () => {
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       amount,
-      SwapUpdateEvent.TransactionMempool,
+      { status: SwapUpdateEvent.TransactionMempool },
     );
     const result = await ChainSwapRepository.setUserLockupTransaction(
       (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
       'lockup-a',
       amount,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       3,
     );
 
@@ -693,7 +696,7 @@ describe('ChainSwapRepository', () => {
       queried,
       'tx',
       queried.receivingData.expectedAmount! + 1,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       1,
     );
 
@@ -709,13 +712,14 @@ describe('ChainSwapRepository', () => {
     const queried = (await ChainSwapRepository.getChainSwap({
       id: swap.chainSwap.id,
     }))!;
+    await queried.chainSwap.update({ failureReason: 'not enough' });
     const onchainAmount = queried.receivingData.expectedAmount! + 1;
 
     const result = await ChainSwapRepository.setUserLockupTransaction(
       queried,
       'tx',
       onchainAmount,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       1,
       { allowLockupFailedUpdate: true },
     );
@@ -725,6 +729,146 @@ describe('ChainSwapRepository', () => {
     expect(result.swap.receivingData.transactionId).toEqual('tx');
     expect(result.swap.receivingData.transactionVout).toEqual(1);
     expect(result.swap.receivingData.amount).toEqual(onchainAmount);
+    expect(result.swap.failureReason).toBeNull();
+  });
+
+  describe('setUserLockupFailed', () => {
+    const fetch = (id: string) =>
+      ChainSwapRepository.getChainSwap({ id }) as Promise<ChainSwapInfo>;
+
+    const recordLockup = async (id: string, vout = 0) =>
+      ChainSwapRepository.setUserLockupTransaction(
+        await fetch(id),
+        'lockup-a',
+        123_500,
+        { status: SwapUpdateEvent.TransactionConfirmed },
+        vout,
+        { allowLockupFailedUpdate: true },
+      );
+
+    const failLockup = async (
+      id: string,
+      lockup: { transactionId: string; vout?: number | null } = {
+        transactionId: 'lockup-a',
+        vout: 0,
+      },
+      options?: { allowLockupFailedUpdate?: boolean },
+    ) =>
+      ChainSwapRepository.setUserLockupFailed(
+        await fetch(id),
+        lockup,
+        'not enough',
+        options,
+      );
+
+    test('should write the status and its reason in one call', async () => {
+      const { chainSwap } = await createChainSwap();
+      await recordLockup(chainSwap.id);
+
+      const result = await failLockup(chainSwap.id);
+
+      expect(result.outcome).toEqual(LockupWriteOutcome.Acquired);
+      expect(result.written).toEqual(true);
+      expect(result.swap.status).toEqual(
+        SwapUpdateEvent.TransactionLockupFailed,
+      );
+      expect(result.swap.failureReason).toEqual('not enough');
+    });
+
+    test('should reject a lockup that does not own the swap', async () => {
+      const { chainSwap } = await createChainSwap();
+      await recordLockup(chainSwap.id);
+
+      const result = await failLockup(chainSwap.id, {
+        transactionId: 'lockup-b',
+        vout: 0,
+      });
+
+      expect(result.outcome).toEqual(LockupWriteOutcome.Rejected);
+      expect(result.written).toEqual(false);
+      expect(result.swap.status).toEqual(SwapUpdateEvent.TransactionConfirmed);
+      expect(result.swap.failureReason).toBeNull();
+    });
+
+    test.each([1, null, undefined])(
+      'should reject another vout (%p) of the recorded transaction',
+      async (vout) => {
+        const { chainSwap } = await createChainSwap();
+        await recordLockup(chainSwap.id);
+
+        const result = await failLockup(chainSwap.id, {
+          transactionId: 'lockup-a',
+          vout,
+        });
+
+        expect(result.outcome).toEqual(LockupWriteOutcome.Rejected);
+        expect(result.swap.status).toEqual(
+          SwapUpdateEvent.TransactionConfirmed,
+        );
+        expect(result.swap.failureReason).toBeNull();
+      },
+    );
+
+    test('should reject when no lockup was recorded yet', async () => {
+      const { chainSwap } = await createChainSwap();
+
+      const result = await failLockup(chainSwap.id);
+
+      expect(result.outcome).toEqual(LockupWriteOutcome.Rejected);
+      expect(result.swap.failureReason).toBeNull();
+    });
+
+    test.each([
+      SwapUpdateEvent.TransactionServerMempool,
+      SwapUpdateEvent.TransactionServerConfirmed,
+      SwapUpdateEvent.TransactionClaimPending,
+      SwapUpdateEvent.TransactionClaimed,
+      SwapUpdateEvent.SwapExpired,
+    ])('should reject a swap that moved on to %s', async (status) => {
+      const { chainSwap } = await createChainSwap();
+      await recordLockup(chainSwap.id);
+      await (await fetch(chainSwap.id)).chainSwap.update({ status });
+
+      const result = await failLockup(chainSwap.id);
+
+      expect(result.outcome).toEqual(LockupWriteOutcome.Rejected);
+      expect(result.swap.status).toEqual(status);
+      expect(result.swap.failureReason).toBeNull();
+    });
+
+    test('should not fail an already failed lockup by default', async () => {
+      const { chainSwap } = await createChainSwap();
+      await recordLockup(chainSwap.id);
+      await failLockup(chainSwap.id);
+
+      const result = await ChainSwapRepository.setUserLockupFailed(
+        await fetch(chainSwap.id),
+        { transactionId: 'lockup-a', vout: 0 },
+        'other reason',
+      );
+
+      expect(result.outcome).toEqual(LockupWriteOutcome.Rejected);
+      expect(result.swap.failureReason).toEqual('not enough');
+    });
+
+    test('should fail an already failed lockup when explicitly allowed', async () => {
+      const { chainSwap } = await createChainSwap();
+      await recordLockup(chainSwap.id);
+      await failLockup(chainSwap.id);
+
+      const result = await ChainSwapRepository.setUserLockupFailed(
+        await fetch(chainSwap.id),
+        { transactionId: 'lockup-a', vout: 0 },
+        'other reason',
+        { allowLockupFailedUpdate: true },
+      );
+
+      expect(result.outcome).toEqual(LockupWriteOutcome.Acquired);
+      expect(result.swap.status).toEqual(
+        SwapUpdateEvent.TransactionLockupFailed,
+      );
+      expect(result.swap.failureReason).toEqual('other reason');
+    });
   });
 
   describe('setZeroConfRejected', () => {
@@ -734,7 +878,7 @@ describe('ChainSwapRepository', () => {
         (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
         'lockup-a',
         swap.receivingData.expectedAmount! + 1,
-        SwapUpdateEvent.TransactionMempool,
+        { status: SwapUpdateEvent.TransactionMempool },
         0,
       );
 
@@ -755,7 +899,7 @@ describe('ChainSwapRepository', () => {
         (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
         'lockup-a',
         swap.receivingData.expectedAmount! + 1,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
       );
 
@@ -774,7 +918,7 @@ describe('ChainSwapRepository', () => {
         (await ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }))!,
         'lockup-a',
         swap.receivingData.expectedAmount! + 1,
-        SwapUpdateEvent.TransactionMempool,
+        { status: SwapUpdateEvent.TransactionMempool },
         0,
       );
 

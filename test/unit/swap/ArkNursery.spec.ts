@@ -23,6 +23,29 @@ describe('ArkNursery', () => {
     new OverpaymentProtector(Logger.disabledLogger),
   );
 
+  const lockupFailedWrite = async (
+    swap: any,
+    _lockup: any,
+    failureReason: string,
+  ) => ({
+    outcome: LockupWriteOutcome.Acquired,
+    written: true,
+    swap: {
+      ...swap,
+      failureReason,
+      status: SwapUpdateEvent.TransactionLockupFailed,
+    },
+  });
+
+  beforeEach(() => {
+    SwapRepository.setLockupFailed = jest
+      .fn()
+      .mockImplementation(lockupFailedWrite);
+    ChainSwapRepository.setUserLockupFailed = jest
+      .fn()
+      .mockImplementation(lockupFailedWrite);
+  });
+
   const claimTx = Transaction.fromPSBT(
     Buffer.from(
       'cHNidP8BAF4CAAAAAWPfskEdPmcBOdo0T5mn3q9HIcvmAypSMUXfPS9jfDE4AAAAAAD/////ASsIAAAAAAAAIlEgle/dbLckDE8iEbi89OvrKt3XVYzl7dbfwijm16D5Hc0AAAAAAAEBKysIAAAAAAAAIlEg8cE8bmnhX3pxvBuj8KK34xSci670SjK/tB89js+1FEZBFDAA8Bt0qzp+R0dFcWOo+qcf/V/kc02tu6IhIzBtSO/OtyFGcJzqh5wD/F1rqTBJKrFl74LpQNfQkrRhwpg9xNhA8Bc/3s7XznAkhMHiaQZR1jr9blFjKO5TAxczFrrByAlyx7WDMR/PxWSxJE10n4NCD/dToiGGKksdlVMUYGo4GUEUjSlkVbD0B82qdfrXguY1RmOt4k3tTKKVftBjq9Hrowi3IUZwnOqHnAP8XWupMEkqsWXvgulA19CStGHCmD3E2ECpF8c1EKlH4XJQN6iAHEzjA+s7SwD0pevfk/jjjouAAJaTXKWoB5bPghqzfnvqjrqVTKtxs5vo1GXSyuuKF/rtghXAUJKbdMGgSVS3i0tgNel6XgeKWg8o7JbVR7/ums6AOsDsoe3NA/skK3hvHck89R0toNx5H6OnbWhDseKnxjxh7MmMVDr5u9QcsOG72qzIKma9q2uRZN6/kzCPWoP57x3V6okLO9SOLLr71CkV3VzmJs1yRfQcr+pXgCkIz9D3nuNdqRQb35P0qMoenROI9+jSTFfvo835C4dpIDAA8Bt0qzp+R0dFcWOo+qcf/V/kc02tu6IhIzBtSO/OrSCNKWRVsPQHzap1+teC5jVGY63iTe1MopV+0GOr0eujCKzADP3/AGNvbmRpdGlvbiIBIHQRY1k+sfq4E+aYbfuyvZLZHHb49eLwTKXcZ+gXDh8ICv3/AHRhcHRyZWX9zgEGAcBcqRQb35P0qMoenROI9+jSTFfvo835C4dpIDAA8Bt0qzp+R0dFcWOo+qcf/V/kc02tu6IhIzBtSO/OrSCNKWRVsPQHzap1+teC5jVGY63iTe1MopV+0GOr0eujCKwBwGYgif9h5mAC+0zo4VcCQlqbx7zmUMSM+i7h4czTuukE1KmtIDAA8Bt0qzp+R0dFcWOo+qcf/V/kc02tu6IhIzBtSO/OrSCNKWRVsPQHzap1+teC5jVGY63iTe1MopV+0GOr0eujCKwBwEoDgLsAsXUgif9h5mAC+0zo4VcCQlqbx7zmUMSM+i7h4czTuukE1KmtII0pZFWw9AfNqnX614LmNUZjreJN7UyilX7QY6vR66MIrAHAP6kUG9+T9KjKHp0TiPfo0kxX76PN+QuHaQKGALJ1IDAA8Bt0qzp+R0dFcWOo+qcf/V/kc02tu6IhIzBtSO/OrAHASQIGAbJ1IIn/YeZgAvtM6OFXAkJam8e85lDEjPou4eHM07rpBNSprSAwAPAbdKs6fkdHRXFjqPqnH/1f5HNNrbuiISMwbUjvzqwBwCcCBgGydSCJ/2HmYAL7TOjhVwJCWpvHvOZQxIz6LuHhzNO66QTUqawAAA==',
@@ -414,6 +437,7 @@ describe('ArkNursery', () => {
       SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
       SwapRepository.setLockupTransaction = jest.fn().mockResolvedValue({
         outcome: LockupWriteOutcome.Acquired,
+        written: true,
         swap: updatedSwap,
       });
       ChainSwapRepository.getChainSwapByData = jest
@@ -446,7 +470,7 @@ describe('ArkNursery', () => {
       expect(Array.from(addressesToUnsubscribe)).toEqual(['ark_address']);
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);
-      expect(emittedEvent.lockupTransactionId).toEqual('txid');
+      expect(emittedEvent.lockup.transactionId).toEqual('txid');
     });
 
     test('collects chain swap lockups for batched unsubscribe without unsubscribing immediately', async () => {
@@ -483,6 +507,7 @@ describe('ArkNursery', () => {
         .fn()
         .mockResolvedValue({
           outcome: LockupWriteOutcome.Acquired,
+          written: true,
           swap: updatedChainSwap,
         });
 
@@ -514,7 +539,7 @@ describe('ArkNursery', () => {
       ]);
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedChainSwap);
-      expect(emittedEvent.lockupTransactionId).toEqual('txid');
+      expect(emittedEvent.lockup.transactionId).toEqual('txid');
     });
 
     test('collects spent claims for batched unsubscribe without unsubscribing immediately', async () => {
@@ -690,6 +715,7 @@ describe('ArkNursery', () => {
         .fn()
         .mockResolvedValue({
           outcome: LockupWriteOutcome.Rejected,
+          written: false,
           swap: chainSwap,
         });
 
@@ -724,6 +750,7 @@ describe('ArkNursery', () => {
       // The swap was taken over between the guard and the write
       SwapRepository.setLockupTransaction = jest.fn().mockResolvedValue({
         outcome: LockupWriteOutcome.Rejected,
+        written: false,
         swap,
       });
 
@@ -796,6 +823,7 @@ describe('ArkNursery', () => {
       SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
       SwapRepository.setLockupTransaction = jest.fn().mockResolvedValue({
         outcome: LockupWriteOutcome.Acquired,
+        written: true,
         swap: updatedSwap,
       });
 
@@ -818,14 +846,19 @@ describe('ArkNursery', () => {
         swap,
         'txid',
         50000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
       );
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);
+      expect(emittedEvent.lockup).toEqual({ transactionId: 'txid', vout: 0 });
       expect(emittedEvent.reason).toEqual(
         Errors.INSUFFICIENT_AMOUNT(50000, 100000).message,
       );
+
+      // The write has to happen inside the lock of the Swap
+      expect(SwapRepository.setLockupFailed).not.toHaveBeenCalled();
+      expect(ChainSwapRepository.setUserLockupFailed).not.toHaveBeenCalled();
     });
 
     test('should emit failure for unacceptable overpayment', async () => {
@@ -844,6 +877,7 @@ describe('ArkNursery', () => {
       SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
       SwapRepository.setLockupTransaction = jest.fn().mockResolvedValue({
         outcome: LockupWriteOutcome.Acquired,
+        written: true,
         swap: updatedSwap,
       });
 
@@ -872,11 +906,12 @@ describe('ArkNursery', () => {
         swap,
         'txid',
         150000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
       );
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);
+      expect(emittedEvent.lockup).toEqual({ transactionId: 'txid', vout: 0 });
       expect(emittedEvent.reason).toEqual(
         Errors.OVERPAID_AMOUNT(150000, 100000).message,
       );
@@ -896,6 +931,7 @@ describe('ArkNursery', () => {
         callOrder.push('setLockupTransaction');
         return Promise.resolve({
           outcome: LockupWriteOutcome.Acquired,
+          written: true,
           swap: {
             ...swap,
             lockupTransactionId: 'txid',
@@ -948,6 +984,7 @@ describe('ArkNursery', () => {
       SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
       SwapRepository.setLockupTransaction = jest.fn().mockResolvedValue({
         outcome: LockupWriteOutcome.Acquired,
+        written: true,
         swap: updatedSwap,
       });
 
@@ -970,12 +1007,12 @@ describe('ArkNursery', () => {
         swap,
         'txid',
         100000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
       );
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);
-      expect(emittedEvent.lockupTransactionId).toEqual('txid');
+      expect(emittedEvent.lockup.transactionId).toEqual('txid');
     });
 
     test('should accept slight overpayment within limits', async () => {
@@ -994,6 +1031,7 @@ describe('ArkNursery', () => {
       SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
       SwapRepository.setLockupTransaction = jest.fn().mockResolvedValue({
         outcome: LockupWriteOutcome.Acquired,
+        written: true,
         swap: updatedSwap,
       });
 
@@ -1011,7 +1049,7 @@ describe('ArkNursery', () => {
 
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);
-      expect(emittedEvent.lockupTransactionId).toEqual('txid');
+      expect(emittedEvent.lockup.transactionId).toEqual('txid');
     });
   });
 
@@ -1080,6 +1118,7 @@ describe('ArkNursery', () => {
         .fn()
         .mockResolvedValue({
           outcome: LockupWriteOutcome.Acquired,
+          written: true,
           swap: updatedSwap,
         });
 
@@ -1102,15 +1141,20 @@ describe('ArkNursery', () => {
         swap,
         'txid',
         50000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
         undefined,
       );
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);
+      expect(emittedEvent.lockup).toEqual({ transactionId: 'txid', vout: 0 });
       expect(emittedEvent.reason).toEqual(
         Errors.INSUFFICIENT_AMOUNT(50000, 100000).message,
       );
+
+      // The write has to happen inside the lock of the Swap
+      expect(SwapRepository.setLockupFailed).not.toHaveBeenCalled();
+      expect(ChainSwapRepository.setUserLockupFailed).not.toHaveBeenCalled();
     });
 
     test('should emit failure for unacceptable overpayment', async () => {
@@ -1139,6 +1183,7 @@ describe('ArkNursery', () => {
         .fn()
         .mockResolvedValue({
           outcome: LockupWriteOutcome.Acquired,
+          written: true,
           swap: updatedSwap,
         });
 
@@ -1167,12 +1212,13 @@ describe('ArkNursery', () => {
         swap,
         'txid',
         150000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
         undefined,
       );
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);
+      expect(emittedEvent.lockup).toEqual({ transactionId: 'txid', vout: 0 });
       expect(emittedEvent.reason).toEqual(
         Errors.OVERPAID_AMOUNT(150000, 100000).message,
       );
@@ -1195,6 +1241,7 @@ describe('ArkNursery', () => {
         .fn()
         .mockResolvedValue({
           outcome: LockupWriteOutcome.Idempotent,
+          written: false,
           swap: {
             ...swap,
             status: SwapUpdateEvent.TransactionLockupFailed,
@@ -1214,7 +1261,7 @@ describe('ArkNursery', () => {
         swap,
         'txid',
         150000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
         undefined,
       );
@@ -1258,6 +1305,7 @@ describe('ArkNursery', () => {
         .fn()
         .mockResolvedValue({
           outcome: LockupWriteOutcome.Acquired,
+          written: true,
           swap: updatedSwap,
         });
 
@@ -1281,13 +1329,13 @@ describe('ArkNursery', () => {
         swap,
         'txid',
         100000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
         { allowLockupFailedUpdate: true },
       );
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);
-      expect(emittedEvent.lockupTransactionId).toEqual('txid');
+      expect(emittedEvent.lockup.transactionId).toEqual('txid');
     });
 
     test('should emit success for valid lockup', async () => {
@@ -1316,6 +1364,7 @@ describe('ArkNursery', () => {
         .fn()
         .mockResolvedValue({
           outcome: LockupWriteOutcome.Acquired,
+          written: true,
           swap: updatedSwap,
         });
 
@@ -1338,13 +1387,13 @@ describe('ArkNursery', () => {
         swap,
         'txid',
         100000,
-        SwapUpdateEvent.TransactionConfirmed,
+        { status: SwapUpdateEvent.TransactionConfirmed },
         0,
         undefined,
       );
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);
-      expect(emittedEvent.lockupTransactionId).toEqual('txid');
+      expect(emittedEvent.lockup.transactionId).toEqual('txid');
     });
   });
 

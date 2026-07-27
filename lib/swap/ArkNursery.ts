@@ -16,7 +16,8 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import { LockupWriteOutcome } from '../db/LockupIdentity';
+import type { LockupIdentity } from '../db/LockupIdentity';
+import { LockupWriteOutcome, formatLockupIdentity } from '../db/LockupIdentity';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type {
@@ -27,7 +28,10 @@ import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import type { Currency } from '../wallet/WalletManager';
-import { shouldIgnoreCompetingLockup } from './CompetingLockup';
+import {
+  getLockupIdentity,
+  shouldIgnoreCompetingLockup,
+} from './CompetingLockup';
 import Errors from './Errors';
 import type OverpaymentProtector from './OverpaymentProtector';
 
@@ -37,11 +41,11 @@ class ArkNursery extends TypedEventEmitter<{
   'swap.expired': Swap;
   'swap.lockup': {
     swap: Swap;
-    lockupTransactionId: string;
-    lockupTransactionVout: number;
+    lockup: LockupIdentity;
   };
   'swap.lockup.failed': {
     swap: Swap;
+    lockup: LockupIdentity;
     reason: string;
   };
 
@@ -53,12 +57,13 @@ class ArkNursery extends TypedEventEmitter<{
 
   'chainSwap.lockup': {
     swap: ChainSwapInfo;
-    lockupTransactionId: string;
-    lockupTransactionVout: number;
+    lockup: LockupIdentity;
   };
   'chainSwap.lockup.failed': {
     swap: ChainSwapInfo;
+    lockup: LockupIdentity;
     reason: string;
+    options?: UserLockupTransactionOptions;
   };
   'chainSwap.claimed': {
     swap: ChainSwapInfo;
@@ -183,12 +188,12 @@ class ArkNursery extends TypedEventEmitter<{
     this.logger.info(
       `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
     );
+    const lockup = { transactionId: vHtlc.txId, vout: vHtlc.vout };
+
     if (
       shouldIgnoreCompetingLockup({
-        prevId: swap.receivingData.transactionId,
-        prevVout: swap.receivingData.transactionVout,
-        incomingId: vHtlc.txId,
-        incomingVout: vHtlc.vout,
+        incoming: lockup,
+        recorded: getLockupIdentity(swap),
         recordedStatus: swap.status as SwapUpdateEvent,
       })
     ) {
@@ -200,15 +205,15 @@ class ArkNursery extends TypedEventEmitter<{
 
     const lockupResult = await ChainSwapRepository.setUserLockupTransaction(
       swap,
-      vHtlc.txId,
+      lockup.transactionId,
       vHtlc.amount,
-      SwapUpdateEvent.TransactionConfirmed,
-      vHtlc.vout,
+      { status: SwapUpdateEvent.TransactionConfirmed },
+      lockup.vout,
       options,
     );
     if (lockupResult.outcome === LockupWriteOutcome.Rejected) {
       this.logger.debug(
-        `Ignoring lockup vHTLC ${vHtlc.txId} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because another lockup owns it`,
+        `Ignoring lockup vHTLC ${formatLockupIdentity(lockup)} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because another lockup owns it`,
       );
       return;
     }
@@ -224,6 +229,8 @@ class ArkNursery extends TypedEventEmitter<{
     if (swap.receivingData.expectedAmount! > vHtlc.amount) {
       this.emit('chainSwap.lockup.failed', {
         swap,
+        lockup,
+        options,
         reason: Errors.INSUFFICIENT_AMOUNT(
           vHtlc.amount,
           swap.receivingData.expectedAmount!,
@@ -241,6 +248,8 @@ class ArkNursery extends TypedEventEmitter<{
     ) {
       this.emit('chainSwap.lockup.failed', {
         swap,
+        lockup,
+        options,
         reason: Errors.OVERPAID_AMOUNT(
           vHtlc.amount,
           swap.receivingData.expectedAmount!,
@@ -251,8 +260,7 @@ class ArkNursery extends TypedEventEmitter<{
 
     this.emit('chainSwap.lockup', {
       swap,
-      lockupTransactionId: vHtlc.txId,
-      lockupTransactionVout: vHtlc.vout,
+      lockup,
     });
   };
 
@@ -307,12 +315,12 @@ class ArkNursery extends TypedEventEmitter<{
       `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
     );
 
+    const lockup = { transactionId: vHtlc.txId, vout: vHtlc.vout };
+
     if (
       shouldIgnoreCompetingLockup({
-        prevId: swap.lockupTransactionId,
-        prevVout: swap.lockupTransactionVout,
-        incomingId: vHtlc.txId,
-        incomingVout: vHtlc.vout,
+        incoming: lockup,
+        recorded: getLockupIdentity(swap),
         recordedStatus: swap.status as SwapUpdateEvent,
       })
     ) {
@@ -324,15 +332,15 @@ class ArkNursery extends TypedEventEmitter<{
 
     const lockupResult = await SwapRepository.setLockupTransaction(
       swap,
-      vHtlc.txId,
+      lockup.transactionId,
       vHtlc.amount,
       // TODO: how to handle out of round?
-      SwapUpdateEvent.TransactionConfirmed,
-      vHtlc.vout,
+      { status: SwapUpdateEvent.TransactionConfirmed },
+      lockup.vout,
     );
     if (lockupResult.outcome === LockupWriteOutcome.Rejected) {
       this.logger.debug(
-        `Ignoring lockup vHTLC ${vHtlc.txId} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because another lockup owns it`,
+        `Ignoring lockup vHTLC ${formatLockupIdentity(lockup)} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because another lockup owns it`,
       );
       return;
     }
@@ -341,6 +349,7 @@ class ArkNursery extends TypedEventEmitter<{
     if (swap.expectedAmount! > vHtlc.amount) {
       this.emit('swap.lockup.failed', {
         swap,
+        lockup,
         reason: Errors.INSUFFICIENT_AMOUNT(vHtlc.amount, swap.expectedAmount!)
           .message,
       });
@@ -356,6 +365,7 @@ class ArkNursery extends TypedEventEmitter<{
     ) {
       this.emit('swap.lockup.failed', {
         swap,
+        lockup,
         reason: Errors.OVERPAID_AMOUNT(vHtlc.amount, swap.expectedAmount!)
           .message,
       });
@@ -364,8 +374,7 @@ class ArkNursery extends TypedEventEmitter<{
 
     this.emit('swap.lockup', {
       swap,
-      lockupTransactionId: vHtlc.txId,
-      lockupTransactionVout: vHtlc.vout,
+      lockup,
     });
   };
 

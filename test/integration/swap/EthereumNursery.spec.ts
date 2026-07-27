@@ -137,7 +137,10 @@ describe('EthereumNursery', () => {
       swap,
       'competing-lockup',
       1,
-      SwapUpdateEvent.TransactionLockupFailed,
+      {
+        status: SwapUpdateEvent.TransactionLockupFailed,
+        failureReason: 'lockup failed',
+      },
       7,
     );
 
@@ -338,7 +341,10 @@ describe('EthereumNursery', () => {
       swap,
       'competing-lockup',
       1,
-      SwapUpdateEvent.TransactionLockupFailed,
+      {
+        status: SwapUpdateEvent.TransactionLockupFailed,
+        failureReason: 'lockup failed',
+      },
       7,
     );
 
@@ -349,8 +355,10 @@ describe('EthereumNursery', () => {
     expect(lockupEvents).toHaveBeenCalledTimes(1);
 
     const emitted = lockupEvents.mock.calls[0][0];
-    expect(emitted.transactionHash).toEqual(exampleTransaction.hash);
-    expect(emitted.logIndex).toEqual(5);
+    expect(emitted.lockup).toEqual({
+      transactionId: exampleTransaction.hash,
+      vout: 5,
+    });
     expect(emitted.swap.lockupTransactionId).toEqual(exampleTransaction.hash);
     expect(emitted.swap.lockupTransactionVout).toEqual(5);
     expect(emitted.swap.status).toEqual(SwapUpdateEvent.TransactionConfirmed);
@@ -409,8 +417,10 @@ describe('EthereumNursery', () => {
     expect(lockupEvents).toHaveBeenCalledTimes(1);
 
     const emitted = lockupEvents.mock.calls[0][0];
-    expect(emitted.transactionHash).toEqual(exampleTransaction.hash);
-    expect(emitted.logIndex).toEqual(5);
+    expect(emitted.lockup).toEqual({
+      transactionId: exampleTransaction.hash,
+      vout: 5,
+    });
 
     await swap.reload();
     expect(swap.status).toEqual(SwapUpdateEvent.TransactionConfirmed);

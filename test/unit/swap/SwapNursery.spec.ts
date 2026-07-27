@@ -1553,7 +1553,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
         swap: baseMockChainSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockChainSwap.receivingData.transactionVout!,
+        lockup: {
+          transactionId: 'chain-lockup-transaction',
+          vout: baseMockChainSwap.receivingData.transactionVout!,
+        },
         confirmed: true,
       });
 
@@ -1586,7 +1589,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
         swap: baseMockChainSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockChainSwap.receivingData.transactionVout!,
+        lockup: {
+          transactionId: 'chain-lockup-transaction',
+          vout: baseMockChainSwap.receivingData.transactionVout!,
+        },
         confirmed: true,
       });
       await eventPromise;
@@ -1605,7 +1611,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
         swap: baseMockChainSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockChainSwap.receivingData.transactionVout!,
+        lockup: {
+          transactionId: 'chain-lockup-transaction',
+          vout: baseMockChainSwap.receivingData.transactionVout!,
+        },
         confirmed: true,
       });
 
@@ -1630,7 +1639,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
         swap: baseMockChainSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockChainSwap.receivingData.transactionVout!,
+        lockup: {
+          transactionId: 'chain-lockup-transaction',
+          vout: baseMockChainSwap.receivingData.transactionVout!,
+        },
         confirmed: true,
       });
 
@@ -1663,7 +1675,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
         swap: baseMockChainSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockChainSwap.receivingData.transactionVout!,
+        lockup: {
+          transactionId: 'chain-lockup-transaction',
+          vout: baseMockChainSwap.receivingData.transactionVout!,
+        },
         confirmed: true,
       });
 
@@ -1697,7 +1712,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
         swap: baseMockChainSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockChainSwap.receivingData.transactionVout!,
+        lockup: {
+          transactionId: 'chain-lockup-transaction',
+          vout: baseMockChainSwap.receivingData.transactionVout!,
+        },
         confirmed: true,
       });
 
@@ -1728,7 +1746,7 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
         swap: baseMockChainSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: 0,
+        lockup: { transactionId: 'chain-lockup-transaction', vout: 0 },
         confirmed: true,
       });
 
@@ -1761,7 +1779,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
         swap: baseMockChainSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockChainSwap.receivingData.transactionVout!,
+        lockup: {
+          transactionId: 'chain-lockup-transaction',
+          vout: baseMockChainSwap.receivingData.transactionVout!,
+        },
         confirmed: true,
       });
       await new Promise((resolve) => setImmediate(resolve));
@@ -1803,7 +1824,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
         swap: baseMockChainSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockChainSwap.receivingData.transactionVout!,
+        lockup: {
+          transactionId: 'chain-lockup-transaction',
+          vout: baseMockChainSwap.receivingData.transactionVout!,
+        },
         confirmed: true,
       });
       await new Promise((resolve) => setImmediate(resolve));
@@ -1868,7 +1892,7 @@ describe('SwapNursery', () => {
       await (swapNursery as any).listenEthereumNursery(ethereumNursery);
       await listeners['eth.lockup']({
         swap: baseMockChainSwap,
-        transactionHash: '0xduplicate',
+        lockup: { transactionId: '0xduplicate', vout: undefined },
       });
 
       expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
@@ -1921,8 +1945,7 @@ describe('SwapNursery', () => {
       await (swapNursery as any).listenEthereumNursery(ethereumNursery);
       await listeners['eth.lockup']({
         swap: chainSwap,
-        transactionHash: '0xevent',
-        logIndex: 3,
+        lockup: { transactionId: '0xevent', vout: 3 },
       });
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
@@ -1971,7 +1994,7 @@ describe('SwapNursery', () => {
       await (swapNursery as any).listenEthereumNursery(ethereumNursery);
       await listeners['eth.lockup']({
         swap: chainSwap,
-        transactionHash: '0xaccept',
+        lockup: { transactionId: '0xaccept', vout: undefined },
       });
 
       expect((swapNursery as any).sendApprovalHook.hook).toHaveBeenCalledWith(
@@ -2023,7 +2046,7 @@ describe('SwapNursery', () => {
       await (swapNursery as any).listenEthereumNursery(ethereumNursery);
       await listeners['eth.lockup']({
         swap: chainSwap,
-        transactionHash: '0xhold',
+        lockup: { transactionId: '0xhold', vout: undefined },
       });
 
       expect(SendApprovalHoldRepository.create).toHaveBeenCalledWith({
@@ -2063,8 +2086,7 @@ describe('SwapNursery', () => {
       await (swapNursery as any).listenEthereumNursery(ethereumNursery);
       await listeners['eth.lockup']({
         swap: submarineSwap,
-        transactionHash: '0xsubmarine',
-        logIndex: 2,
+        lockup: { transactionId: '0xsubmarine', vout: 2 },
       });
 
       expect(ChainSwapRepository.getChainSwap).not.toHaveBeenCalled();
@@ -2105,8 +2127,7 @@ describe('SwapNursery', () => {
       await (swapNursery as any).listenEthereumNursery(ethereumNursery);
       await listeners['eth.lockup']({
         swap: submarineSwap,
-        transactionHash: '0xsubmarine',
-        logIndex: 2,
+        lockup: { transactionId: '0xsubmarine', vout: 2 },
       });
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
@@ -2151,8 +2172,7 @@ describe('SwapNursery', () => {
       await (swapNursery as any).listenEthereumNursery(ethereumNursery);
       await listeners['eth.lockup']({
         swap: submarineSwap,
-        transactionHash: '0xsubmarine',
-        logIndex: 1,
+        lockup: { transactionId: '0xsubmarine', vout: 1 },
       });
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
@@ -2226,7 +2246,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('swap.lockup', {
         swap: baseMockSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockSwap.lockupTransactionVout,
+        lockup: {
+          transactionId: baseMockSwap.lockupTransactionId,
+          vout: baseMockSwap.lockupTransactionVout,
+        },
         confirmed: true,
       });
 
@@ -2266,7 +2289,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('swap.lockup', {
         swap: swapWithoutInvoice,
         transaction: mockTransaction,
-        lockupTransactionVout: swapWithoutInvoice.lockupTransactionVout,
+        lockup: {
+          transactionId: swapWithoutInvoice.lockupTransactionId,
+          vout: swapWithoutInvoice.lockupTransactionVout,
+        },
         confirmed: true,
       });
 
@@ -2287,7 +2313,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('swap.lockup', {
         swap: baseMockSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockSwap.lockupTransactionVout,
+        lockup: {
+          transactionId: baseMockSwap.lockupTransactionId,
+          vout: baseMockSwap.lockupTransactionVout,
+        },
         confirmed: true,
       });
 
@@ -2315,7 +2344,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('swap.lockup', {
         swap: baseMockSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockSwap.lockupTransactionVout,
+        lockup: {
+          transactionId: baseMockSwap.lockupTransactionId,
+          vout: baseMockSwap.lockupTransactionVout,
+        },
         confirmed: false,
       });
 
@@ -2342,7 +2374,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('swap.lockup', {
         swap: baseMockSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockSwap.lockupTransactionVout,
+        lockup: {
+          transactionId: baseMockSwap.lockupTransactionId,
+          vout: baseMockSwap.lockupTransactionVout,
+        },
         confirmed: true,
       });
 
@@ -2370,7 +2405,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('swap.lockup', {
         swap: baseMockSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockSwap.lockupTransactionVout,
+        lockup: {
+          transactionId: baseMockSwap.lockupTransactionId,
+          vout: baseMockSwap.lockupTransactionVout,
+        },
         confirmed: true,
       });
 
@@ -2405,7 +2443,10 @@ describe('SwapNursery', () => {
       (swapNursery as any).utxoNursery.emit('swap.lockup', {
         swap: baseMockSwap,
         transaction: mockTransaction,
-        lockupTransactionVout: baseMockSwap.lockupTransactionVout,
+        lockup: {
+          transactionId: baseMockSwap.lockupTransactionId,
+          vout: baseMockSwap.lockupTransactionVout,
+        },
         confirmed: true,
       });
 
@@ -2430,6 +2471,133 @@ describe('SwapNursery', () => {
 
     afterEach(() => {
       jest.clearAllMocks();
+    });
+
+    const lockup = { transactionId: 'a'.repeat(64), vout: 1 };
+
+    const failedSwap = (type: SwapType) =>
+      ({
+        type,
+        id: 'failed-swap',
+        status: SwapUpdateEvent.TransactionLockupFailed,
+        failureReason: 'not enough',
+      }) as any;
+
+    test.each`
+      type                  | event                        | setter
+      ${SwapType.Submarine} | ${'swap.lockup.failed'}      | ${'setLockupFailed'}
+      ${SwapType.Chain}     | ${'chainSwap.lockup.failed'} | ${'setUserLockupFailed'}
+    `(
+      'should persist a $event before announcing it',
+      async ({ type, event, setter }) => {
+        const written = failedSwap(type);
+        const repo =
+          type === SwapType.Submarine
+            ? SwapRepository
+            : (ChainSwapRepository as any);
+
+        // The write only settles after a tick, so announcing without awaiting it
+        // would order the announcement first
+        const order: string[] = [];
+        repo[setter] = jest.fn().mockImplementation(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          order.push('persisted');
+          return { written: true, swap: written };
+        });
+        swapNursery.once('lockup.failed', () => order.push('announced'));
+
+        (swapNursery as any).utxoNursery.emit(event, {
+          lockup,
+          swap: { id: 'failed-swap', type },
+          reason: 'not enough',
+        });
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(repo[setter]).toHaveBeenCalledTimes(1);
+        expect(swapNursery.emit).toHaveBeenCalledWith('lockup.failed', written);
+        expect(order).toEqual(['persisted', 'announced']);
+        expect(SwapRepository.setSwapStatus).not.toHaveBeenCalled();
+        expect(WrappedSwapRepository.setStatus).not.toHaveBeenCalled();
+      },
+    );
+
+    test.each`
+      type                  | event                        | setter
+      ${SwapType.Submarine} | ${'swap.lockup.failed'}      | ${'setLockupFailed'}
+      ${SwapType.Chain}     | ${'chainSwap.lockup.failed'} | ${'setUserLockupFailed'}
+    `(
+      'should announce nothing when the $event write is refused',
+      async ({ type, event, setter }) => {
+        const repo =
+          type === SwapType.Submarine
+            ? SwapRepository
+            : (ChainSwapRepository as any);
+        repo[setter] = jest.fn().mockResolvedValue({
+          written: false,
+          swap: failedSwap(type),
+        });
+
+        (swapNursery as any).utxoNursery.emit(event, {
+          lockup,
+          swap: { id: 'failed-swap', type },
+          reason: 'not enough',
+        });
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(repo[setter]).toHaveBeenCalledTimes(1);
+        expect(swapNursery.emit).not.toHaveBeenCalledWith(
+          'lockup.failed',
+          expect.anything(),
+        );
+      },
+    );
+
+    test('should pass the lockup update options of a chain swap to the write', async () => {
+      ChainSwapRepository.setUserLockupFailed = jest.fn().mockResolvedValue({
+        written: true,
+        swap: failedSwap(SwapType.Chain),
+      });
+
+      const swap = { id: 'failed-swap', type: SwapType.Chain };
+      (swapNursery as any).utxoNursery.emit('chainSwap.lockup.failed', {
+        lockup,
+        swap,
+        reason: 'not enough',
+        options: { allowLockupFailedUpdate: true },
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(ChainSwapRepository.setUserLockupFailed).toHaveBeenCalledWith(
+        swap,
+        lockup,
+        'not enough',
+        { allowLockupFailedUpdate: true },
+      );
+    });
+
+    test('should announce an EVM lockup failure the nursery persisted already', async () => {
+      const listeners: Record<string, (...args: any[]) => Promise<void>> = {};
+      await (swapNursery as any).listenEthereumNursery({
+        on: jest.fn((event: string, cb: (...args: any[]) => Promise<void>) => {
+          listeners[event] = cb;
+        }),
+        init: jest.fn().mockResolvedValue(undefined),
+      } as any);
+
+      SwapRepository.setLockupFailed = jest.fn();
+      const mockSwap = failedSwap(SwapType.Submarine);
+
+      await listeners['lockup.failed']({
+        swap: mockSwap,
+        reason: 'not enough',
+      });
+
+      expect(swapNursery.emit).toHaveBeenCalledWith('lockup.failed', mockSwap);
+      expect(SwapRepository.setLockupFailed).not.toHaveBeenCalled();
+      expect(SwapRepository.setSwapStatus).not.toHaveBeenCalled();
     });
 
     test('should re-emit swap zero-conf rejections without writing the status', async () => {
@@ -2572,8 +2740,10 @@ describe('SwapNursery', () => {
 
       (swapNursery as any).arkNursery.emit('swap.lockup', {
         swap: baseMockSwap,
-        lockupTransactionId: 'ark-lockup-id',
-        lockupTransactionVout: baseMockSwap.lockupTransactionVout,
+        lockup: {
+          transactionId: 'ark-lockup-id',
+          vout: baseMockSwap.lockupTransactionVout,
+        },
       });
 
       await eventPromise;
@@ -2599,8 +2769,10 @@ describe('SwapNursery', () => {
 
       (swapNursery as any).arkNursery.emit('swap.lockup', {
         swap: baseMockSwap,
-        lockupTransactionId: 'ark-lockup-id',
-        lockupTransactionVout: baseMockSwap.lockupTransactionVout,
+        lockup: {
+          transactionId: 'ark-lockup-id',
+          vout: baseMockSwap.lockupTransactionVout,
+        },
       });
 
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -2628,8 +2800,10 @@ describe('SwapNursery', () => {
 
       (swapNursery as any).arkNursery.emit('swap.lockup', {
         swap: baseMockSwap,
-        lockupTransactionId: 'ark-lockup-id',
-        lockupTransactionVout: baseMockSwap.lockupTransactionVout,
+        lockup: {
+          transactionId: 'ark-lockup-id',
+          vout: baseMockSwap.lockupTransactionVout,
+        },
       });
 
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -2663,8 +2837,10 @@ describe('SwapNursery', () => {
 
         (swapNursery as any).arkNursery.emit('swap.lockup', {
           swap: baseMockSwap,
-          lockupTransactionId: 'ark-lockup-id',
-          lockupTransactionVout: baseMockSwap.lockupTransactionVout,
+          lockup: {
+            transactionId: 'ark-lockup-id',
+            vout: baseMockSwap.lockupTransactionVout,
+          },
         });
 
         await new Promise((resolve) => setTimeout(resolve, 50));

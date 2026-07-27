@@ -2,10 +2,15 @@ import type { CreateOptions, Order, WhereOptions } from 'sequelize';
 import { Op, Transaction } from 'sequelize';
 import { SwapUpdateEvent } from '../../consts/Enums';
 import Database from '../Database';
-import type { LockupTargetStatus, LockupWriteResult } from '../LockupIdentity';
+import type {
+  LockupIdentity,
+  LockupTarget,
+  LockupWriteResult,
+} from '../LockupIdentity';
 import {
   LockupWriteOutcome,
   decideLockupWrite,
+  ownsLockup,
   shouldWriteZeroConfRejection,
 } from '../LockupIdentity';
 import type { SwapType } from '../models/Swap';
@@ -131,22 +136,31 @@ class SwapRepository {
     );
   };
 
+  private static lockSwapForUpdate = (
+    id: string,
+    transaction: Transaction,
+  ): Promise<Swap | null> =>
+    Swap.findOne({
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+      where: { id },
+    });
+
   public static setLockupTransaction = async (
     swap: Swap,
     lockupTransactionId: string,
     onchainAmount: number,
-    status: LockupTargetStatus,
+    target: LockupTarget,
     lockupTransactionVout?: number,
   ): Promise<LockupWriteResult<Swap>> => {
-    const outcome = await Database.sequelize.transaction(
+    const decision = await Database.sequelize.transaction(
       async (transaction) => {
-        const current = await Swap.findOne({
+        const current = await SwapRepository.lockSwapForUpdate(
+          swap.id,
           transaction,
-          lock: transaction.LOCK.UPDATE,
-          where: { id: swap.id },
-        });
+        );
         if (current === null) {
-          return LockupWriteOutcome.Rejected;
+          return { outcome: LockupWriteOutcome.Rejected, write: false };
         }
 
         const decision = decideLockupWrite({
@@ -162,7 +176,7 @@ class SwapRepository {
             vout: lockupTransactionVout,
           },
           currentStatus: current.status as SwapUpdateEvent,
-          targetStatus: status,
+          targetStatus: target.status,
           updatable: !SwapRepository.lockupNonUpdatableStatuses.includes(
             current.status as SwapUpdateEvent,
           ),
@@ -171,21 +185,74 @@ class SwapRepository {
         if (decision.write) {
           await current.update(
             {
-              status,
               onchainAmount,
               lockupTransactionId,
+              status: target.status,
               lockupTransactionVout: decision.vout,
+              // Always written to clear the reason of a lockup that failed before
+              failureReason:
+                target.status === SwapUpdateEvent.TransactionLockupFailed
+                  ? target.failureReason
+                  : null,
             },
             { transaction },
           );
         }
 
-        return decision.outcome;
+        return decision;
+      },
+    );
+
+    return {
+      outcome: decision.outcome,
+      written: decision.write,
+      swap: (await SwapRepository.getSwap({ id: swap.id })) || swap,
+    };
+  };
+
+  public static setLockupFailed = async (
+    swap: Swap,
+    incoming: LockupIdentity,
+    failureReason: string,
+  ): Promise<LockupWriteResult<Swap>> => {
+    const outcome = await Database.sequelize.transaction(
+      async (transaction) => {
+        const current = await SwapRepository.lockSwapForUpdate(
+          swap.id,
+          transaction,
+        );
+        if (
+          current === null ||
+          current.lockupTransactionId == null ||
+          !ownsLockup(
+            {
+              transactionId: current.lockupTransactionId,
+              vout: current.lockupTransactionVout,
+            },
+            incoming,
+          ) ||
+          SwapRepository.lockupNonUpdatableStatuses.includes(
+            current.status as SwapUpdateEvent,
+          )
+        ) {
+          return LockupWriteOutcome.Rejected;
+        }
+
+        await current.update(
+          {
+            failureReason,
+            status: SwapUpdateEvent.TransactionLockupFailed,
+          },
+          { transaction },
+        );
+
+        return LockupWriteOutcome.Acquired;
       },
     );
 
     return {
       outcome,
+      written: outcome === LockupWriteOutcome.Acquired,
       swap: (await SwapRepository.getSwap({ id: swap.id })) || swap,
     };
   };
@@ -196,11 +263,10 @@ class SwapRepository {
     transactionVout?: number,
   ): Promise<Swap> => {
     await Database.sequelize.transaction(async (transaction) => {
-      const current = await Swap.findOne({
+      const current = await SwapRepository.lockSwapForUpdate(
+        swap.id,
         transaction,
-        lock: transaction.LOCK.UPDATE,
-        where: { id: swap.id },
-      });
+      );
       if (
         current === null ||
         !shouldWriteZeroConfRejection({

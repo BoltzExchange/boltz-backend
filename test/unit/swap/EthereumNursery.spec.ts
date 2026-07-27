@@ -14,6 +14,7 @@ import type {
   ERC20SwapValues,
   EtherSwapValues,
 } from '../../../lib/consts/Types';
+import type { LockupTarget } from '../../../lib/db/LockupIdentity';
 import { LockupWriteOutcome } from '../../../lib/db/LockupIdentity';
 import type Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
@@ -186,13 +187,14 @@ const mockSetLockupTransaction = jest
       swap: Swap,
       lockupTransactionId: string,
       onchainAmount: number,
-      status: SwapUpdateEvent,
+      target: LockupTarget,
     ) => {
       return {
         outcome: LockupWriteOutcome.Acquired,
+        written: true,
         swap: {
           ...swap,
-          status,
+          ...target,
           onchainAmount,
           lockupTransactionId,
         },
@@ -473,6 +475,7 @@ describe('EthereumNursery', () => {
 
     mockSetLockupTransaction.mockResolvedValueOnce({
       outcome: LockupWriteOutcome.Rejected,
+      written: false,
       swap: { ...swap, lockupTransactionId: 'other-owner' },
     });
 
@@ -510,6 +513,7 @@ describe('EthereumNursery', () => {
 
     const setUserLockupTransaction = jest.fn().mockResolvedValue({
       outcome: LockupWriteOutcome.Rejected,
+      written: false,
       swap: chainSwap,
     });
     ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
@@ -536,8 +540,6 @@ describe('EthereumNursery', () => {
   });
 
   describe('lockup failure emission', () => {
-    // Already has a refund address set to keep "setRefundAddress" out of the
-    // way of the emitted swap
     const swap = {
       id: 'lockupFailureEmission',
       pair: 'ETH/BTC',
@@ -548,7 +550,6 @@ describe('EthereumNursery', () => {
       refundAddress: mockRefundAddress,
     } as any;
 
-    // Locks up 9 when 10 is expected, to always fail the validation
     const etherSwapValues = {
       claimAddress: mockAddress,
       refundAddress: mockRefundAddress,
@@ -558,58 +559,56 @@ describe('EthereumNursery', () => {
     } as any;
 
     test.each`
-      status                                     | outcome                          | failureReason           | emits    | description
-      ${SwapUpdateEvent.TransactionConfirmed}    | ${LockupWriteOutcome.Idempotent} | ${undefined}            | ${false} | ${'not emit when the write to downgrade a confirmed lockup was refused'}
-      ${SwapUpdateEvent.InvoicePaid}             | ${LockupWriteOutcome.Idempotent} | ${undefined}            | ${false} | ${'not emit when the write was refused because the swap advanced already'}
-      ${SwapUpdateEvent.TransactionClaimed}      | ${LockupWriteOutcome.Idempotent} | ${undefined}            | ${false} | ${'not emit when the write was refused because the swap was claimed already'}
-      ${SwapUpdateEvent.TransactionLockupFailed} | ${LockupWriteOutcome.Idempotent} | ${undefined}            | ${true}  | ${'emit when the failure was written but no reason was recorded yet'}
-      ${SwapUpdateEvent.TransactionLockupFailed} | ${LockupWriteOutcome.Idempotent} | ${'recorded already'}   | ${false} | ${'not emit again when the reason was recorded already'}
-      ${SwapUpdateEvent.TransactionLockupFailed} | ${LockupWriteOutcome.Acquired}   | ${'of the prior owner'} | ${true}  | ${'emit when a new lockup acquired the swap'}
-      ${SwapUpdateEvent.TransactionLockupFailed} | ${LockupWriteOutcome.Acquired}   | ${undefined}            | ${true}  | ${'emit when the first lockup of the swap failed'}
-    `(
-      'should $description',
-      async ({ status, outcome, failureReason, emits }) => {
-        const writtenSwap = { ...swap, status, failureReason };
-        mockSetLockupTransaction.mockResolvedValueOnce({
-          outcome,
+      status                                     | outcome                          | written  | emits    | description
+      ${SwapUpdateEvent.TransactionConfirmed}    | ${LockupWriteOutcome.Idempotent} | ${false} | ${false} | ${'not emit when the write to downgrade a confirmed lockup was refused'}
+      ${SwapUpdateEvent.InvoicePaid}             | ${LockupWriteOutcome.Idempotent} | ${false} | ${false} | ${'not emit when the write was refused because the swap advanced already'}
+      ${SwapUpdateEvent.TransactionClaimed}      | ${LockupWriteOutcome.Idempotent} | ${false} | ${false} | ${'not emit when the write was refused because the swap was claimed already'}
+      ${SwapUpdateEvent.TransactionLockupFailed} | ${LockupWriteOutcome.Idempotent} | ${true}  | ${true}  | ${'emit when a renegotiated lockup failed again'}
+      ${SwapUpdateEvent.TransactionLockupFailed} | ${LockupWriteOutcome.Acquired}   | ${true}  | ${true}  | ${'emit when a new lockup acquired the swap'}
+    `('should $description', async ({ status, outcome, written, emits }) => {
+      const writtenSwap = { ...swap, status };
+      mockSetLockupTransaction.mockResolvedValueOnce({
+        outcome,
+        written,
+        swap: writtenSwap,
+      });
+
+      const failedListener = jest.fn();
+      const lockupListener = jest.fn();
+      nursery.on('lockup.failed', failedListener);
+      nursery.on('eth.lockup', lockupListener);
+
+      await nursery.checkEtherSwapLockup(
+        swap,
+        exampleTransaction,
+        etherSwapValues,
+        0,
+      );
+
+      expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
+      expect(mockSetLockupTransaction).toHaveBeenCalledWith(
+        swap,
+        exampleTransaction.hash,
+        9,
+        {
+          status: SwapUpdateEvent.TransactionLockupFailed,
+          failureReason: Errors.INSUFFICIENT_AMOUNT(9, 10).message,
+        },
+        0,
+      );
+      expect(mockSetRefundAddress).not.toHaveBeenCalled();
+      expect(lockupListener).not.toHaveBeenCalled();
+
+      if (emits) {
+        expect(failedListener).toHaveBeenCalledTimes(1);
+        expect(failedListener).toHaveBeenCalledWith({
           swap: writtenSwap,
+          reason: Errors.INSUFFICIENT_AMOUNT(9, 10).message,
         });
-
-        const failedListener = jest.fn();
-        const lockupListener = jest.fn();
-        nursery.on('lockup.failed', failedListener);
-        nursery.on('eth.lockup', lockupListener);
-
-        await nursery.checkEtherSwapLockup(
-          swap,
-          exampleTransaction,
-          etherSwapValues,
-          0,
-        );
-
-        // The write is always attempted; only announcing it is guarded
-        expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
-        expect(mockSetLockupTransaction).toHaveBeenCalledWith(
-          swap,
-          exampleTransaction.hash,
-          9,
-          SwapUpdateEvent.TransactionLockupFailed,
-          0,
-        );
-        expect(mockSetRefundAddress).not.toHaveBeenCalled();
-        expect(lockupListener).not.toHaveBeenCalled();
-
-        if (emits) {
-          expect(failedListener).toHaveBeenCalledTimes(1);
-          expect(failedListener).toHaveBeenCalledWith({
-            swap: writtenSwap,
-            reason: Errors.INSUFFICIENT_AMOUNT(9, 10).message,
-          });
-        } else {
-          expect(failedListener).not.toHaveBeenCalled();
-        }
-      },
-    );
+      } else {
+        expect(failedListener).not.toHaveBeenCalled();
+      }
+    });
 
     test('should not emit a refused ERC20Swap lockup failure either', async () => {
       const erc20Swap = {
@@ -624,6 +623,7 @@ describe('EthereumNursery', () => {
 
       mockSetLockupTransaction.mockResolvedValueOnce({
         outcome: LockupWriteOutcome.Idempotent,
+        written: false,
         swap: { ...erc20Swap, status: SwapUpdateEvent.TransactionConfirmed },
       });
 
@@ -647,7 +647,9 @@ describe('EthereumNursery', () => {
         erc20Swap,
         exampleTransaction.hash,
         9,
-        SwapUpdateEvent.TransactionLockupFailed,
+        expect.objectContaining({
+          status: SwapUpdateEvent.TransactionLockupFailed,
+        }),
         0,
       );
       expect(emitSpy).not.toHaveBeenCalled();
@@ -668,6 +670,7 @@ describe('EthereumNursery', () => {
 
       const setUserLockupTransaction = jest.fn().mockResolvedValue({
         outcome: LockupWriteOutcome.Idempotent,
+        written: false,
         swap: { ...chainSwap, status: SwapUpdateEvent.TransactionConfirmed },
       });
       ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
@@ -716,8 +719,8 @@ describe('EthereumNursery', () => {
       timelock: mockGetSwapResult.timeoutBlockHeight,
     } as any;
 
-    nursery.once('eth.lockup', ({ transactionHash, etherSwapValues }) => {
-      expect(transactionHash).toEqual(exampleTransaction.hash);
+    nursery.once('eth.lockup', ({ lockup, etherSwapValues }) => {
+      expect(lockup.transactionId).toEqual(exampleTransaction.hash);
       expect(etherSwapValues).toEqual(suppliedEtherSwapValues);
 
       lockupEmitted = true;
@@ -742,7 +745,7 @@ describe('EthereumNursery', () => {
       mockGetSwapResult,
       exampleTransaction.hash,
       10,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       21,
     );
 
@@ -1299,8 +1302,8 @@ describe('EthereumNursery', () => {
       preimageHash: getHexString(examplePreimageHash),
     } as any;
 
-    nursery.once('erc20.lockup', ({ transactionHash, erc20SwapValues }) => {
-      expect(transactionHash).toEqual(exampleTransaction.hash);
+    nursery.once('erc20.lockup', ({ lockup, erc20SwapValues }) => {
+      expect(lockup.transactionId).toEqual(exampleTransaction.hash);
       expect(erc20SwapValues).toEqual(suppliedERC20SwapValues);
 
       lockupEmitted = true;
@@ -1330,7 +1333,7 @@ describe('EthereumNursery', () => {
       mockGetSwapResult,
       exampleTransaction.hash,
       10,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       21,
     );
 
@@ -1614,6 +1617,7 @@ describe('EthereumNursery', () => {
 
     const setUserLockupTransaction = jest.fn().mockResolvedValue({
       outcome: LockupWriteOutcome.Acquired,
+      written: true,
       swap: {
         ...chainSwap,
         status: SwapUpdateEvent.TransactionLockupFailed,
@@ -1639,7 +1643,7 @@ describe('EthereumNursery', () => {
       chainSwap,
       exampleTransaction.hash,
       10,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       0,
       undefined,
     );
@@ -1670,14 +1674,15 @@ describe('EthereumNursery', () => {
 
     const setUserLockupTransaction = jest.fn().mockResolvedValue({
       outcome: LockupWriteOutcome.Acquired,
+      written: true,
       swap: updatedSwap,
     });
     ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
 
     const lockupPromise = new Promise<void>((resolve) => {
-      nursery.once('eth.lockup', ({ swap, transactionHash }) => {
+      nursery.once('eth.lockup', ({ swap, lockup }) => {
         expect(swap).toEqual(updatedSwap);
-        expect(transactionHash).toEqual(exampleTransaction.hash);
+        expect(lockup.transactionId).toEqual(exampleTransaction.hash);
         resolve();
       });
     });
@@ -1699,7 +1704,7 @@ describe('EthereumNursery', () => {
       chainSwap,
       exampleTransaction.hash,
       10,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       0,
       { allowLockupFailedUpdate: true },
     );
@@ -1724,6 +1729,7 @@ describe('EthereumNursery', () => {
 
     const setUserLockupTransaction = jest.fn().mockResolvedValue({
       outcome: LockupWriteOutcome.Acquired,
+      written: true,
       swap: updatedSwap,
     });
     ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
@@ -1746,7 +1752,9 @@ describe('EthereumNursery', () => {
       chainSwap,
       exampleTransaction.hash,
       9,
-      SwapUpdateEvent.TransactionLockupFailed,
+      expect.objectContaining({
+        status: SwapUpdateEvent.TransactionLockupFailed,
+      }),
       0,
       undefined,
     );
@@ -1788,6 +1796,7 @@ describe('EthereumNursery', () => {
 
     const setUserLockupTransaction = jest.fn().mockResolvedValue({
       outcome: LockupWriteOutcome.Acquired,
+      written: true,
       swap: updatedSwap,
     });
     ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
@@ -1799,7 +1808,9 @@ describe('EthereumNursery', () => {
       chainSwap,
       exampleTransaction.hash,
       10,
-      SwapUpdateEvent.TransactionLockupFailed,
+      expect.objectContaining({
+        status: SwapUpdateEvent.TransactionLockupFailed,
+      }),
       0,
       undefined,
     );
@@ -1847,6 +1858,7 @@ describe('EthereumNursery', () => {
 
     const setUserLockupTransaction = jest.fn().mockResolvedValue({
       outcome: LockupWriteOutcome.Acquired,
+      written: true,
       swap: {
         ...chainSwap,
         status: SwapUpdateEvent.TransactionLockupFailed,
@@ -1873,7 +1885,7 @@ describe('EthereumNursery', () => {
       chainSwap,
       exampleTransaction.hash,
       10,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       0,
       undefined,
     );
@@ -1904,14 +1916,15 @@ describe('EthereumNursery', () => {
 
     const setUserLockupTransaction = jest.fn().mockResolvedValue({
       outcome: LockupWriteOutcome.Acquired,
+      written: true,
       swap: updatedSwap,
     });
     ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
 
     const lockupPromise = new Promise<void>((resolve) => {
-      nursery.once('erc20.lockup', ({ swap, transactionHash }) => {
+      nursery.once('erc20.lockup', ({ swap, lockup }) => {
         expect(swap).toEqual(updatedSwap);
-        expect(transactionHash).toEqual(exampleTransaction.hash);
+        expect(lockup.transactionId).toEqual(exampleTransaction.hash);
         resolve();
       });
     });
@@ -1934,7 +1947,7 @@ describe('EthereumNursery', () => {
       chainSwap,
       exampleTransaction.hash,
       10,
-      SwapUpdateEvent.TransactionConfirmed,
+      { status: SwapUpdateEvent.TransactionConfirmed },
       0,
       { allowLockupFailedUpdate: true },
     );
@@ -1959,6 +1972,7 @@ describe('EthereumNursery', () => {
 
     const setUserLockupTransaction = jest.fn().mockResolvedValue({
       outcome: LockupWriteOutcome.Acquired,
+      written: true,
       swap: updatedSwap,
     });
     ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
@@ -1982,7 +1996,9 @@ describe('EthereumNursery', () => {
       chainSwap,
       exampleTransaction.hash,
       9,
-      SwapUpdateEvent.TransactionLockupFailed,
+      expect.objectContaining({
+        status: SwapUpdateEvent.TransactionLockupFailed,
+      }),
       0,
       undefined,
     );

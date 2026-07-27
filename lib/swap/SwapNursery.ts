@@ -53,10 +53,15 @@ import type {
   ERC20SwapValues,
   EtherSwapValues,
 } from '../consts/Types';
+import type { LockupIdentity } from '../db/LockupIdentity';
+import { formatLockupIdentity, ownsLockup } from '../db/LockupIdentity';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type SendApprovalHold from '../db/models/SendApprovalHold';
 import type Swap from '../db/models/Swap';
-import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import type {
+  ChainSwapInfo,
+  UserLockupTransactionOptions,
+} from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -91,6 +96,7 @@ import {
 import type Contracts from '../wallet/ethereum/contracts/Contracts';
 import type ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import ArkNursery from './ArkNursery';
+import { getLockupIdentity } from './CompetingLockup';
 import Errors from './Errors';
 import EthereumNursery from './EthereumNursery';
 import InvoiceNursery from './InvoiceNursery';
@@ -283,15 +289,18 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       );
     });
 
-    this.utxoNursery.on('swap.lockup.failed', async ({ swap, reason }) => {
-      await this.lock.acquire(
-        SwapNursery.swapLock,
-        'swap.lockup.failed',
-        async () => {
-          await this.lockupFailed(swap, reason);
-        },
-      );
-    });
+    this.utxoNursery.on(
+      'swap.lockup.failed',
+      async ({ swap, lockup, reason }) => {
+        await this.lock.acquire(
+          SwapNursery.swapLock,
+          'swap.lockup.failed',
+          async () => {
+            await this.lockupFailed(swap, lockup, reason);
+          },
+        );
+      },
+    );
 
     this.utxoNursery.on(
       'swap.lockup.zeroconf.rejected',
@@ -321,10 +330,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     this.utxoNursery.on(
       'swap.lockup',
-      async ({ swap, transaction, lockupTransactionVout, confirmed }) => {
-        const eventTransactionId = TxView.of(transaction).id;
-        const eventTransactionVout = lockupTransactionVout;
-
+      async ({ swap, lockup, transaction, confirmed }) => {
         await this.lock.acquire(
           SwapNursery.swapLock,
           'swap.lockup',
@@ -337,13 +343,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             }
             swap = fetchedSwap;
 
-            if (
-              swap.lockupTransactionId !== eventTransactionId ||
-              swap.lockupTransactionVout !== eventTransactionVout
-            ) {
-              this.logger.warn(
-                `Not acting on lockup transaction ${eventTransactionId}:${eventTransactionVout} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because ${swap.lockupTransactionId}:${swap.lockupTransactionVout} owns it`,
-              );
+            if (!this.actOnLockup(swap, lockup)) {
               return;
             }
 
@@ -402,86 +402,74 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       },
     );
 
-    this.arkNursery.on(
-      'swap.lockup',
-      async ({ swap, lockupTransactionId, lockupTransactionVout }) => {
-        const eventTransactionVout = lockupTransactionVout;
+    this.arkNursery.on('swap.lockup', async ({ swap, lockup }) => {
+      await this.lock.acquire(SwapNursery.swapLock, 'swap.lockup', async () => {
+        const fetchedSwap = await SwapRepository.getSwap({
+          id: swap.id,
+        });
+        if (fetchedSwap === null) {
+          return;
+        }
+        swap = fetchedSwap;
 
+        if (!this.actOnLockup(swap, lockup)) {
+          return;
+        }
+
+        if (swap.createdRefundSignature) {
+          this.logger.warn(
+            `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} from paying an invoice because it already signed a refund`,
+          );
+          return;
+        }
+
+        if (swap.status !== SwapUpdateEvent.TransactionConfirmed) {
+          this.logger.debug(
+            `Not acting on ARK lockup of Submarine Swap ${swap.id} because it is already being processed with status ${swap.status}`,
+          );
+          return;
+        }
+
+        this.emit('transaction', {
+          swap,
+          confirmed: true,
+          transaction: lockup.transactionId,
+        });
+
+        if (swap.invoice) {
+          const payRes = await this.payInvoice(swap);
+          if (payRes === undefined) {
+            return;
+          }
+
+          const { base, quote } = splitPairId(swap.pair);
+          const chainSymbol = getChainCurrency(
+            base,
+            quote,
+            swap.orderSide,
+            false,
+          );
+
+          const { arkNode } = this.currencies.get(chainSymbol)!;
+          await this.claimVtxo(swap, arkNode!, payRes.preimage);
+        } else {
+          await this.setSwapRate(swap);
+        }
+      });
+    });
+
+    this.arkNursery.on(
+      'swap.lockup.failed',
+      async ({ swap, lockup, reason }) => {
         await this.lock.acquire(
           SwapNursery.swapLock,
-          'swap.lockup',
+          'swap.lockup.failed',
           async () => {
-            const fetchedSwap = await SwapRepository.getSwap({
-              id: swap.id,
-            });
-            if (fetchedSwap === null) {
-              return;
-            }
-            swap = fetchedSwap;
-
-            if (
-              swap.lockupTransactionId !== lockupTransactionId ||
-              swap.lockupTransactionVout !== eventTransactionVout
-            ) {
-              this.logger.warn(
-                `Not acting on lockup transaction ${lockupTransactionId}:${eventTransactionVout} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because ${swap.lockupTransactionId}:${swap.lockupTransactionVout} owns it`,
-              );
-              return;
-            }
-
-            if (swap.createdRefundSignature) {
-              this.logger.warn(
-                `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} from paying an invoice because it already signed a refund`,
-              );
-              return;
-            }
-
-            if (swap.status !== SwapUpdateEvent.TransactionConfirmed) {
-              this.logger.debug(
-                `Not acting on ARK lockup of Submarine Swap ${swap.id} because it is already being processed with status ${swap.status}`,
-              );
-              return;
-            }
-
-            this.emit('transaction', {
-              swap,
-              confirmed: true,
-              transaction: lockupTransactionId,
-            });
-
-            if (swap.invoice) {
-              const payRes = await this.payInvoice(swap);
-              if (payRes === undefined) {
-                return;
-              }
-
-              const { base, quote } = splitPairId(swap.pair);
-              const chainSymbol = getChainCurrency(
-                base,
-                quote,
-                swap.orderSide,
-                false,
-              );
-
-              const { arkNode } = this.currencies.get(chainSymbol)!;
-              await this.claimVtxo(swap, arkNode!, payRes.preimage);
-            } else {
-              await this.setSwapRate(swap);
-            }
+            await this.lockupFailed(swap, lockup, reason);
           },
         );
       },
     );
-
-    this.arkNursery.on('swap.lockup.failed', async ({ swap, reason }) => {
-      await this.lock.acquire(
-        SwapNursery.swapLock,
-        'swap.lockup.failed',
-        async () => {
-          await this.lockupFailed(swap, reason);
-        },
-      );
-    });
 
     this.arkNursery.on('reverseSwap.expired', async (reverseSwap) => {
       await this.lock.acquire(
@@ -747,25 +735,16 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     const handleIncomingChainSwapLockup = async (
       swap: ChainSwapInfo,
+      lockup: LockupIdentity,
       transaction: Transaction | LiquidTransaction | string,
-      lockupTransactionVout: number,
       confirmed: boolean,
     ) => {
-      const lockupTransactionId =
-        typeof transaction === 'string'
-          ? transaction
-          : TxView.of(transaction).id;
       await this.withSendApproval<ChainSwapInfo>({
         id: swap.id,
         symbolFor: (fetchedSwap) => fetchedSwap.sendingData.symbol,
         lock: SwapNursery.chainSwapLock,
         lockReason: 'chainSwap.lockup',
-        loadEligible: () =>
-          this.getChainSwapForLockup(
-            swap,
-            lockupTransactionId,
-            lockupTransactionVout,
-          ),
+        loadEligible: () => this.getChainSwapForLockup(swap, lockup),
         emitTransaction: { transaction, confirmed },
         proceed: (fetchedSwap, approval) =>
           this.handleChainSwapLockup(fetchedSwap, approval),
@@ -774,47 +753,50 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     this.utxoNursery.on(
       'chainSwap.lockup',
-      async ({ swap, transaction, lockupTransactionVout, confirmed }) => {
+      async ({ swap, lockup, transaction, confirmed }) => {
         await handleIncomingChainSwapLockup(
           swap,
+          lockup,
           transaction,
-          lockupTransactionVout,
           confirmed,
         );
       },
     );
 
-    this.arkNursery.on(
-      'chainSwap.lockup',
-      async ({ swap, lockupTransactionId, lockupTransactionVout }) => {
-        await handleIncomingChainSwapLockup(
-          swap,
-          lockupTransactionId,
-          lockupTransactionVout,
-          true,
+    this.arkNursery.on('chainSwap.lockup', async ({ swap, lockup }) => {
+      await handleIncomingChainSwapLockup(
+        swap,
+        lockup,
+        lockup.transactionId,
+        true,
+      );
+    });
+
+    this.utxoNursery.on(
+      'chainSwap.lockup.failed',
+      async ({ swap, lockup, reason, options }) => {
+        await this.lock.acquire(
+          SwapNursery.chainSwapLock,
+          'chainSwap.lockup.failed',
+          async () => {
+            await this.lockupFailed(swap, lockup, reason, options);
+          },
         );
       },
     );
 
-    this.utxoNursery.on('chainSwap.lockup.failed', async ({ swap, reason }) => {
-      await this.lock.acquire(
-        SwapNursery.chainSwapLock,
-        'chainSwap.lockup.failed',
-        async () => {
-          await this.lockupFailed(swap, reason);
-        },
-      );
-    });
-
-    this.arkNursery.on('chainSwap.lockup.failed', async ({ swap, reason }) => {
-      await this.lock.acquire(
-        SwapNursery.chainSwapLock,
-        'chainSwap.lockup.failed',
-        async () => {
-          await this.lockupFailed(swap, reason);
-        },
-      );
-    });
+    this.arkNursery.on(
+      'chainSwap.lockup.failed',
+      async ({ swap, lockup, reason, options }) => {
+        await this.lock.acquire(
+          SwapNursery.chainSwapLock,
+          'chainSwap.lockup.failed',
+          async () => {
+            await this.lockupFailed(swap, lockup, reason, options);
+          },
+        );
+      },
+    );
 
     const handleChainSwapClaim = async (
       swap: ChainSwapInfo,
@@ -1289,10 +1271,24 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
   };
 
+  private actOnLockup = (
+    swap: Swap | ChainSwapInfo,
+    lockup: LockupIdentity,
+  ): boolean => {
+    const recorded = getLockupIdentity(swap);
+    if (recorded !== null && ownsLockup(recorded, lockup)) {
+      return true;
+    }
+
+    this.logger.warn(
+      `Not acting on lockup transaction ${formatLockupIdentity(lockup)} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because ${recorded === null ? 'no lockup' : formatLockupIdentity(recorded)} owns it`,
+    );
+    return false;
+  };
+
   private getChainSwapForLockup = async (
     swap: ChainSwapInfo,
-    lockupTransactionId?: string,
-    lockupTransactionVout?: number | null,
+    lockup?: LockupIdentity,
   ): Promise<ChainSwapInfo | undefined> => {
     const fetchedSwap = await ChainSwapRepository.getChainSwap({
       id: swap.id,
@@ -1336,15 +1332,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       return undefined;
     }
 
-    if (
-      lockupTransactionId !== undefined &&
-      (fetchedSwap.receivingData.transactionId !== lockupTransactionId ||
-        (lockupTransactionVout !== undefined &&
-          fetchedSwap.receivingData.transactionVout !== lockupTransactionVout))
-    ) {
-      this.logger.warn(
-        `Not acting on lockup transaction ${lockupTransactionId}:${lockupTransactionVout} of ${swapTypeToPrettyString(fetchedSwap.type)} Swap ${fetchedSwap.id} because ${fetchedSwap.receivingData.transactionId}:${fetchedSwap.receivingData.transactionVout} owns it`,
-      );
+    if (lockup !== undefined && !this.actOnLockup(fetchedSwap, lockup)) {
       return undefined;
     }
 
@@ -1363,21 +1351,24 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       );
     });
 
+    // The contracts validate the lockup before it is written, so the nursery
+    // persisted the failure already
     ethereumNursery.on('lockup.failed', async ({ swap, reason }) => {
       await this.lock.acquire(
         SwapNursery.lockForSwapType(swap.type),
         'lockup.failed',
         async () => {
-          await this.lockupFailed(swap, reason);
+          this.announceLockupFailed(swap, reason);
         },
       );
     });
 
     const handleLockup = async (
       swap: Swap | ChainSwapInfo,
-      transactionHash: string,
-      logIndex: number,
+      lockup: LockupIdentity,
     ) => {
+      const transactionHash = lockup.transactionId;
+
       if (swap.type === SwapType.Chain) {
         await this.withSendApproval<ChainSwapInfo>({
           id: swap.id,
@@ -1385,11 +1376,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           lock: SwapNursery.chainSwapLock,
           lockReason: 'lockup',
           loadEligible: () =>
-            this.getChainSwapForLockup(
-              swap as ChainSwapInfo,
-              transactionHash,
-              logIndex,
-            ),
+            this.getChainSwapForLockup(swap as ChainSwapInfo, lockup),
           emitTransaction: { confirmed: true, transaction: transactionHash },
           proceed: (fetchedSwap, approval) =>
             this.handleChainSwapLockup(fetchedSwap, approval),
@@ -1410,13 +1397,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           return;
         }
 
-        if (
-          updatedSwap.lockupTransactionId !== transactionHash ||
-          updatedSwap.lockupTransactionVout !== logIndex
-        ) {
-          this.logger.warn(
-            `Not acting on lockup transaction ${transactionHash}:${logIndex} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because ${updatedSwap.lockupTransactionId}:${updatedSwap.lockupTransactionVout} owns it`,
-          );
+        if (!this.actOnLockup(updatedSwap, lockup)) {
           return;
         }
 
@@ -1448,19 +1429,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     };
 
-    ethereumNursery.on(
-      'eth.lockup',
-      async ({ swap, transactionHash, logIndex }) => {
-        await handleLockup(swap, transactionHash, logIndex);
-      },
-    );
+    ethereumNursery.on('eth.lockup', async ({ swap, lockup }) => {
+      await handleLockup(swap, lockup);
+    });
 
-    ethereumNursery.on(
-      'erc20.lockup',
-      async ({ swap, transactionHash, logIndex }) => {
-        await handleLockup(swap, transactionHash, logIndex);
-      },
-    );
+    ethereumNursery.on('erc20.lockup', async ({ swap, lockup }) => {
+      await handleLockup(swap, lockup);
+    });
 
     // Reverse Swap events
     ethereumNursery.on('reverseSwap.expired', async ({ reverseSwap }) => {
@@ -2387,45 +2362,44 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
   };
 
-  private lockupFailed = async (swap: Swap | ChainSwapInfo, reason: string) => {
-    if (swap.type === SwapType.Submarine) {
-      const loaded = await SwapRepository.getSwap({ id: swap.id });
-      if (loaded!.status === SwapUpdateEvent.InvoicePending) {
-        this.logger.warn(
-          `Prevented lockup race of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
-        );
-        return;
-      }
-    } else if (swap.type === SwapType.Chain) {
-      const loaded = await ChainSwapRepository.getChainSwap({ id: swap.id });
-      if (
-        loaded!.sendingData.transactionId !== null &&
-        loaded!.sendingData.transactionId !== undefined
-      ) {
-        this.logger.warn(
-          `Prevented lockup race of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
-        );
-        return;
-      }
+  // Persisted in here, and not in the nursery that detected the failure, so that
+  // the write is serialized against a server lockup or invoice payment that is
+  // still in flight while holding the lock of the Swap
+  private lockupFailed = async (
+    swap: Swap | ChainSwapInfo,
+    lockup: LockupIdentity,
+    reason: string,
+    options?: UserLockupTransactionOptions,
+  ) => {
+    const result =
+      swap.type === SwapType.Submarine
+        ? await SwapRepository.setLockupFailed(swap as Swap, lockup, reason)
+        : await ChainSwapRepository.setUserLockupFailed(
+            swap as ChainSwapInfo,
+            lockup,
+            reason,
+            options,
+          );
+
+    if (!result.written) {
+      this.logger.warn(
+        `Prevented lockup race of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: not failing lockup ${formatLockupIdentity(lockup)} because another lockup owns it or the Swap moved on`,
+      );
+      return;
     }
 
+    this.announceLockupFailed(result.swap, reason);
+  };
+
+  // The status and its reason are persisted by the caller
+  private announceLockupFailed = (
+    swap: Swap | ChainSwapInfo,
+    reason: string,
+  ) => {
     this.logger.warn(
       `Lockup of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} failed: ${reason}`,
     );
-    this.emit(
-      'lockup.failed',
-      swap.type === SwapType.Submarine
-        ? await SwapRepository.setSwapStatus(
-            swap as Swap,
-            SwapUpdateEvent.TransactionLockupFailed,
-            reason,
-          )
-        : await WrappedSwapRepository.setStatus(
-            swap as ChainSwapInfo,
-            SwapUpdateEvent.TransactionLockupFailed,
-            reason,
-          ),
-    );
+    this.emit('lockup.failed', swap);
   };
 
   private expireSwap = async (swap: Swap) => {

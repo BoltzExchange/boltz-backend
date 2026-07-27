@@ -70,8 +70,7 @@ class ElementsService {
   private getElementsClients = () => {
     const currency = this.currencies.get(ElementsClient.symbol);
     const wallet = this.walletManager.wallets.get(ElementsClient.symbol) as
-      | WalletLiquid
-      | undefined;
+      WalletLiquid | undefined;
 
     if (currency === undefined || wallet === undefined) {
       throw Errors.CURRENCY_NOT_FOUND(ElementsClient.symbol);

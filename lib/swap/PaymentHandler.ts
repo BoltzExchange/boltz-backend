@@ -55,10 +55,7 @@ type SwapNurseryEvents = {
   transaction: {
     swap: AnySwap;
     transaction:
-      | ConstructedTransaction
-      | Transaction
-      | LiquidTransaction
-      | string;
+      ConstructedTransaction | Transaction | LiquidTransaction | string;
     confirmed: boolean;
   };
   expiration: AnySwap;
@@ -90,10 +87,7 @@ type SwapNurseryEvents = {
   'coins.sent': {
     swap: ReverseSwap | ChainSwapInfo;
     transaction:
-      | ConstructedTransaction
-      | Transaction
-      | LiquidTransaction
-      | string;
+      ConstructedTransaction | Transaction | LiquidTransaction | string;
   };
   'coins.failedToSend': ReverseSwap | ChainSwapInfo;
   refund: {
@@ -101,10 +95,7 @@ type SwapNurseryEvents = {
     confirmed: boolean;
     emitFailure: boolean;
     refundTransaction:
-      | ConstructedTransaction
-      | Transaction
-      | LiquidTransaction
-      | string;
+      ConstructedTransaction | Transaction | LiquidTransaction | string;
   };
   'invoice.settled': ReverseSwap;
 };

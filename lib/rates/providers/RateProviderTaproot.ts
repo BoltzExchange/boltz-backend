@@ -72,9 +72,7 @@ type ChainPairTypeTaproot = PairTypeTaproot & {
 };
 
 type SwapTypes =
-  | SubmarinePairTypeTaproot
-  | ReversePairTypeTaproot
-  | ChainPairTypeTaproot;
+  SubmarinePairTypeTaproot | ReversePairTypeTaproot | ChainPairTypeTaproot;
 
 class RateProviderTaproot extends RateProviderBase<SwapTypes> {
   private readonly submarinePairs = new Map<
@@ -440,8 +438,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     const chainCurrency = getChainCurrency(base, quote, orderSide, false);
     (
       result as
-        | SubmarinePairTypeTaproot['limits']
-        | ChainPairTypeTaproot['limits']
+        SubmarinePairTypeTaproot['limits'] | ChainPairTypeTaproot['limits']
     ).maximalZeroConf = this.zeroConfAmounts.get(chainCurrency)!;
 
     if (type === SwapType.Chain) {
@@ -524,9 +521,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
 
   private deepCloneWithReferral = <
     T extends
-      | SubmarinePairTypeTaproot
-      | ReversePairTypeTaproot
-      | ChainPairTypeTaproot,
+      SubmarinePairTypeTaproot | ReversePairTypeTaproot | ChainPairTypeTaproot,
     K extends Map<string, Map<string, T>>,
   >(
     map: K,

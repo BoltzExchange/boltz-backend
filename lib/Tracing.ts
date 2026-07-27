@@ -8,7 +8,7 @@ import { WinstonInstrumentation } from '@opentelemetry/instrumentation-winston';
 import { CompressionAlgorithm } from '@opentelemetry/otlp-exporter-base';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace';
 import process from 'process';
 import packageJson from '../package.json';
 
@@ -41,7 +41,8 @@ class Tracing {
         ['service.name']: `${packageJson.name}-${network}`,
       }),
       spanProcessors: [
-        new BatchSpanProcessor(exporter, {
+        new BatchSpanProcessor({
+          exporter,
           exportTimeoutMillis: 1_000,
         }),
       ],

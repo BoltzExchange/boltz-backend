@@ -19,8 +19,7 @@ import type {
 } from '../typechain/EtherSwap';
 
 export type LockupIdentifier =
-  | { preimageHash: Buffer }
-  | { lockupHash: string };
+  { preimageHash: Buffer } | { lockupHash: string };
 
 export type LockupHashParams = {
   preimageHash: Buffer | string;

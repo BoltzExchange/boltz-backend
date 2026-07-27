@@ -8,7 +8,7 @@ edition.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 boltz-utils = { path = "../boltz-utils" }
-aws-sdk-s3 = { version = "1.137.0", default-features = false, features = [
+aws-sdk-s3 = { version = "1.140.0", default-features = false, features = [
     "sigv4a",
     "http-1x",
     "default-https-client",

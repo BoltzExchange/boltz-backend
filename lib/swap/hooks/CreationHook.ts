@@ -31,9 +31,7 @@ type RequestParamsChain = RequestParamsBase & {
 };
 
 type RequestParams =
-  | RequestParamsSubmarine
-  | RequestParamsReverse
-  | RequestParamsChain;
+  RequestParamsSubmarine | RequestParamsReverse | RequestParamsChain;
 
 class CreationHook extends Hook<
   Action,

@@ -25,8 +25,7 @@ class SignerControlRegistry {
   public init = (
     logger: Logger,
     repository:
-      | typeof DisabledSignerRepository
-      | undefined = DisabledSignerRepository,
+      typeof DisabledSignerRepository | undefined = DisabledSignerRepository,
   ) => {
     this.logger = logger;
     this.repository = repository;

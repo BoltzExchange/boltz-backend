@@ -584,35 +584,35 @@ describe('SwapRouter', () => {
     ${'undefined parameter: to'}   | ${{}}
     ${'undefined parameter: from'} | ${{ to: 'BTC' }}
     ${'could not parse hex string: refundPublicKey'} | ${{
-  to: 'BTC',
-  from: 'L-BTC',
-  invoice: 'lnbc1',
-  refundPublicKey: 'notHex',
-}}
+      to: 'BTC',
+      from: 'L-BTC',
+      invoice: 'lnbc1',
+      refundPublicKey: 'notHex',
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'BTC',
-  from: 'L-BTC',
-  invoice: 'lnbc1',
-  metadata: 123,
-}}
+      to: 'BTC',
+      from: 'L-BTC',
+      invoice: 'lnbc1',
+      metadata: 123,
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'BTC',
-  from: 'L-BTC',
-  invoice: 'lnbc1',
-  metadata: '',
-}}
+      to: 'BTC',
+      from: 'L-BTC',
+      invoice: 'lnbc1',
+      metadata: '',
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'BTC',
-  from: 'L-BTC',
-  invoice: 'lnbc1',
-  metadata: 'notHex',
-}}
+      to: 'BTC',
+      from: 'L-BTC',
+      invoice: 'lnbc1',
+      metadata: 'notHex',
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'BTC',
-  from: 'L-BTC',
-  invoice: 'lnbc1',
-  metadata: oversizedMetadata,
-}}
+      to: 'BTC',
+      from: 'L-BTC',
+      invoice: 'lnbc1',
+      metadata: oversizedMetadata,
+    }}
   `(
     'should not create submarine swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -1090,11 +1090,11 @@ describe('SwapRouter', () => {
     ${'could not parse hex string: pubNonce'} | ${{ id: 'someId', index: 0, pubNonce: 'notHex' }}
     ${'undefined parameter: transaction'}     | ${{ id: 'someId', index: 0, pubNonce: '0011' }}
     ${'could not parse hex string: transaction'} | ${{
-  id: 'someId',
-  index: 0,
-  pubNonce: '0011',
-  transaction: 'notHex',
-}}
+      id: 'someId',
+      index: 0,
+      pubNonce: '0011',
+      transaction: 'notHex',
+    }}
   `(
     'should not refund submarine swaps with invalid parameters ($error)',
     async ({ error, body }) => {
@@ -1320,9 +1320,9 @@ describe('SwapRouter', () => {
     ${'undefined parameter: partialSignature'} | ${{ id: '123' }} | ${{ pubNonce: 'aabbcc' }}
     ${'could not parse hex string: pubNonce'}  | ${{ id: '123' }} | ${{ pubNonce: 'notHex' }}
     ${'could not parse hex string: partialSignature'} | ${{ id: '123' }} | ${{
-  pubNonce: 'aabbcc',
-  partialSignature: 'notHex',
-}}
+      pubNonce: 'aabbcc',
+      partialSignature: 'notHex',
+    }}
   `(
     'should not refund submarine swaps with invalid parameters ($error)',
     async ({ error, params, body }) => {
@@ -1451,88 +1451,88 @@ describe('SwapRouter', () => {
     ${'undefined parameter: from'}                | ${{ to: 'L-BTC' }}
     ${'could not parse hex string: preimageHash'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
     ${'could not parse hex string: claimPublicKey'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: 'notHex',
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: 'notHex',
+    }}
     ${'could not parse hex string: addressSignature'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: '0011',
-  addressSignature: 'notHex',
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: '0011',
+      addressSignature: 'notHex',
+    }}
     ${'invalid parameter: invoiceExpiry'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: '0011',
-  invoiceExpiry: '123',
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: '0011',
+      invoiceExpiry: '123',
+    }}
     ${'invalid parameter: description'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: '0011',
-  description: 123,
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: '0011',
+      description: 123,
+    }}
     ${'invalid parameter: claimCovenant'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: '0011',
-  claimCovenant: 123,
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: '0011',
+      claimCovenant: 123,
+    }}
     ${'invalid parameter: claimCovenant'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: '0011',
-  claimCovenant: 'notBool',
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: '0011',
+      claimCovenant: 'notBool',
+    }}
     ${'invalid parameter: descriptionHash'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: '0011',
-  descriptionHash: 123,
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: '0011',
+      descriptionHash: 123,
+    }}
     ${'could not parse hex string: descriptionHash'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: '0011',
-  descriptionHash: 'notHex',
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: '0011',
+      descriptionHash: 'notHex',
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: '0011',
-  metadata: 123,
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: '0011',
+      metadata: 123,
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: '0011',
-  metadata: '',
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: '0011',
+      metadata: '',
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: '0011',
-  metadata: 'notHex',
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: '0011',
+      metadata: 'notHex',
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '00',
-  claimPublicKey: '0011',
-  metadata: oversizedMetadata,
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '00',
+      claimPublicKey: '0011',
+      metadata: oversizedMetadata,
+    }}
   `(
     'should not create reverse swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -2033,41 +2033,41 @@ describe('SwapRouter', () => {
       ${'undefined parameter: preimage'}        | ${{ id: 'someId' }}
       ${'could not parse hex string: preimage'} | ${{ id: 'someId', preimage: 'notHex' }}
       ${'pubNonce, index and transaction must be all set or all undefined'} | ${{
-  id: 'someId',
-  preimage: '21',
-  pubNonce: '0011',
-}}
+        id: 'someId',
+        preimage: '21',
+        pubNonce: '0011',
+      }}
       ${'pubNonce, index and transaction must be all set or all undefined'} | ${{
-  id: 'someId',
-  preimage: '21',
-  index: 0,
-}}
+        id: 'someId',
+        preimage: '21',
+        index: 0,
+      }}
       ${'pubNonce, index and transaction must be all set or all undefined'} | ${{
-  id: 'someId',
-  preimage: '21',
-  transaction: '0011',
-}}
+        id: 'someId',
+        preimage: '21',
+        transaction: '0011',
+      }}
       ${'could not parse hex string: pubNonce'} | ${{
-  id: 'someId',
-  preimage: '21',
-  pubNonce: 'notHex',
-  index: 0,
-  transaction: '0011',
-}}
+        id: 'someId',
+        preimage: '21',
+        pubNonce: 'notHex',
+        index: 0,
+        transaction: '0011',
+      }}
       ${'could not parse hex string: transaction'} | ${{
-  id: 'someId',
-  preimage: '21',
-  pubNonce: '0011',
-  index: 0,
-  transaction: 'notHex',
-}}
+        id: 'someId',
+        preimage: '21',
+        pubNonce: '0011',
+        index: 0,
+        transaction: 'notHex',
+      }}
       ${'invalid parameter: index'} | ${{
-  id: 'someId',
-  preimage: '21',
-  pubNonce: '0011',
-  index: 'yo',
-  transaction: '0011',
-}}
+        id: 'someId',
+        preimage: '21',
+        pubNonce: '0011',
+        index: 'yo',
+        transaction: '0011',
+      }}
     `(
       'should not claim reverse swaps with invalid parameters ($error)',
       async ({ body, error }) => {
@@ -2196,41 +2196,41 @@ describe('SwapRouter', () => {
     ${'could not parse hex string: preimageHash'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'asdf' }}
     ${'invalid preimage hash length: 2'}          | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '0011' }}
     ${'could not parse hex string: claimPublicKey'} | ${{
-  claimPublicKey: 'asdf',
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
-}}
+      claimPublicKey: 'asdf',
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+    }}
     ${'could not parse hex string: refundPublicKey'} | ${{
-  refundPublicKey: 'asdf',
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
-}}
+      refundPublicKey: 'asdf',
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
-  metadata: 123,
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+      metadata: 123,
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
-  metadata: '',
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+      metadata: '',
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
-  metadata: 'notHex',
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+      metadata: 'notHex',
+    }}
     ${'invalid parameter: metadata'} | ${{
-  to: 'L-BTC',
-  from: 'BTC',
-  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
-  metadata: oversizedMetadata,
-}}
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+      metadata: oversizedMetadata,
+    }}
   `(
     'should not create chain swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -2536,17 +2536,17 @@ describe('SwapRouter', () => {
     ${'undefined parameter: pubNonce'}    | ${{ id: 'some' }} | ${{ toSign: { index: 0 } }}
     ${'undefined parameter: transaction'} | ${{ id: 'some' }} | ${{ toSign: { index: 0, pubNonce: '00' } }}
     ${'could not parse hex string: preimage'} | ${{ id: 'some' }} | ${{
-  preimage: 'notHex',
-  toSign: { index: 0, pubNonce: '00', transaction: '01' },
-}}
+      preimage: 'notHex',
+      toSign: { index: 0, pubNonce: '00', transaction: '01' },
+    }}
     ${'undefined parameter: pubNonce'} | ${{ id: 'some' }} | ${{
-  signature: {},
-  toSign: { index: 0, pubNonce: '00', transaction: '01' },
-}}
+      signature: {},
+      toSign: { index: 0, pubNonce: '00', transaction: '01' },
+    }}
     ${'undefined parameter: partialSignature'} | ${{ id: 'some' }} | ${{
-  signature: { pubNonce: '02' },
-  toSign: { index: 0, pubNonce: '00', transaction: '01' },
-}}
+      signature: { pubNonce: '02' },
+      toSign: { index: 0, pubNonce: '00', transaction: '01' },
+    }}
   `(
     'should not claim chain swaps with invalid parameters ($error)',
     async ({ params, body, error }) => {

@@ -20,8 +20,7 @@ type InvoicePaymentHookContinue = {
 };
 
 type InvoicePaymentHookResult =
-  | InvoicePaymentHookHold
-  | InvoicePaymentHookContinue;
+  InvoicePaymentHookHold | InvoicePaymentHookContinue;
 
 const defaultHookResult: InvoicePaymentHookResult = {
   action: InvoicePaymentHookAction.Continue,

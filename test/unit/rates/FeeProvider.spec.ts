@@ -645,21 +645,21 @@ describe('FeeProvider', () => {
     ${'LTC/BTC'} | ${OrderSide.BUY}  | ${SwapType.Submarine} | ${SwapVersion.Taproot} | ${5436}
     ${'LTC/BTC'} | ${OrderSide.SELL} | ${SwapType.Submarine} | ${SwapVersion.Taproot} | ${453}
     ${'BTC/BTC'} | ${OrderSide.BUY} | ${SwapType.ReverseSubmarine} | ${SwapVersion.Legacy} | ${{
-  claim: 4968,
-  lockup: 5508,
-}}
+      claim: 4968,
+      lockup: 5508,
+    }}
     ${'BTC/BTC'} | ${OrderSide.BUY} | ${SwapType.ReverseSubmarine} | ${SwapVersion.Taproot} | ${{
-  claim: 3996,
-  lockup: 5544,
-}}
+      claim: 3996,
+      lockup: 5544,
+    }}
     ${'LTC/BTC'} | ${OrderSide.BUY} | ${SwapType.Chain} | ${SwapVersion.Taproot} | ${{
-  server: 5898,
-  user: { claim: 333, lockup: 5544 },
-}}
+      server: 5898,
+      user: { claim: 333, lockup: 5544 },
+    }}
     ${'LTC/BTC'} | ${OrderSide.SELL} | ${SwapType.Chain} | ${SwapVersion.Taproot} | ${{
-  server: 5997,
-  user: { claim: 3996, lockup: 462 },
-}}
+      server: 5997,
+      user: { claim: 3996, lockup: 462 },
+    }}
   `(
     'should get swap base fees',
     ({ pair, orderSide, type, version, expected }) => {

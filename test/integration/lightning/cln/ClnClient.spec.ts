@@ -431,8 +431,8 @@ describe('ClnClient', () => {
   test.each`
     error                        | expected
     ${{
-  message: 'Error calling method Xpay: RpcError { code: Some(203), message: "Destination said it doesn\'t know invoice: incorrect_or_unknown_payment_details", data: None }',
-}} | ${"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"}
+      message: 'Error calling method Xpay: RpcError { code: Some(203), message: "Destination said it doesn\'t know invoice: incorrect_or_unknown_payment_details", data: None }',
+    }} | ${"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"}
     ${{ message: 'gRPC error' }} | ${'gRPC error'}
     ${'fail'}                    | ${'fail'}
   `('should parse error', ({ error, expected }) => {

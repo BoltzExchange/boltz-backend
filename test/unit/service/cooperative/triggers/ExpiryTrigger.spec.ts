@@ -68,15 +68,15 @@ describe('ExpiryTrigger', () => {
     describe.each`
       name | fn
       ${swapTypeToPrettyString(SwapType.Submarine)} | ${(height: number) => ({
-  type: SwapType.Submarine,
-  timeoutBlockHeight: height,
-})}
+        type: SwapType.Submarine,
+        timeoutBlockHeight: height,
+      })}
       ${swapTypeToPrettyString(SwapType.Chain)} | ${(height: number) => ({
-  type: SwapType.Chain,
-  receivingData: {
-    timeoutBlockHeight: height,
-  },
-})}
+        type: SwapType.Chain,
+        receivingData: {
+          timeoutBlockHeight: height,
+        },
+      })}
     `('$name', ({ fn }) => {
       test.each([100, 101, 102, 106])(
         'should return true if the block height is less than or equal to the tolerance',

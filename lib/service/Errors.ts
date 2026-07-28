@@ -213,4 +213,8 @@ export default {
     message: 'could not register webhook',
     code: concatErrorCode(ErrorCodePrefix.Service, 59),
   }),
+  NON_INTERACTIVE_CLAIMS_DISABLED: (): Error => ({
+    message: 'non-interactive claims are disabled',
+    code: concatErrorCode(ErrorCodePrefix.Service, 60),
+  }),
 };

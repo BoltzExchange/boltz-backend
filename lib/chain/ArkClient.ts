@@ -80,6 +80,10 @@ type ArkAddress = {
   boardingAddress: string;
 };
 
+export type NonInteractiveClaim = arkrpc.NonInteractiveClaim;
+
+export type VHtlcTaprootTree = arkrpc.TaprootTree;
+
 enum ArkBlockEventKind {
   Height = 'height',
   MedianTime = 'medianTime',
@@ -108,6 +112,8 @@ class ArkClient extends BaseClient<
   private static readonly opCsvMultiple = 512;
 
   public pubkey!: Buffer;
+  public signerPubkey!: Buffer;
+  public addrPrefix!: string;
   public subscription!: ArkSubscription;
 
   private chainClient?: IChainClient;
@@ -169,6 +175,22 @@ class ArkClient extends BaseClient<
     return this.useLocktimeSeconds;
   }
 
+  /**
+   * @param serverPubKey - server public key of a decoded Ark address; x-only or compressed with a parity byte
+   */
+  public isOwnServerKey = (serverPubKey: Buffer): boolean => {
+    if (this.signerPubkey === undefined) {
+      return false;
+    }
+
+    return ArkClient.toXOnly(serverPubKey).equals(
+      ArkClient.toXOnly(this.signerPubkey),
+    );
+  };
+
+  private static toXOnly = (pubkey: Buffer): Buffer =>
+    pubkey.length === 33 ? pubkey.subarray(1) : pubkey;
+
   public static decodeAddress = (address: string) => {
     const dec = bech32m.decodeUnsafe(address, 1023);
     if (dec === undefined) {
@@ -181,6 +203,7 @@ class ArkClient extends BaseClient<
     }
 
     return {
+      prefix: dec.prefix,
       serverPubKey: data.subarray(1, 33),
       tweakedPubKey: data.subarray(33, 65),
     };
@@ -267,6 +290,8 @@ class ArkClient extends BaseClient<
         `Connected to ${this.serviceName()} ${this.symbol} with pubkey: ${info.pubkey}`,
       );
       this.pubkey = getHexBuffer(info.pubkey);
+      this.signerPubkey = getHexBuffer(info.signerPubkey);
+      this.addrPrefix = info.addrPrefix;
 
       this.setClientStatus(ClientStatus.Connected);
     } catch (error) {
@@ -316,6 +341,8 @@ class ArkClient extends BaseClient<
     try {
       const info = await this.getInfo();
       this.pubkey = getHexBuffer(info.pubkey);
+      this.signerPubkey = getHexBuffer(info.signerPubkey);
+      this.addrPrefix = info.addrPrefix;
 
       this.logger.info(
         `Reestablished connection to ${this.serviceName()} ${this.symbol}`,
@@ -475,6 +502,7 @@ class ArkClient extends BaseClient<
     refundDelay: number,
     claimPublicKey?: Buffer,
     refundPublicKey?: Buffer,
+    nonInteractiveClaim?: NonInteractiveClaim,
   ): Promise<{
     vHtlc: arkrpc.CreateVHTLCResponse;
     timeouts: Timeouts;
@@ -511,6 +539,7 @@ class ArkClient extends BaseClient<
       unilateralClaimDelay: undefined,
       unilateralRefundDelay: undefined,
       unilateralRefundWithoutReceiverDelay: undefined,
+      nonInteractiveClaim,
     };
 
     if (claimPublicKey) {

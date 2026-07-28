@@ -38,6 +38,19 @@ describe('ArkClient', () => {
     expect(getHexBuffer(info.pubkey)).toEqual(arkClient.pubkey);
   });
 
+  test('should set signerPubkey and addrPrefix after connecting', async () => {
+    await arkClient.connect(bitcoinClient);
+
+    const info = await arkClient.getInfo();
+    expect(arkClient.signerPubkey).toEqual(getHexBuffer(info.signerPubkey));
+    expect(arkClient.addrPrefix).toEqual(info.addrPrefix);
+
+    const { address } = await arkClient.getAddress();
+    const decoded = ArkClient.decodeAddress(address);
+    expect(decoded.prefix).toEqual(arkClient.addrPrefix);
+    expect(arkClient.isOwnServerKey(decoded.serverPubKey)).toEqual(true);
+  });
+
   test('should get block height', async () => {
     const blockHeight = await arkClient.getBlockHeight();
     expect(blockHeight).toBeGreaterThan(0);
@@ -265,6 +278,7 @@ describe('ArkClient', () => {
           'tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndakjpdlzx4q6n5was20sqf5kff8999rupjsl2ptlz3nqtkl6hv27fvrc05ag',
         ),
       ).toEqual({
+        prefix: 'tark',
         serverPubKey: getHexBuffer(
           'e35799157be4b37565bb5afe4d04e6a0fa0a4b6a4f4e48b0d904685d253cdbdb',
         ),

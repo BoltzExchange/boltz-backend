@@ -108,6 +108,42 @@ describe('Utils', () => {
         optionalChecks,
       ),
     ).toEqual({ test: 'test' });
+
+    const objectChecks: ApiArgument[] = [
+      {
+        name: 'test',
+        type: 'object',
+        optional: true,
+      },
+    ];
+
+    // Null is not a valid object
+    expect(() =>
+      validateRequest(
+        {
+          test: null,
+        },
+        objectChecks,
+      ),
+    ).toThrow(`invalid parameter: ${objectChecks[0].name}`);
+
+    // Objects and arrays are valid objects
+    expect(
+      validateRequest(
+        {
+          test: { some: 'data' },
+        },
+        objectChecks,
+      ),
+    ).toEqual({ test: { some: 'data' } });
+    expect(
+      validateRequest(
+        {
+          test: ['some', 'data'],
+        },
+        objectChecks,
+      ),
+    ).toEqual({ test: ['some', 'data'] });
   });
 
   describe('validateArray', () => {

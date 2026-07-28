@@ -225,6 +225,7 @@ type ConfigType = {
 
   prepayminerfee: boolean;
   swapwitnessaddress: boolean;
+  nonInteractiveClaims: boolean;
 
   swap: SwapConfig;
   routing: RoutingFeeConfig;
@@ -290,6 +291,7 @@ class Config {
 
       prepayminerfee: false,
       swapwitnessaddress: false,
+      nonInteractiveClaims: false,
 
       swap: {
         deferredClaimSymbols: ['L-BTC'],

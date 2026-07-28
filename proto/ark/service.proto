@@ -132,11 +132,6 @@ service Service {
       body: "*"
     };
   }
-  rpc IsInvoiceSettled(IsInvoiceSettledRequest) returns (IsInvoiceSettledResponse) {
-    option (google.api.http) = {
-      get: "/v1/invoice/status"
-    };
-  }
   // GetVirtualTxs returns the virtual transactions in hex format for the specified txids.
   rpc GetVirtualTxs(GetVirtualTxsRequest) returns (GetVirtualTxsResponse) {
     option (google.api.http) = {
@@ -177,7 +172,7 @@ service Service {
     };
   };
 
-  // ListDelegates returns delegator tasks filtered by status, paginated by limit/offset.
+  // ListDelegates returns delegate tasks filtered by status, paginated by limit/offset.
   rpc ListDelegates(ListDelegatesRequest) returns (ListDelegatesResponse) {
     option (google.api.http) = {
       get: "/v1/delegates"
@@ -284,6 +279,8 @@ message CreateVHTLCRequest {
   RelativeLocktime unilateral_refund_delay = 6;
   // Optional unilateral refund without receiver delay (relative timelock)
   RelativeLocktime unilateral_refund_without_receiver_delay = 7;
+  // Optional non-interactive claim config
+  NonInteractiveClaim non_interactive_claim = 8;
 }
 message CreateVHTLCResponse {
   string id = 1;
@@ -364,7 +361,7 @@ message GetVHTLCSpendingTxRequest {
 }
 
 message GetVHTLCSpendingTxResponse {
-  // The fully signed ark transaction in hex format.
+  // The fully signed ark psbt.
   string tx = 1;
 }
 
@@ -389,6 +386,7 @@ message TaprootTree {
   TaprootLeaf unilateral_claim_leaf = 4;
   TaprootLeaf unilateral_refund_leaf = 5;
   TaprootLeaf unilateral_refund_without_boltz_leaf = 6;
+  optional TaprootLeaf non_interactive_claim_leaf = 7;
 }
 
 message TaprootLeaf {
@@ -396,15 +394,11 @@ message TaprootLeaf {
   string output = 2;
 }
 
-message IsInvoiceSettledRequest {
-  string invoice = 1;
+message NonInteractiveClaim {
+  // ark address of the claim tx recipient
+  string claim_address = 1;
 }
 
-message IsInvoiceSettledResponse {
-  bool settled = 1;
-}
-
-// RelativeLocktime represents a relative timelock
 message RelativeLocktime {
   enum LocktimeType {
     LOCKTIME_TYPE_UNSPECIFIED = 0;
@@ -520,7 +514,7 @@ message Delegate {
   DelegateIntent intent = 2;
   repeated DelegateForfeitTx forfeit_txs = 3;
   uint64 fee = 4;
-  string delegator_public_key = 5;
+  string delegate_public_key = 5;
   int64 scheduled_at = 6;
   string status = 7;
   string fail_reason = 8;

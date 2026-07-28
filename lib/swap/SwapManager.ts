@@ -33,7 +33,11 @@ import {
   getUnixTime,
   splitPairId,
 } from '../Utils';
-import type { Timeouts } from '../chain/ArkClient';
+import type {
+  NonInteractiveClaim,
+  Timeouts,
+  VHtlcTaprootTree,
+} from '../chain/ArkClient';
 import ArkClient from '../chain/ArkClient';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import DefaultMap from '../consts/DefaultMap';
@@ -132,9 +136,9 @@ type CreatedOnchainSwap = {
   timeoutBlockHeight?: number;
   timeoutBlockHeights?: Timeouts;
 
-  // Only set for Taproot swaps
+  // Only set for Taproot swaps; VHtlcTaprootTree for Ark
   refundPublicKey?: string;
-  swapTree?: SwapTreeSerializer.SerializedTree;
+  swapTree?: SwapTreeSerializer.SerializedTree | VHtlcTaprootTree;
 
   // Only set for Ethereum like chains
   claimAddress?: string;
@@ -810,6 +814,9 @@ class SwapManager {
 
     claimCovenant: boolean;
 
+    // Only used for Reverse Swaps to Ark
+    nonInteractiveClaim?: NonInteractiveClaim;
+
     memo?: string;
     descriptionHash?: Buffer;
 
@@ -1112,10 +1119,12 @@ class SwapManager {
         args.onchainTimeoutBlockDelta,
         args.claimPublicKey!,
         undefined,
+        args.nonInteractiveClaim,
       );
 
       result.refundPublicKey = getHexString(sendingCurrency.arkNode!.pubkey);
       result.lockupAddress = vHtlc.vHtlc.address;
+      result.swapTree = vHtlc.vHtlc.swapTree;
 
       result.timeoutBlockHeights = vHtlc.timeouts;
 
@@ -1211,6 +1220,8 @@ class SwapManager {
     sendingTimeoutBlockDelta: number;
     receivingTimeoutBlockDelta: number;
 
+    nonInteractiveClaim?: NonInteractiveClaim;
+
     referralId?: string;
 
     // Pre-generated swap id; when omitted a new one is generated
@@ -1260,6 +1271,7 @@ class SwapManager {
       claimAddress: string | undefined;
       refundAddress: string | undefined;
       tree: Types.SwapTree | Types.LiquidSwapTree | undefined;
+      arkTree: VHtlcTaprootTree | undefined;
       timeouts?: Timeouts;
     }> => {
       const res: Partial<ChainSwapDataTypeInsert> = {
@@ -1272,6 +1284,7 @@ class SwapManager {
       let claimAddress: string | undefined;
       let refundAddress: string | undefined;
       let tree: Types.SwapTree | Types.LiquidSwapTree | undefined;
+      let arkTree: VHtlcTaprootTree | undefined;
       let timeouts: Timeouts | undefined;
 
       if (
@@ -1319,6 +1332,7 @@ class SwapManager {
           timeoutBlockDelta,
           isSending ? theirPublicKey : undefined,
           isSending ? undefined : theirPublicKey,
+          isSending ? args.nonInteractiveClaim : undefined,
         );
         await currency.arkNode!.subscription.subscribeAddresses([
           {
@@ -1334,6 +1348,7 @@ class SwapManager {
         res.lockupAddress = vHtlc.vHtlc.address;
         res.timeoutBlockHeight = vHtlc.timeouts.refund;
         res.swapTree = JSON.stringify(vHtlc.vHtlc.swapTree);
+        arkTree = vHtlc.vHtlc.swapTree;
       } else {
         const blockNumber = await currency.provider!.getLocktimeHeight();
         res.timeoutBlockHeight = blockNumber + timeoutBlockDelta;
@@ -1357,6 +1372,7 @@ class SwapManager {
 
       return {
         tree,
+        arkTree,
         serverKeys,
         blindingKey,
         claimAddress,
@@ -1413,7 +1429,7 @@ class SwapManager {
       timeouts: data.timeouts,
       swapTree: data.tree
         ? SwapTreeSerializer.serializeSwapTree(data.tree)
-        : undefined,
+        : data.arkTree,
     });
 
     return {

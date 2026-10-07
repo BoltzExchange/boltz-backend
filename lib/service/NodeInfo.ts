@@ -2,7 +2,7 @@ import type { Job } from 'node-schedule';
 import { scheduleJob } from 'node-schedule';
 import type { CurrencyConfig } from '../Config';
 import type Logger from '../Logger';
-import { stringify } from '../Utils';
+import { formatError, stringify } from '../Utils';
 import type { NodeType } from '../db/models/ReverseSwap';
 import type {
   ChannelInfo,
@@ -136,11 +136,24 @@ class NodeInfo {
       const oldestChannel = channels.reduce((prev, cur) => {
         return Number(prev.chanId) < Number(cur.chanId) ? prev : cur;
       });
-      oldestChannelBlockTime = (
-        await currency.chainClient!.getRawTransactionVerbose(
-          oldestChannel.fundingTransactionId,
-        )
-      ).blocktime;
+      // The block the funding transaction confirmed in is the first part of
+      // the short channel id. Its header is kept even by a pruned node, while
+      // the transaction itself may be long gone from one without -txindex.
+      const fundingHeight = Number(BigInt(oldestChannel.chanId) >> 40n);
+      const chainClient = currency.chainClient!;
+      try {
+        oldestChannelBlockTime = (
+          await chainClient.getBlockHeader(
+            await chainClient.getBlockhash(fundingHeight),
+          )
+        ).time;
+      } catch (error) {
+        // An unconfirmed zero-conf channel has an alias for an id, whose
+        // "height" is no block at all
+        this.logger.warn(
+          `Could not get the block time of channel ${oldestChannel.chanId}: ${formatError(error)}`,
+        );
+      }
     }
 
     const publicChannels = channels.filter((chan) => !chan.private);

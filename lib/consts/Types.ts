@@ -106,6 +106,14 @@ export type Block = BlockWithoutTransactions & {
   tx: string[];
 };
 
+export type BlockHeader = {
+  hash: string;
+  confirmations: number;
+  height: number;
+  time: number;
+  mediantime: number;
+};
+
 export type BlockVerbose = BlockWithoutTransactions & {
   tx: Transaction[];
 };

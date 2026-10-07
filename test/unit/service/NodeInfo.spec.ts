@@ -56,11 +56,15 @@ jest.mock('../../../lib/lightning/LndClient', () => {
 
 const mockedLightningClient = <jest.Mock<LndClient>>(<any>LndClient);
 
-const rawTxResult = { blocktime: 123 };
+const headerResult = { time: 123 };
 
 jest.mock('../../../lib/chain/ChainClient', () => {
   return jest.fn().mockImplementation(() => ({
-    getRawTransactionVerbose: jest.fn().mockResolvedValue(rawTxResult),
+    getBlockhash: jest.fn().mockResolvedValue('blockhash'),
+    getBlockHeader: jest.fn().mockResolvedValue(headerResult),
+    getRawTransactionVerbose: jest
+      .fn()
+      .mockRejectedValue(new Error('the funding transaction is not needed')),
   }));
 });
 
@@ -195,6 +199,31 @@ describe('NodeInfo', () => {
     );
   });
 
+  test("should read the oldest channel's block time from its short channel id", async () => {
+    const chainClient = currencies.get('BTC')!.chainClient!;
+    // 113249697726464 is block 103 (the upper 24 bits of the channel id).
+    expect(chainClient.getBlockhash).toHaveBeenCalledWith(103);
+    expect(chainClient.getBlockHeader).toHaveBeenCalledWith('blockhash');
+    expect(chainClient.getRawTransactionVerbose).not.toHaveBeenCalled();
+  });
+
+  test('should leave the age out when the channel id names no block', async () => {
+    const chainClient = currencies.get('BTC')!.chainClient!;
+    (chainClient.getBlockhash as jest.Mock).mockRejectedValueOnce({
+      code: -8,
+      message: 'Block height out of range',
+    });
+
+    const stats = await nodeInfo['calculateNodeStats'](
+      currencies.get('BTC')!,
+      channelsBtc as any,
+      1,
+    );
+
+    expect(stats.oldestChannel).toBeUndefined();
+    expect(stats.channels).toEqual(2);
+  });
+
   test('should get node stats', async () => {
     const info = getNodeInfo('BTC');
 
@@ -206,7 +235,7 @@ describe('NodeInfo', () => {
           {
             channels: 2,
             peers: info.peers,
-            oldestChannel: rawTxResult.blocktime,
+            oldestChannel: headerResult.time,
             capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
           },
         ],
@@ -231,7 +260,7 @@ describe('NodeInfo', () => {
           {
             channels: 2,
             peers: info.peers,
-            oldestChannel: rawTxResult.blocktime,
+            oldestChannel: headerResult.time,
             capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
           },
         ],
@@ -244,7 +273,7 @@ describe('NodeInfo', () => {
           {
             channels: 2,
             peers: info.peers,
-            oldestChannel: rawTxResult.blocktime,
+            oldestChannel: headerResult.time,
             capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
           },
         ],
@@ -253,7 +282,7 @@ describe('NodeInfo', () => {
           {
             channels: 2,
             peers: info.peers,
-            oldestChannel: rawTxResult.blocktime,
+            oldestChannel: headerResult.time,
             capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
           },
         ],

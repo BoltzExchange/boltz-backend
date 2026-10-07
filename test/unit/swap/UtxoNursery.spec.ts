@@ -18,6 +18,7 @@ import {
 import * as Core from '../../../lib/Core';
 import { createMusig, setup, tweakMusig } from '../../../lib/Core';
 import Logger from '../../../lib/Logger';
+import { TxView } from '../../../lib/TxView';
 import {
   getHexBuffer,
   getHexString,
@@ -874,6 +875,56 @@ describe('UtxoNursery', () => {
       expect(failedListener).not.toHaveBeenCalled();
 
       getOutputValueSpy.mockRestore();
+    });
+
+    test('should fail a chain swap whose lockup is a coinbase', async () => {
+      const checkChainSwapTransaction = nursery['checkChainSwapTransaction'];
+      const tx = chainLockupTransaction();
+      const mockChainSwap = chainSwap(
+        tx,
+        { expectedAmount: 123 },
+        SwapUpdateEvent.SwapCreated,
+      );
+
+      ChainSwapRepository.setUserLockupTransaction = jest
+        .fn()
+        .mockResolvedValue({
+          outcome: LockupWriteOutcome.Acquired,
+          swap: mockChainSwap,
+        });
+      const getOutputValueSpy = jest
+        .spyOn(Core, 'getOutputValue')
+        .mockReturnValue(123);
+      const realOf = TxView.of;
+      const ofSpy = jest.spyOn(TxView, 'of').mockImplementation((raw) => {
+        const view = realOf(raw);
+        view.isCoinbase = () => true;
+        return view;
+      });
+
+      const lockupListener = jest.fn();
+      const failedListener = jest.fn();
+      nursery.on('chainSwap.lockup', lockupListener);
+      nursery.on('chainSwap.lockup.failed', failedListener);
+
+      try {
+        await checkChainSwapTransaction(
+          mockChainSwap as any,
+          btcChainClient,
+          btcWallet,
+          tx.transaction,
+          TransactionStatus.Confirmed,
+        );
+      } finally {
+        ofSpy.mockRestore();
+        getOutputValueSpy.mockRestore();
+      }
+
+      expect(lockupListener).not.toHaveBeenCalled();
+      expect(failedListener).toHaveBeenCalledWith({
+        swap: mockChainSwap,
+        reason: Errors.COINBASE_LOCKUP().message,
+      });
     });
 
     test('should accept a chain swap replacement after zero-conf rejection', async () => {
@@ -2439,6 +2490,61 @@ describe('UtxoNursery', () => {
 
     expect(await transactionSignalsRbf(btcChainClient, transaction)).toEqual(
       false,
+    );
+  });
+
+  test('should fail a submarine swap whose lockup is a coinbase', async () => {
+    const checkSwapOutputs = nursery['checkOutputs'];
+    const transaction = parseTx(sampleTransactions.lockup);
+
+    mockGetSwapResult = {
+      id: 'coinbaseSwap',
+      expectedAmount: 100214,
+      redeemScript: sampleRedeemScript,
+      lockupAddress: encodeAddress(
+        Buffer.from(transaction.getOutput(0).script!),
+      ),
+    };
+    mockSetLockupTransaction.mockImplementationOnce(async (swap) => ({
+      outcome: LockupWriteOutcome.Acquired,
+      swap: {
+        ...swap,
+        expectedAmount: 100214,
+      },
+    }));
+    const getOutputValueSpy = jest
+      .spyOn(Core, 'getOutputValue')
+      .mockReturnValue(100214);
+    const realOf = TxView.of;
+    const ofSpy = jest.spyOn(TxView, 'of').mockImplementation((raw) => {
+      const view = realOf(raw);
+      view.isCoinbase = () => true;
+      return view;
+    });
+
+    const lockupListener = jest.fn();
+    const failedListener = jest.fn();
+    nursery.on('swap.lockup', lockupListener);
+    nursery.on('swap.lockup.failed', failedListener);
+
+    try {
+      await checkSwapOutputs(
+        btcChainClient,
+        btcWallet,
+        transaction,
+        TransactionStatus.Confirmed,
+      );
+    } finally {
+      nursery.removeListener('swap.lockup', lockupListener);
+      nursery.removeListener('swap.lockup.failed', failedListener);
+      ofSpy.mockRestore();
+      getOutputValueSpy.mockRestore();
+    }
+
+    expect(lockupListener).not.toHaveBeenCalled();
+    expect(failedListener).toHaveBeenCalledTimes(1);
+    expect(failedListener.mock.calls[0][0].reason).toEqual(
+      Errors.COINBASE_LOCKUP().message,
     );
   });
 

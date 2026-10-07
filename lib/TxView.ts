@@ -79,6 +79,18 @@ export class TxView {
     return (this.outputsMemo ??= this.computeOutputs());
   }
 
+  /**
+   * Whether this is a coinbase transaction: one input, spending nothing.
+   */
+  public isCoinbase = (): boolean => {
+    const inputs = this.inputs;
+    return (
+      inputs.length === 1 &&
+      inputs[0].txid === '00'.repeat(32) &&
+      inputs[0].index === 0xffffffff
+    );
+  };
+
   public signalsRbfExplicitly = (): boolean => {
     return this.inputs.some((i) => (i.sequence ?? 0xffffffff) < rbfFlag);
   };

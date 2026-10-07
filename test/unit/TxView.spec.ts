@@ -1,6 +1,8 @@
 import { Transaction as ScureTransaction } from '@scure/btc-signer';
 import { Transaction as LiquidTransaction, confidential } from 'liquidjs-lib';
+import { parseTransaction } from '../../lib/Core';
 import { TxView } from '../../lib/TxView';
+import { CurrencyType } from '../../lib/consts/Enums';
 import { constructTransaction } from '../Utils';
 
 const buildLiquidTx = (sequence = 0xffffffff): LiquidTransaction => {
@@ -129,6 +131,33 @@ describe('TxView', () => {
       for (const out of confView.outputs) {
         expect(out.amount).toBeUndefined();
       }
+    });
+  });
+
+  describe('isCoinbase', () => {
+    // The coinbase of block 5 of a regtest chain
+    const coinbaseHex =
+      '020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff025500ffffffff0200f2052a010000001976a914635ea95b3fdbc03a2dc8451b7dd4a20253056d4c88ac0000000000000000266a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf90120000000000000000000000000000000000000000000000000000000000000000000000000';
+
+    test('returns true for a coinbase', () => {
+      expect(
+        TxView.of(
+          parseTransaction(CurrencyType.BitcoinLike, coinbaseHex),
+        ).isCoinbase(),
+      ).toEqual(true);
+    });
+
+    test('returns false for a transaction spending an output', () => {
+      expect(
+        TxView.of(constructTransaction(false, inputHash)).isCoinbase(),
+      ).toEqual(false);
+    });
+
+    test('returns false for a spend of output 0xffffffff of a real transaction', () => {
+      const tx = new ScureTransaction({ allowUnknownOutputs: true });
+      tx.addInput({ txid: Buffer.alloc(32, 1), index: 0xffffffff });
+      tx.addOutput({ script: Buffer.from('6a', 'hex'), amount: 0n });
+      expect(TxView.of(tx).isCoinbase()).toEqual(false);
     });
   });
 

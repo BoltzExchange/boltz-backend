@@ -143,4 +143,8 @@ export default {
     message: 'incorrect asset was sent',
     code: concatErrorCode(ErrorCodePrefix.Swap, 31),
   }),
+  COINBASE_LOCKUP: (): Error => ({
+    message: 'coinbase transactions are not accepted as lockups',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 32),
+  }),
 };

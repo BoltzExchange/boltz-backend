@@ -2699,7 +2699,7 @@ describe('Service', () => {
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
       version: SwapVersion.Legacy,
-      lightningTimeoutBlockDelta: 16,
+      lightningTimeoutBlockDelta: 61,
       holdInvoiceAmount: invoiceAmount,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,
     });
@@ -2738,7 +2738,7 @@ describe('Service', () => {
       orderSide: OrderSide.BUY,
       version: SwapVersion.Legacy,
       onchainTimeoutBlockDelta: 160,
-      lightningTimeoutBlockDelta: 50,
+      lightningTimeoutBlockDelta: 110,
       holdInvoiceAmount: invoiceAmount,
       onchainAmount:
         invoiceAmount * pairRate - percentageFee - mockGetBaseFeeResult,
@@ -2894,7 +2894,7 @@ describe('Service', () => {
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
       version: SwapVersion.Legacy,
-      lightningTimeoutBlockDelta: 16,
+      lightningTimeoutBlockDelta: 61,
       holdInvoiceAmount: invoiceAmount,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,
     });
@@ -2966,7 +2966,7 @@ describe('Service', () => {
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
       version: SwapVersion.Legacy,
-      lightningTimeoutBlockDelta: 16,
+      lightningTimeoutBlockDelta: 61,
       percentageFee: 2048,
     });
 
@@ -3310,7 +3310,7 @@ describe('Service', () => {
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
       version: SwapVersion.Legacy,
-      lightningTimeoutBlockDelta: 16,
+      lightningTimeoutBlockDelta: 61,
       holdInvoiceAmount: invoiceAmount,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,
     });
@@ -3395,7 +3395,7 @@ describe('Service', () => {
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
       version: SwapVersion.Legacy,
-      lightningTimeoutBlockDelta: 16,
+      lightningTimeoutBlockDelta: 61,
       prepayMinerFeeInvoiceAmount: mockGetBaseFeeResult,
       holdInvoiceAmount: invoiceAmount - mockGetBaseFeeResult,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,
@@ -3459,7 +3459,7 @@ describe('Service', () => {
       claimCovenant: false,
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 900,
-      lightningTimeoutBlockDelta: 23,
+      lightningTimeoutBlockDelta: 83,
       claimAddress: args.claimAddress,
       preimageHash: args.preimageHash,
       holdInvoiceAmount: args.invoiceAmount - prepayMinerFeeInvoiceAmount,

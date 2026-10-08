@@ -1946,9 +1946,19 @@ class Service {
       onchainTimeoutBlockDelta,
     );
 
-    // Add 15 blocks to the delta for same currency swaps and 25% for cross chain ones as buffer
+    // The hold invoice asks for 60 blocks beyond the on-chain timeout, and
+    // cross chain swaps add 25% of the timeout on top for the drift between
+    // the two chains. lnd cancels an accepted hold invoice
+    // `invoices.holdexpirydelta` (18) blocks before its HTLC expires, and from
+    // then on the payer has the Lightning payment back while still able to
+    // claim the lockup with the preimage until the refund confirms. With the
+    // 15 blocks this used to be, the cancel came at or before the timeout; 60
+    // leave the refund about 40 blocks to confirm.
     lightningTimeoutBlockDelta +=
-      sending === receiving ? 15 : Math.ceil(lightningTimeoutBlockDelta * 0.25);
+      60 +
+      (sending === receiving
+        ? 0
+        : Math.ceil(lightningTimeoutBlockDelta * 0.25));
 
     const rate = getRate(pairRate, side, true);
     const feePercent = this.rateProvider.feeProvider.getPercentageFee(

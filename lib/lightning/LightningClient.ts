@@ -57,6 +57,8 @@ type HopHint = {
 type Htlc = {
   valueMsat: number;
   state: HtlcState;
+  // Block height at which the HTLC expires, where the node reports it
+  expiryHeight?: number;
 };
 
 type Invoice = {

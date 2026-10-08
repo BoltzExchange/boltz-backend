@@ -935,6 +935,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     return {
       valueMsat: fromProtoInt(htlc.amtMsat),
       state: LndClient.htlcStateFromGrpc(htlc.state),
+      expiryHeight: htlc.expiryHeight,
     };
   };
 

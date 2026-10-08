@@ -272,6 +272,19 @@ class MusigSigner {
               return undefined;
             }
 
+            // Settling can fail, for instance when lnd has already
+            // cancelled the invoice. Signing the claim then would hand over
+            // the lockup for a payment the service never received.
+            const settled = await ReverseSwapRepository.getReverseSwap({
+              id: swap.id,
+            });
+            if (settled?.status !== SwapUpdateEvent.InvoiceSettled) {
+              this.logger.warn(
+                `Not creating partial signature for claim of Reverse Swap ${swap.id}: its invoice is not settled (${settled?.status})`,
+              );
+              throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
+            }
+
             this.logger.debug(
               `Creating partial signature for claim of Reverse Swap ${swap.id}`,
             );

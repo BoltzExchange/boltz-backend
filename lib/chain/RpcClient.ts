@@ -12,7 +12,24 @@ type RpcResponse<T> = {
   result: T | null;
 };
 
+// Marks an error that is the node's own JSON-RPC error reply
+const nodeErrorMark = Symbol('nodeRpcError');
+
 class RpcClient {
+  /** Whether an error is a JSON-RPC error the node replied with */
+  public static isNodeError = (error: unknown): boolean =>
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { [nodeErrorMark]?: boolean })[nodeErrorMark] === true;
+
+  public static markNodeError = <T>(error: T): T => {
+    if (typeof error === 'object' && error !== null) {
+      Object.defineProperty(error, nodeErrorMark, { value: true });
+    }
+
+    return error;
+  };
+
   private readonly auth: string;
   private readonly options = {};
   private readonly walletOptions = {};
@@ -156,7 +173,7 @@ class RpcClient {
             }
 
             if (parsedResponse.error) {
-              reject(parsedResponse.error);
+              reject(RpcClient.markNodeError(parsedResponse.error));
               return;
             }
 

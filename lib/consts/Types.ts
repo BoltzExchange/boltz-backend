@@ -222,6 +222,18 @@ export type WalletTransaction = {
   hex: string;
 };
 
+// One entry of `listtransactions`
+export type WalletTransactionEntry = {
+  txid: string;
+  category: string;
+  address?: string;
+  amount: number;
+  confirmations: number;
+  abandoned?: boolean;
+  time: number;
+  timereceived: number;
+};
+
 export type MempoolAcceptResult = {
   txid: string;
   wtxid: string;

@@ -54,6 +54,19 @@ interface WalletProviderInterface extends BalancerFetcher {
     relativeFee: number | undefined,
     label: string,
   ) => Promise<SentTransaction>;
+
+  /**
+   * The wallet's own record of a payment it made to an address since a point
+   * in time, whatever the database says. Throws when the wallet cannot
+   * answer. Providers without it give no such guarantee.
+   *
+   * @param address
+   * @param since
+   */
+  findSend?: (
+    address: string,
+    since: Date,
+  ) => Promise<SentTransaction | undefined>;
 }
 
 const checkMempoolAndSaveRebroadcast = async (

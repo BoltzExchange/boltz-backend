@@ -115,6 +115,38 @@ describe('RpcClient', () => {
     });
   });
 
+  test("should mark JSON-RPC errors as the node's, and only those", async () => {
+    const client = new RpcClient(
+      Logger.disabledLogger,
+      'BTC',
+      baseConfig as any,
+    );
+
+    mockHttpResponse(
+      500,
+      JSON.stringify({
+        error: { code: -6, message: 'Insufficient funds' },
+        result: null,
+      }),
+    );
+    const nodeError = await client.request('sendtoaddress').catch((e) => e);
+    expect(RpcClient.isNodeError(nodeError)).toEqual(true);
+    // The mark does not show in what is logged or compared
+    expect(JSON.stringify(nodeError)).toEqual(
+      '{"code":-6,"message":"Insufficient funds"}',
+    );
+
+    mockHttpResponse(502, 'Bad Gateway');
+    const proxyError = await client.request('sendtoaddress').catch((e) => e);
+    expect(RpcClient.isNodeError(proxyError)).toEqual(false);
+
+    expect(RpcClient.isNodeError({ code: -6, message: 'lookalike' })).toEqual(
+      false,
+    );
+    expect(RpcClient.isNodeError(undefined)).toEqual(false);
+    expect(RpcClient.isNodeError('-6')).toEqual(false);
+  });
+
   test('should reject responses without a result field', async () => {
     mockHttpResponse(200, JSON.stringify({}));
 

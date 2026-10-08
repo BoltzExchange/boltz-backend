@@ -250,6 +250,28 @@ describe('Wallet', () => {
     );
   });
 
+  test('should find a send through its provider', async () => {
+    const since = new Date();
+    const findSend = jest.fn().mockResolvedValue(sentTransaction);
+    const withFindSend = new Wallet(
+      Logger.disabledLogger,
+      CurrencyType.BitcoinLike,
+      { ...walletProvider, findSend } as any,
+      network,
+    );
+
+    await expect(withFindSend.findSend(address, since)).resolves.toEqual(
+      sentTransaction,
+    );
+    expect(findSend).toHaveBeenCalledWith(address, since);
+    expect(withFindSend.canFindSend).toEqual(true);
+  });
+
+  test('should find no send with a provider that cannot look', async () => {
+    await expect(wallet.findSend(address, new Date())).resolves.toBeUndefined();
+    expect(wallet.canFindSend).toEqual(false);
+  });
+
   test('should sweep wallet', async () => {
     const address = 'bcrt1qk4pces7y5csg3qv8gr4ftghgp8gzgg3lv3nwju';
     const satPerVbyte = 2;

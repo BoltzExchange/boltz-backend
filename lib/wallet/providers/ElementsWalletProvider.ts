@@ -5,6 +5,7 @@ import { getHexBuffer } from '../../Utils';
 import ChainClient from '../../chain/ChainClient';
 import type { IElementsClient } from '../../chain/ElementsClient';
 import type NotificationClient from '../../notifications/NotificationClient';
+import NotBroadcastError from './NotBroadcastError';
 import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
 import type WalletProviderInterface from './WalletProviderInterface';
 import { checkMempoolAndSaveRebroadcast } from './WalletProviderInterface';
@@ -56,13 +57,23 @@ class ElementsWalletProvider implements WalletProviderInterface {
     satPerVbyte: number | undefined,
     label: string,
   ): Promise<SentTransaction> => {
-    const transactionId = await this.chainClient.sendToAddress(
-      address,
-      amount,
-      await this.getFeePerVbyte(satPerVbyte),
-      false,
-      label,
-    );
+    const feePerVbyte = await this.getFeePerVbyte(satPerVbyte);
+
+    let transactionId: string;
+    try {
+      transactionId = await this.chainClient.sendToAddress(
+        address,
+        amount,
+        feePerVbyte,
+        false,
+        label,
+      );
+    } catch (error) {
+      throw NotBroadcastError.isNodeRefusal(error)
+        ? new NotBroadcastError(error)
+        : error;
+    }
+
     return this.handleLiquidTransaction(transactionId, address);
   };
 

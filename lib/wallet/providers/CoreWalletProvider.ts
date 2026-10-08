@@ -10,9 +10,15 @@ import ChainClient, { AddressType } from '../../chain/ChainClient';
 import type { BitcoinNetwork } from '../../consts/BitcoinNetworks';
 import { CurrencyType } from '../../consts/Enums';
 import type NotificationClient from '../../notifications/NotificationClient';
+import NotBroadcastError from './NotBroadcastError';
 import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
 import type WalletProviderInterface from './WalletProviderInterface';
 import { checkMempoolAndSaveRebroadcast } from './WalletProviderInterface';
+
+// Entries per `listtransactions` page, and the most pages read before giving
+// up on finding where `since` begins
+const findSendPageSize = 100;
+const findSendMaxPages = 50;
 
 class CoreWalletProvider implements WalletProviderInterface {
   public readonly symbol: string;
@@ -66,13 +72,23 @@ class CoreWalletProvider implements WalletProviderInterface {
     satPerVbyte: number | undefined,
     label: string,
   ): Promise<SentTransaction> => {
-    const transactionId = await this.chainClient.sendToAddress(
-      address,
-      amount,
-      await this.getFeePerVbyte(satPerVbyte),
-      false,
-      label,
-    );
+    const feePerVbyte = await this.getFeePerVbyte(satPerVbyte);
+
+    let transactionId: string;
+    try {
+      transactionId = await this.chainClient.sendToAddress(
+        address,
+        amount,
+        feePerVbyte,
+        false,
+        label,
+      );
+    } catch (error) {
+      throw NotBroadcastError.isNodeRefusal(error)
+        ? new NotBroadcastError(error)
+        : error;
+    }
+
     return await this.handleCoreTransaction(transactionId, address);
   };
 
@@ -91,6 +107,45 @@ class CoreWalletProvider implements WalletProviderInterface {
     );
 
     return await this.handleCoreTransaction(transactionId, address);
+  };
+
+  public findSend = async (
+    address: string,
+    since: Date,
+  ): Promise<SentTransaction | undefined> => {
+    const sinceSeconds = Math.floor(since.getTime() / 1000);
+
+    for (let page = 0; page < findSendMaxPages; page++) {
+      const entries = await this.chainClient.listWalletTransactions(
+        findSendPageSize,
+        page * findSendPageSize,
+      );
+
+      const send = entries.find(
+        (entry) =>
+          entry.category === 'send' &&
+          entry.address === address &&
+          entry.abandoned !== true &&
+          // Conflicted: the coins are back in the wallet
+          entry.confirmations >= 0,
+      );
+      if (send !== undefined) {
+        return await this.handleCoreTransaction(send.txid, address);
+      }
+
+      // A page is ordered oldest first; once it starts before `since`, the
+      // pages after it are older still
+      if (
+        entries.length < findSendPageSize ||
+        (entries.length > 0 && entries[0].timereceived < sinceSeconds)
+      ) {
+        return undefined;
+      }
+    }
+
+    throw new Error(
+      `more than ${findSendMaxPages * findSendPageSize} wallet transactions since ${since.toISOString()}`,
+    );
   };
 
   private handleCoreTransaction = async (

@@ -16,6 +16,7 @@ import type {
   RawTransaction,
   UnspentUtxo,
   WalletTransaction,
+  WalletTransactionEntry,
 } from '../consts/Types';
 import type Sidecar from '../sidecar/Sidecar';
 import Rebroadcaster from './Rebroadcaster';
@@ -49,6 +50,10 @@ interface IChainClient extends TypedEventEmitter<ChainClientEvents> {
   getRawTransaction(transactionId: string): Promise<string>;
   getRawTransactionVerbose(transactionId: string): Promise<RawTransaction>;
   getWalletTransaction(transactionId: string): Promise<WalletTransaction>;
+  listWalletTransactions(
+    count: number,
+    skip: number,
+  ): Promise<WalletTransactionEntry[]>;
   saveRebroadcast(rawTransaction: string): Promise<void>;
   testMempoolAccept(transactionsHex: string[]): Promise<MempoolAcceptResult[]>;
 
@@ -164,6 +169,18 @@ class ChainClient extends BaseClient implements IChainClient {
 
   public getWalletTransaction = (id: string): Promise<WalletTransaction> => {
     return this.client.request<WalletTransaction>('gettransaction', [id], true);
+  };
+
+  /** The wallet's transactions, the most recent `count` after skipping `skip` */
+  public listWalletTransactions = (
+    count: number,
+    skip: number,
+  ): Promise<WalletTransactionEntry[]> => {
+    return this.client.request<WalletTransactionEntry[]>(
+      'listtransactions',
+      ['*', count, skip],
+      true,
+    );
   };
 
   public saveRebroadcast = (rawTransaction: string): Promise<void> => {

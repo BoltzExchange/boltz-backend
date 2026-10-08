@@ -366,10 +366,15 @@ jest.mock('../../../lib/service/InvoiceExpiryHelper', () => {
 
 (InvoiceExpiryHelper as any).minInvoiceExpiry = 60;
 
+const mockLockupIsDeepEnough = jest.fn().mockResolvedValue(true);
+
 jest.mock('../../../lib/swap/SwapNursery', () => {
   return jest.fn().mockImplementation(() => ({
     lock: new InstrumentedLock('swapNursery'),
     init: jest.fn().mockImplementation(async () => {}),
+    utxoNursery: {
+      lockupIsDeepEnough: mockLockupIsDeepEnough,
+    },
   }));
 });
 
@@ -1172,6 +1177,28 @@ describe('SwapManager', () => {
       },
       swap,
     );
+
+    // Confirmed, but not as deep as the chain requires: the nursery hands it
+    // on once it is
+    mockAttemptSettleSwap.mockClear();
+    mockLockupIsDeepEnough.mockResolvedValueOnce(false);
+    swap.status = SwapUpdateEvent.TransactionConfirmed;
+    SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+
+    await manager.setSwapInvoice(
+      swap,
+      invoice,
+      1,
+      fees,
+      true,
+      emitSwapInvoiceSet,
+    );
+
+    expect(mockLockupIsDeepEnough).toHaveBeenCalledWith(
+      btcCurrency.chainClient,
+      swap,
+    );
+    expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(0);
 
     // no lockup tx
     mockAttemptSettleSwap.mockClear();

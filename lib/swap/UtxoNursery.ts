@@ -13,6 +13,7 @@ import InstrumentedLock from '../InstrumentedLock';
 import type Logger from '../Logger';
 import { TxView } from '../TxView';
 import {
+  formatError,
   getChainCurrency,
   getHexBuffer,
   isTxConfirmed,
@@ -103,6 +104,13 @@ class UtxoNursery extends TypedEventEmitter<{
 
   private lock = new InstrumentedLock('utxoNursery');
 
+  // Confirmations a submarine swap's lockup needs before it is acted on, by
+  // chain; 1 when not configured.
+  private requiredLockupConfirmations = new Map<string, number>();
+  // Swaps whose deep enough lockup has been handed on, so that a block
+  // arriving before their status changes does not hand them on twice.
+  private deepLockupsEmitted = new Set<string>();
+
   constructor(
     private readonly logger: Logger,
     private readonly sidecar: Sidecar,
@@ -118,6 +126,10 @@ class UtxoNursery extends TypedEventEmitter<{
     currencies.forEach((currency) => {
       if (currency.chainClient) {
         const wallet = this.walletManager.wallets.get(currency.symbol)!;
+        this.requiredLockupConfirmations.set(
+          currency.symbol,
+          Math.max(1, Math.ceil(currency.requiredConfirmations ?? 1)),
+        );
 
         this.listenBlocks(currency.chainClient, wallet);
         this.listenTransactions(currency.chainClient, wallet);
@@ -546,6 +558,7 @@ class UtxoNursery extends TypedEventEmitter<{
         this.checkServerLockupMempoolTransactions(chainClient, wallet),
 
         this.checkExpiredSwaps(chainClient, height),
+        this.checkDeepenedLockups(chainClient, wallet),
         this.checkExpiredReverseSwaps(chainClient, height),
         this.checkExpiredChainSwaps(chainClient, height),
       ]);
@@ -615,6 +628,137 @@ class UtxoNursery extends TypedEventEmitter<{
       'checkServerLockupMempool',
       () => Promise.all([checkReverse(), checkChain()]),
     );
+  };
+
+  /**
+   * Whether a submarine swap's confirmed lockup has the confirmations its
+   * chain requires. A swap whose invoice is set after its lockup confirmed is
+   * paid right away, so that path asks here first.
+   */
+  public lockupIsDeepEnough = async (
+    chainClient: IChainClient,
+    swap: Swap,
+  ): Promise<boolean> => {
+    const required =
+      this.requiredLockupConfirmations.get(chainClient.symbol) ?? 1;
+    if (required <= 1) {
+      return true;
+    }
+
+    try {
+      const { confirmations } = await chainClient.getRawTransactionVerbose(
+        swap.lockupTransactionId!,
+      );
+      if ((confirmations ?? 0) >= required) {
+        return true;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Could not check the confirmations of the lockup of Swap ${swap.id}: ${formatError(error)}`,
+      );
+    }
+
+    // checkDeepenedLockups hands it on once it is deep enough
+    this.deepLockupsEmitted.delete(swap.id);
+    return false;
+  };
+
+  /**
+   * Hands on the lockups of submarine swaps that were waiting for more
+   * confirmations and now have them. The swaps are found by status, so this
+   * also picks up swaps that were waiting when the service restarted.
+   */
+  private recordedLockupFailure = (swap: Swap): string | undefined => {
+    const value = swap.onchainAmount ?? 0;
+    if (value === 0) {
+      return Errors.INCORRECT_ASSET_SENT().message;
+    }
+    if (swap.expectedAmount) {
+      if (swap.expectedAmount > value) {
+        return Errors.INSUFFICIENT_AMOUNT(value, swap.expectedAmount).message;
+      }
+      if (
+        this.overpaymentProtector.isUnacceptableOverpay(
+          swap.type,
+          swap.expectedAmount,
+          value,
+        )
+      ) {
+        return Errors.OVERPAID_AMOUNT(value, swap.expectedAmount).message;
+      }
+    }
+    return undefined;
+  };
+
+  private checkDeepenedLockups = async (
+    chainClient: IChainClient,
+    wallet: Wallet,
+  ) => {
+    const required = this.requiredLockupConfirmations.get(chainClient.symbol);
+    if (required === undefined || required <= 1) {
+      return;
+    }
+
+    const waiting = await SwapRepository.getSwaps({
+      status: SwapUpdateEvent.TransactionConfirmed,
+    });
+
+    // Forget the swaps that have moved on
+    const waitingIds = new Set(waiting.map((swap) => swap.id));
+    for (const id of this.deepLockupsEmitted) {
+      if (!waitingIds.has(id)) {
+        this.deepLockupsEmitted.delete(id);
+      }
+    }
+
+    for (const swap of waiting) {
+      const { base, quote } = splitPairId(swap.pair);
+      if (
+        getChainCurrency(base, quote, swap.orderSide, false) !==
+          chainClient.symbol ||
+        !swap.lockupTransactionId ||
+        this.deepLockupsEmitted.has(swap.id)
+      ) {
+        continue;
+      }
+
+      try {
+        const tx = await chainClient.getRawTransactionVerbose(
+          swap.lockupTransactionId,
+        );
+        if ((tx.confirmations ?? 0) < required) {
+          continue;
+        }
+
+        this.logger.info(
+          `Lockup ${swap.lockupTransactionId} of Swap ${swap.id} has ${tx.confirmations} confirmations`,
+        );
+        this.deepLockupsEmitted.add(swap.id);
+
+        // The status is written before the lockup's checks, and a failure
+        // they found is written after it: one that is not written yet, or
+        // whose write failed, must not be paid against
+        const failure = this.recordedLockupFailure(swap);
+        if (failure !== undefined) {
+          this.logger.warn(
+            `Not paying against lockup ${swap.lockupTransactionId} of Swap ${swap.id}: ${failure}`,
+          );
+          this.emit('swap.lockup.failed', { swap, reason: failure });
+          continue;
+        }
+
+        this.emit('swap.lockup', {
+          transaction: parseTransaction(wallet.type, tx.hex) as Transaction,
+          lockupTransactionVout: swap.lockupTransactionVout!,
+          confirmed: true,
+          swap,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Could not check the confirmations of the lockup of Swap ${swap.id}: ${formatError(error)}`,
+        );
+      }
+    }
   };
 
   private checkExpiredSwaps = async (
@@ -873,6 +1017,30 @@ class UtxoNursery extends TypedEventEmitter<{
       }
 
       this.logZeroConfAccepted(swap, transaction, swapOutput);
+    }
+
+    // A confirmed lockup is acted on only once it is deep enough that a short
+    // reorganisation cannot take it back after the invoice has been paid.
+    // Until then the swap stays TransactionConfirmed, and checkDeepenedLockups
+    // looks at it again with every block.
+    if (status === TransactionStatus.Confirmed) {
+      const required =
+        this.requiredLockupConfirmations.get(chainClient.symbol) ?? 1;
+      if (required > 1) {
+        const confirmations =
+          (
+            await chainClient.getRawTransactionVerbose(
+              TxView.of(transaction).id,
+            )
+          ).confirmations ?? 0;
+        if (confirmations < required) {
+          this.logger.info(
+            `Waiting for lockup ${TxView.of(transaction).id} of Swap ${swap.id} to reach ${required} confirmations (has ${confirmations})`,
+          );
+          return;
+        }
+        this.deepLockupsEmitted.add(swap.id);
+      }
     }
 
     this.emit('swap.lockup', {

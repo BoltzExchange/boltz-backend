@@ -575,6 +575,7 @@ class Boltz {
           network,
           symbol: currency.symbol,
           type: CurrencyType.BitcoinLike,
+          requiredConfirmations: currency.requiredConfirmations,
           lndClients: new Map(), // Populated in start()
           clnClient:
             currency.cln !== undefined

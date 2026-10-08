@@ -749,7 +749,12 @@ class SwapManager {
           updatedSwap.lockupTransactionId &&
           statusBeforeUpdate === SwapUpdateEvent.TransactionConfirmed &&
           swap.expectedAmount === swap.onchainAmount &&
-          updatedSwap.expectedAmount === updatedSwap.onchainAmount
+          updatedSwap.expectedAmount === updatedSwap.onchainAmount &&
+          (receivingCurrency.chainClient === undefined ||
+            (await this.nursery.utxoNursery.lockupIsDeepEnough(
+              receivingCurrency.chainClient,
+              updatedSwap,
+            )))
         ) {
           try {
             await this.nursery.attemptSettleSwap(

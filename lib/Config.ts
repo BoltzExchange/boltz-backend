@@ -70,6 +70,10 @@ type BaseCurrencyConfig<T = ChainConfig> = {
   maxZeroConfRisk?: number;
   maxZeroConfAmount: number;
 
+  // Confirmations a lockup (and a refund of the service's own lockup) needs
+  // before it counts as final. Defaults to 1.
+  requiredConfirmations?: number;
+
   chain: T;
 };
 
